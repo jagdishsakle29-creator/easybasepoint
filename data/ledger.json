@@ -247,10 +247,13 @@
     "userPhone": "9876543210",
     "remark": "cousin",
     "paymentScreenshot": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...mock_receipt_image",
-    "status": "pending_verification",
+    "status": "approved",
     "method": "INR",
     "proofUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...mock_receipt_image",
-    "credited": false,
-    "createdAt": "2026-09-12T18:37:04.034Z"
+    "credited": true,
+    "createdAt": "2026-09-12T18:37:04.034Z",
+    "approvedAt": "2026-09-12T18:37:06.084Z",
+    "creditedAt": "2026-09-12T18:37:06.084Z",
+    "updatedAt": "2026-09-12T18:37:06.084Z"
   }
 }
