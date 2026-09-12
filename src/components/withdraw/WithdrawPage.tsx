@@ -16,7 +16,8 @@ import {
   Mail,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
@@ -113,9 +114,9 @@ export const WithdrawPage: React.FC = () => {
 
     // Require 6-Digit Security PIN or Account Password
     const entered = securityPin.trim();
-    if (!entered || entered.length < 4) {
-      setPinError('Please enter your 6-digit Security PIN or Login Password.');
-      addToast('error', 'Please enter your Security PIN or Password.');
+    if (!entered || (entered.length !== 6 && entered.length < 4)) {
+      setPinError('Please enter your 6-digit permanent Security PIN.');
+      addToast('error', '6-digit permanent Security PIN is required.');
       return;
     }
 
@@ -147,8 +148,8 @@ export const WithdrawPage: React.FC = () => {
     }
 
     if (!isAuthorized) {
-      setPinError('❌ Incorrect Security PIN or Password! Please enter your correct login password or PIN.');
-      addToast('error', '❌ Incorrect Security PIN or Password.');
+      setPinError('❌ Incorrect Security PIN! Please enter the 6-digit PIN created during sign up.');
+      addToast('error', '❌ Incorrect Security PIN.');
       return;
     }
 
@@ -521,54 +522,53 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
-        {/* Company Security PIN / Password Authorization Box */}
-        <div className="p-4 bg-orange-50/90 rounded-2xl border border-orange-200 shadow-sm space-y-3">
-          <div className="flex justify-between items-center">
+        {/* Permanent 6-Digit Security PIN Card (Same as Sign Up) */}
+        <div className="p-4 bg-gradient-to-b from-orange-50/95 to-amber-50/80 rounded-2xl border-2 border-orange-300 shadow-sm space-y-3">
+          <div className="flex justify-between items-center gap-2">
             <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
-              <span>Company Security Authorization</span>
+              <span>Permanent 6-Digit Security PIN *</span>
             </span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
-              Instant 1-Click Verification • 0% Fee
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
+              Lifetime Security PIN
             </span>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center">
-              <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-[#FF6B00]" />
-                <span>6-Digit Security PIN / Account Password</span>
-              </label>
-              <span className="text-[10px] font-semibold text-slate-400">PhonePe / GPay Style</span>
-            </div>
-
-            <div className="relative mt-1">
-              <input
-                type={showPin ? 'text' : 'password'}
-                required
-                value={securityPin}
-                onChange={(e) => {
-                  setSecurityPin(e.target.value);
-                  setPinError('');
-                }}
-                placeholder="Enter 6-digit Security PIN or Login Password"
-                className={`w-full px-3.5 py-3 text-sm font-mono tracking-wider font-bold rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 pr-10 ${
-                  pinError
-                    ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
-                    : 'border-slate-200 focus:ring-[#FF6B00]'
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPin(!showPin)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-              >
-                {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-1">
-              🔒 Instant payout authorization with your secure PIN or account password. No waiting for SMS/email.
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-800">
+              Enter your lifetime 6-digit transaction PIN:
             </p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              This permanent 6-digit PIN was created during your Sign Up. It is required to authorize all your withdrawals and payout requests.
+            </p>
+          </div>
+
+          <div className="relative">
+            <input
+              type={showPin ? 'text' : 'password'}
+              required
+              maxLength={6}
+              value={securityPin}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                setSecurityPin(val);
+                setPinError('');
+              }}
+              placeholder="Enter 6-digit permanent PIN (e.g. 123456)"
+              className={`w-full px-4 py-3 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 pr-11 ${
+                pinError
+                  ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
+                  : 'border-orange-300 focus:border-[#FF6B00] focus:ring-orange-500/30'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPin(!showPin)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer transition"
+              title={showPin ? 'Hide PIN' : 'Show PIN'}
+            >
+              {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
 
           {pinError && (
@@ -577,6 +577,11 @@ export const WithdrawPage: React.FC = () => {
               <span>{pinError}</span>
             </div>
           )}
+
+          <div className="text-[11px] text-emerald-800 flex items-center gap-1.5 pt-0.5 font-medium">
+            <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+            <span>This 6-digit PIN remains the same for your lifetime on every withdrawal.</span>
+          </div>
         </div>
 
         {/* Security & Verification Notice */}
