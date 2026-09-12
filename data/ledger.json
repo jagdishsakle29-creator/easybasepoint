@@ -5,5 +5,16 @@
     "totalInr": 565,
     "status": "completed",
     "credited": true
+  },
+  "DEP-VERIFY-1": {
+    "id": "DEP-VERIFY-1",
+    "amount": 1000,
+    "totalInr": 1130,
+    "userId": "u-99",
+    "method": "INR",
+    "userPhone": "",
+    "status": "pending",
+    "credited": false,
+    "createdAt": "2026-09-12T18:01:28.816Z"
   }
 }
