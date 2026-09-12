@@ -208,16 +208,13 @@ export const DepositPage: React.FC = () => {
     }, 600);
   };
 
-  const isMobilePhone = () => {
-    if (typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent;
-    const hasTouch = (navigator.maxTouchPoints || 0) > 0;
-    // Check for actual mobile phone (Android or iPhone)
-    const isAndroid = /Android/i.test(ua);
-    const isIPhone = /iPhone/i.test(ua);
-    const isDesktop = /Macintosh|Windows|Linux x86/i.test(ua);
-    
-    return (isAndroid || isIPhone) && !isDesktop && hasTouch;
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const isTouch = (navigator.maxTouchPoints || 0) > 0;
+    const isMobileUa = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+    const isSmallScreen = window.innerWidth <= 768;
+    return isMobileUa || (isTouch && isSmallScreen);
   };
 
   const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
@@ -225,36 +222,43 @@ export const DepositPage: React.FC = () => {
     const amount = topUpAmount || 500;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const payeeName = settings.adminUpiName || 'EasyBasePoint';
     const remark = 'cousin';
 
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
 
     if (app === 'phonepe') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
+        // Direct official Android Intent for PhonePe
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        // Direct official iOS scheme for PhonePe
+        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
 
     if (app === 'paytm') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
+        // Direct official Android Intent for Paytm with remark "cousin"
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        // Direct official iOS scheme for Paytm with remark "cousin"
+        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
 
     if (app === 'gpay') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
+        // Direct official Android Intent for Google Pay
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `tez://upi/pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        // Direct official iOS scheme for Google Pay / Tez
+        return `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
@@ -263,45 +267,43 @@ export const DepositPage: React.FC = () => {
   };
 
   const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
+    e.preventDefault();
+    if (!topUpAmount || topUpAmount <= 0) {
+      addToast('error', 'Please select or enter a valid deposit amount.');
+      return;
+    }
+
     const upiId = settings.adminUpiId || 'basepnt@ybl';
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
 
-    const onPhone = isMobilePhone();
+    // Open deposit verification modal so UTR and screenshot upload sections are ready
+    setIsTopUpModalOpen(true);
+
+    const onPhone = isMobileDevice();
 
     if (!onPhone) {
-      // User is on a Mac, Laptop, or PC browser:
-      // Prevent custom URI schemes that cause Safari/Chrome "address is invalid" popups!
-      e.preventDefault();
-      addToast('success', `Copied UPI ID: ${upiId}! Please scan the QR Code below using PhonePe/Paytm on your phone.`);
-      const qrEl = document.getElementById('deposit-qr-section');
-      if (qrEl) {
-        qrEl.scrollIntoView({ behavior: 'smooth' });
-        qrEl.classList.add('ring-4', 'ring-[#FF6B00]');
-        setTimeout(() => qrEl.classList.remove('ring-4', 'ring-[#FF6B00]'), 2000);
-      }
+      // Desktop: Prevent custom URI scheme invocation that triggers Safari/Chrome "address is invalid"
+      addToast('info', `Selected ₹${topUpAmount} via ${appName}. Please scan the QR code with your phone or use UPI ID.`);
       return;
     }
 
     // Real Mobile Phone (Android or iPhone):
-    addToast('success', `Copied UPI ID: ${upiId}! Opening ${appName}...`);
-
+    addToast('success', `Opening ${appName} directly for ₹${topUpAmount}...`);
     const appUrl = getAppLaunchUrl(appKey);
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount || 500}&cu=INR&tn=Deposit`;
 
+    // Direct user action invocation via hidden anchor click
     try {
+      const link = document.createElement('a');
+      link.href = appUrl;
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
       window.location.href = appUrl;
-    } catch {}
-
-    // Universal fallback: if specific app scheme doesn't respond after 600ms, trigger universal upi://
-    setTimeout(() => {
-      try {
-        if (appKey !== 'upi') {
-          window.location.href = standardUpi;
-        }
-      } catch {}
-    }, 600);
+    }
   };
 
   return (
@@ -473,20 +475,78 @@ export const DepositPage: React.FC = () => {
                     <span>Total Wallet: <strong className="text-amber-300 font-black">₹{totalRec.toFixed(0)}</strong></span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!topUpAmount || topUpAmount <= 0) {
-                        addToast('error', 'Please enter a valid deposit amount.');
-                        return;
-                      }
-                      setIsTopUpModalOpen(true);
-                    }}
-                    className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Proceed to Pay ₹{topUpAmount} ➔</span>
-                  </button>
+                  {/* Three Direct Payment Options: PhonePe, Paytm, Google Pay */}
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
+                        <span>Direct Pay via App (Select & Pay)</span>
+                      </label>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Auto-Fills ₹{topUpAmount}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* 1. PhonePe */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
+                        className="p-3 rounded-2xl bg-gradient-to-b from-[#5f259f] to-[#421774] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-purple-950/40 border border-purple-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#5f259f] font-black text-base font-outfit shadow">
+                          पे
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs font-black tracking-wide font-outfit">PhonePe</div>
+                          <div className="text-[10px] text-purple-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
+                        </div>
+                      </button>
+
+                      {/* 2. Paytm */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
+                        className="p-3 rounded-2xl bg-gradient-to-b from-[#002970] to-[#001c4e] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-cyan-950/40 border border-cyan-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group relative overflow-hidden"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#002970] font-black text-xs font-outfit shadow">
+                          Pay
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs font-black tracking-wide font-outfit">Paytm</div>
+                          <div className="text-[10px] text-cyan-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
+                        </div>
+                        <div className="absolute top-1 right-1 bg-amber-400 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
+                          cousin
+                        </div>
+                      </button>
+
+                      {/* 3. Google Pay */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Google Pay', 'gpay')}
+                        className="p-3 rounded-2xl bg-gradient-to-b from-[#1e3a8a] to-[#172554] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-blue-950/40 border border-blue-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#2563eb] font-black text-base font-outfit shadow">
+                          G
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs font-black tracking-wide font-outfit">Google Pay</div>
+                          <div className="text-[10px] text-blue-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Scan QR / Other UPI Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsTopUpModalOpen(true)}
+                      className="w-full py-3 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      <span>Scan QR Code / Open Universal UPI Gateway (₹{topUpAmount}) ➔</span>
+                    </button>
+                  </div>
                 </div>
               );
             })()}
@@ -1113,13 +1173,18 @@ export const DepositPage: React.FC = () => {
                   {/* QR Code and Official UPI */}
                   <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
                     <img 
-                      src="/deposit_qr.jpg" 
-                      alt="Official PhonePe QR" 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                        `upi://pay?pa=${settings.adminUpiId || 'basepnt@ybl'}&pn=${encodeURIComponent(settings.adminUpiName || 'EasyBasePoint')}&am=${topUpAmount}&cu=INR&tn=cousin&tr=cousin`
+                      )}`}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/deposit_qr.jpg';
+                      }}
+                      alt="Official Payment QR" 
                       className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200"
                     />
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Scan QR or click direct App buttons above</span>
+                      <span>Scan with PhonePe, Paytm, or GPay to auto-fill ₹{topUpAmount}</span>
                     </div>
                   </div>
 
