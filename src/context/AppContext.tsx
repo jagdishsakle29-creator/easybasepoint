@@ -380,13 +380,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Run reconciliation on mount and whenever user changes
+  // Strict Balance Integrity Auditor: Ensures wallet balance is strictly backed by genuine approved deposits
+  const sanitizeWalletBalance = useCallback(() => {
+    const currentU = storage.getUser();
+    const currentW = storage.getWallet();
+
+    if (!currentU || !currentU.id) {
+      // Unauthenticated session MUST always have exactly 0 balance
+      if (Number(currentW.balance) > 0 || Number(currentW.quota) > 0) {
+        const cleanW: Wallet = {
+          ...currentW,
+          balance: 0.00,
+          quota: 0.00,
+          todayReceive: 0.00,
+          creditedDepositIds: [],
+        };
+        storage.setWallet(cleanW);
+        setWallet(cleanW);
+      }
+      return;
+    }
+
+    const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
+    const allDeps = storage.getDeposits();
+    
+    // Find all legitimately approved deposits belonging to this user
+    const legitimateApprovedDeps = allDeps.filter((d) => {
+      const isCompleted = d.credited === true || d.status === 'completed' || d.status === 'approved';
+      if (!isCompleted) return false;
+      const dPhone = (d.userPhone || '').replace(/[^0-9]/g, '');
+      const belongsToUser =
+        (d.userId && d.userId === currentU.id) ||
+        (cleanUserPhone.length === 10 && dPhone.length === 10 && dPhone === cleanUserPhone);
+      return belongsToUser;
+    });
+
+    const legitimateCreditedIds = legitimateApprovedDeps.map((d) => d.id);
+    const legitimateTotalInr = legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
+    const legitimateTotalQuota = legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+    // If the wallet balance has phantom unearned money (e.g. 11338 or any unbacked amount)
+    if (Number(currentW.balance) > legitimateTotalInr || (legitimateTotalInr === 0 && Number(currentW.balance) > 0)) {
+      console.warn(`[AUDIT] Phantom balance detected (₹${currentW.balance}). Correcting to legitimate verified balance: ₹${legitimateTotalInr.toFixed(2)}`);
+      const correctedW: Wallet = {
+        ...currentW,
+        userId: currentU.id,
+        balance: parseFloat(legitimateTotalInr.toFixed(2)),
+        quota: parseFloat(legitimateTotalQuota.toFixed(2)),
+        todayReceive: parseFloat(legitimateTotalInr.toFixed(2)),
+        creditedDepositIds: legitimateCreditedIds,
+      };
+      storage.setWallet(correctedW);
+      setWallet(correctedW);
+      cloudSync.syncServerWallet(currentU.id, currentU.phone, correctedW.balance, correctedW.quota);
+      window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+    }
+  }, []);
+
+  // Run reconciliation and sanitize phantom balances on mount and whenever user changes
   useEffect(() => {
+    sanitizeWalletBalance();
     reconcileWallet();
-  }, [reconcileWallet, user]);
+  }, [sanitizeWalletBalance, reconcileWallet, user]);
 
   // Reusable Cloud Sync Function
   const syncWithBackend = useCallback(async () => {
+    sanitizeWalletBalance();
     const backendDeps = await cloudSync.fetchAllDeposits();
     const currentU = storage.getUser();
     const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
@@ -397,8 +456,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Check authoritative server wallet first
     if (currentU) {
       const serverW = await cloudSync.fetchServerWallet(currentU.id, currentU.phone);
-      if (serverW && Number(serverW.balance) > 0) {
-        if (serverW.balance !== currentW.balance || (serverW.creditedDepositIds && serverW.creditedDepositIds.length > creditedList.length)) {
+      if (serverW) {
+        // Only accept server wallet balance if backed by legitimate verified deposits
+        const legitimateDeps = allDeps.filter((d) => {
+          const isCompleted = d.credited === true || d.status === 'completed' || d.status === 'approved';
+          if (!isCompleted) return false;
+          const dPhone = (d.userPhone || '').replace(/[^0-9]/g, '');
+          return (d.userId && d.userId === currentU.id) ||
+            (cleanUserPhone.length === 10 && dPhone.length === 10 && dPhone === cleanUserPhone);
+        });
+        const maxAllowed = legitimateDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
+
+        if (Number(serverW.balance) > maxAllowed || (maxAllowed === 0 && Number(serverW.balance) > 0)) {
+          // Reset server wallet with clean 0 balance
+          cloudSync.syncServerWallet(currentU.id, currentU.phone, maxAllowed, 0);
+        } else if (serverW.balance !== currentW.balance && Number(serverW.balance) <= maxAllowed) {
           const mergedW: Wallet = {
             ...currentW,
             balance: parseFloat(Number(serverW.balance).toFixed(2)),
@@ -410,9 +482,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setWallet(mergedW);
           window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
         }
-      } else if (Number(currentW.balance) > 0) {
-        // Seed server wallet so existing funds are permanently mirrored on backend
-        cloudSync.syncServerWallet(currentU.id, currentU.phone, currentW.balance, currentW.quota);
       }
     }
 
