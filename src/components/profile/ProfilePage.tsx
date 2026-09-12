@@ -21,7 +21,8 @@ import {
   CreditCard,
   CheckCircle2,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
@@ -360,6 +361,28 @@ export const ProfilePage: React.FC = () => {
             </button>
           );
         })}
+
+        {/* Admin Portal Button */}
+        <button
+          onClick={() => {
+            const key = prompt('Enter Admin Secret Key:');
+            if (key === (settings.adminSecretKey || 'lord12')) {
+              setActiveTab('admin');
+              addToast('success', 'Admin session unlocked successfully!');
+            } else if (key !== null) {
+              addToast('error', '❌ Invalid admin secret key.');
+            }
+          }}
+          className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/70 rounded-2xl transition group text-left text-slate-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FF6B00] flex items-center justify-center">
+              <Lock className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Admin Portal</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#FF6B00] group-hover:translate-x-0.5 transition" />
+        </button>
 
         {/* Log Out Button */}
         <button
