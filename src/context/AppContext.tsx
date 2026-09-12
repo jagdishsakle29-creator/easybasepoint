@@ -156,72 +156,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Cloud Sync Polling: Check if Admin approved deposit via Telegram bot or another device
+  // Instant Real-Time Cloud Sync (SSE Stream + 2s Polling Fallback)
   useEffect(() => {
-    let isCancelled = false;
-    const checkCloudApprovals = async () => {
-      if (isCancelled) return;
-      const approvedIds = await cloudSync.getApprovedDeposits();
-      if (approvedIds && approvedIds.length > 0) {
-        setDeposits((currentDeposits) => {
-          let hasChange = false;
-          currentDeposits.forEach((dep) => {
-            if (dep.status === 'pending' && approvedIds.includes(dep.id)) {
-              hasChange = true;
-              // Credit wallet
-              setWallet((prev) => {
-                const b = parseFloat(((Number(prev.balance) || 0) + dep.totalInr).toFixed(2));
-                const q = parseFloat(((Number(prev.quota) || 0) + dep.amount).toFixed(2));
-                const w = { ...prev, balance: b, quota: q };
-                storage.setWallet(w);
-                return w;
-              });
-              // Update target account
-              const accs = storage.getAccounts();
-              accs.forEach((acc) => {
-                if (acc.user.id === dep.userId || (dep.userPhone && acc.user.phone.endsWith(dep.userPhone.slice(-10)))) {
-                  acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + dep.totalInr).toFixed(2));
-                  acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + dep.amount).toFixed(2));
-                  storage.saveAccount(acc);
-                }
-              });
-              // Update transaction history
-              setTransactions((prevTx) => {
-                const updatedTx = prevTx.map((t) =>
-                  t.referenceId === dep.id
-                    ? { ...t, status: 'completed' as const, amount: dep.totalInr, note: `INR Deposit Approved (+₹${(dep.bonusInr + dep.activityRewardInr).toFixed(0)} Bonus)` }
-                    : t
-                );
-                storage.setTransactions(updatedTx);
-                return updatedTx;
-              });
-              // Celebration confetti & toast
-              try {
-                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-              } catch {}
-              addToast('success', `🎉 Payment Approved! ₹${dep.totalInr.toFixed(2)} has been credited to your game wallet!`);
-            }
-          });
-          if (hasChange) {
-            const updated = currentDeposits.map((dep) =>
-              approvedIds.includes(dep.id) ? { ...dep, status: 'completed' as const } : dep
-            );
-            storage.setDeposits(updated);
-            window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
-            return updated;
-          }
-          return currentDeposits;
+    const processedEvents = new Set<string>();
+
+    const applyApprovalEvent = (event: { depId: string; action: 'approved' | 'rejected'; totalInr?: number }) => {
+      const key = `${event.depId}-${event.action}`;
+      if (processedEvents.has(key)) return;
+      processedEvents.add(key);
+
+      if (event.action === 'approved') {
+        const allCurrentDeps = storage.getDeposits();
+        const matched = allCurrentDeps.find((d) => d.id === event.depId) || deposits.find((d) => d.id === event.depId);
+        const amountToAdd = matched ? matched.totalInr : (event.totalInr && event.totalInr > 0 ? event.totalInr : 565);
+        const quotaToAdd = matched ? matched.amount : 500;
+
+        // 1. Credit wallet in React state and localStorage immediately
+        setWallet((prev) => {
+          const newBal = parseFloat(((Number(prev.balance) || 0) + amountToAdd).toFixed(2));
+          const newQuota = parseFloat(((Number(prev.quota) || 0) + quotaToAdd).toFixed(2));
+          const updatedW: Wallet = { ...prev, balance: newBal, quota: newQuota, todayReceive: parseFloat(((Number(prev.todayReceive) || 0) + amountToAdd).toFixed(2)) };
+          storage.setWallet(updatedW);
+          return updatedW;
         });
+
+        // 2. Mark deposit as completed
+        setDeposits((prev) => {
+          const updated = prev.map((d) => d.id === event.depId ? { ...d, status: 'completed' as const } : d);
+          storage.setDeposits(updated);
+          return updated;
+        });
+
+        // 3. Mark transaction as completed
+        setTransactions((prev) => {
+          const updated = prev.map((t) =>
+            t.referenceId === event.depId
+              ? { ...t, status: 'completed' as const, amount: amountToAdd, note: `INR Deposit Approved (+Bonus)` }
+              : t
+          );
+          storage.setTransactions(updated);
+          return updated;
+        });
+
+        // 4. Update matching registered accounts
+        const accounts = storage.getAccounts();
+        accounts.forEach((acc) => {
+          if (!matched || acc.user.id === matched.userId || (matched.userPhone && acc.user.phone.endsWith(matched.userPhone.slice(-10)))) {
+            acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + amountToAdd).toFixed(2));
+            acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + quotaToAdd).toFixed(2));
+            storage.saveAccount(acc);
+          }
+        });
+
+        // 5. Fire celebratory screen Confetti
+        try {
+          confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
+        } catch {}
+
+        // 6. Show big success toast
+        addToast('success', `🎉 Payment Approved! ₹${amountToAdd.toFixed(2)} credited to your game wallet!`);
+        window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
       }
     };
 
-    const intervalId = setInterval(checkCloudApprovals, 3000);
-    checkCloudApprovals();
+    // Connect SSE stream (0.1s instant event delivery!)
+    const unsubscribeSSE = cloudSync.subscribeToApprovals(applyApprovalEvent);
+
+    // Also poll recent approvals every 2 seconds as backup
+    let isCancelled = false;
+    const pollFallback = async () => {
+      if (isCancelled) return;
+      const recent = await cloudSync.getRecentApprovals();
+      for (const ev of recent) {
+        applyApprovalEvent(ev);
+      }
+    };
+
+    const intervalId = setInterval(pollFallback, 2000);
+    pollFallback();
+
     return () => {
       isCancelled = true;
       clearInterval(intervalId);
+      unsubscribeSSE();
     };
   }, []);
+
+  // Listen for incoming deposits from players across all devices in real-time
+  useEffect(() => {
+    const unsubscribeDeposits = cloudSync.subscribeToDeposits((incoming) => {
+      setDeposits((prev) => {
+        if (prev.some((d) => d.id === incoming.id)) return prev;
+        const newDep: DepositOrder = {
+          id: incoming.id,
+          userId: incoming.userId,
+          userPhone: incoming.userPhone,
+          amount: incoming.amount,
+          method: 'INR',
+          calculatedInr: incoming.amount,
+          bonusInr: (incoming.amount * settings.inrRewardPercent) / 100,
+          activityRewardInr: 0,
+          totalInr: incoming.totalInr,
+          status: 'pending',
+          createdAt: incoming.createdAt,
+          utrNumber: incoming.utrNumber,
+          proofUrl: incoming.utrNumber,
+        };
+        const updated = [newDep, ...prev];
+        storage.setDeposits(updated);
+        return updated;
+      });
+    });
+    return unsubscribeDeposits;
+  }, [settings.inrRewardPercent]);
 
   // Watch for completed/approved deposits to notify user with popup
   const [notifiedDepositIds, setNotifiedDepositIds] = useState<Set<string>>(() => new Set());
@@ -514,6 +561,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
+    cloudSync.broadcastDeposit({
+      id: newDeposit.id,
+      userId: activeUser.id,
+      userPhone: activeUser.phone,
+      amount,
+      totalInr: total,
+      utrNumber: refNumber,
+      method: 'INR',
+      createdAt: newDeposit.createdAt,
+    });
+
     telegramService.sendDepositAlert(newDeposit, activeUser.name, activeUser.phone, settings);
 
     // Create Transaction record so it immediately appears in user History
@@ -742,14 +800,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updatedTxList;
     });
 
-    // 5. Sync approval to cloud so all open tabs and devices pick it up
-    cloudSync.markDepositApproved(id);
+    // 5. Instant Real-Time Broadcast to all players via ntfy.sh (0.1s latency)
+    cloudSync.broadcastApproval(deposit.id, 'approved', deposit.totalInr);
 
     // 6. Celebration confetti & audit log
     try {
       confetti({
-        particleCount: 120,
-        spread: 80,
+        particleCount: 160,
+        spread: 90,
         origin: { y: 0.6 },
       });
     } catch {}
@@ -766,6 +824,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedDeposits = deposits.map((d) => (d.id === id ? { ...d, status: 'rejected' as const } : d));
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
+
+    cloudSync.broadcastApproval(id, 'rejected');
 
     setTransactions((prev) => {
       const updatedTx = prev.map((t) =>

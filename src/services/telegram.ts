@@ -74,7 +74,10 @@ export const telegramService = {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '✅ Approve Deposit', callback_data: `approve_dep:${deposit.id}` },
+                { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${deposit.id}` },
+                { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}` },
+              ],
+              [
                 { text: '❌ Reject Deposit', callback_data: `reject_dep:${deposit.id}` },
               ],
             ],

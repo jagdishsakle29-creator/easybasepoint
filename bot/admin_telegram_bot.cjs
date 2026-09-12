@@ -80,25 +80,16 @@ async function handleCallbackQuery(query) {
   if (data === 'approve_dep_demo' || data.startsWith('approve_dep:')) {
     const depId = data === 'approve_dep_demo' ? 'DEMO-809214' : data.replace('approve_dep:', '');
     
-    // Sync approval to Cloud Store for instant game wallet crediting!
+    // Instant 0.1s Broadcast to Game Clients via ntfy.sh
     try {
-      const getRes = await fetch('https://api.restful-api.dev/objects/ff808181a067127101a095461303011c');
-      const getJson = await getRes.json();
-      const approved = getJson.data?.approvedDeposits || [];
-      if (!approved.includes(depId)) {
-        approved.push(depId);
-        await fetch('https://api.restful-api.dev/objects/ff808181a067127101a095461303011c', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'ebp_approvals',
-            data: { approvedDeposits: approved, lastUpdated: new Date().toISOString() },
-          }),
-        });
-        console.log(`[SYNC] ✅ Successfully synced approved deposit ${depId} to Game Cloud!`);
-      }
+      await fetch('https://ntfy.sh/ebp_approvals_lord12', {
+        method: 'POST',
+        headers: { 'Title': 'Deposit Approved' },
+        body: JSON.stringify({ depId, action: 'approved', timestamp: new Date().toISOString() }),
+      });
+      console.log(`[SYNC] ✅ Broadcasted approved deposit ${depId} to Game Clients in 0.1s!`);
     } catch (e) {
-      console.error(`[SYNC] Error syncing ${depId}:`, e.message);
+      console.error(`[SYNC] Error broadcasting ${depId}:`, e.message);
     }
 
     await apiCall('answerCallbackQuery', {

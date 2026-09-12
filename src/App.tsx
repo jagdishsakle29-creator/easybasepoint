@@ -33,14 +33,16 @@ const AppContent: React.FC = () => {
     isMobilePreview, 
     setIsMobilePreview,
     settings,
-    addToast
+    addToast,
+    approveDeposit,
+    rejectDeposit,
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
-  // Check URL for secret admin link: ?admin=lord12
+  // Check URL for secret admin link: ?admin=lord12 or direct 1-click approvals
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const adminKey = params.get('admin');
@@ -48,7 +50,18 @@ const AppContent: React.FC = () => {
       setActiveTab('admin');
       addToast('success', 'Admin session unlocked successfully!');
     }
-  }, [settings.adminSecretKey]);
+
+    const approveDepParam = params.get('approve_dep');
+    if (approveDepParam) {
+      approveDeposit(approveDepParam);
+      addToast('success', `🎉 Deposit ${approveDepParam} approved! Wallet credited.`);
+    }
+
+    const rejectDepParam = params.get('reject_dep');
+    if (rejectDepParam) {
+      rejectDeposit(rejectDepParam, 'Rejected via Admin Link');
+    }
+  }, [settings.adminSecretKey, approveDeposit, rejectDeposit]);
 
   // Post-login Telegram join popup (shows automatically on login/registration)
   useEffect(() => {

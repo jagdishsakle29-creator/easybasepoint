@@ -42,9 +42,7 @@ export const UsdtDepositTab: React.FC = () => {
   const activityRewardInr = usdtAmount >= 100 ? (calculatedInr * 0.03) : 0;
   const totalInr = calculatedInr + estimatedBonusInr + activityRewardInr;
 
-  const demoAddress = selectedNetwork === 'TRC20' 
-    ? (settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW') 
-    : (settings.adminUsdtBep20 || '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5');
+  const demoAddress = settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW';
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -232,34 +230,24 @@ export const UsdtDepositTab: React.FC = () => {
               </button>
             </div>
 
-            {/* Network Selector */}
-            <div className="mt-4 space-y-2">
+            {/* Network Selector - Strictly TRC20 (TRON) */}
+            <div className="mt-4 space-y-1.5">
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Select Network
+                Blockchain Deposit Network
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedNetwork('TRC20')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition ${
-                    selectedNetwork === 'TRC20'
-                      ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00]'
-                      : 'border-slate-200 text-slate-600'
-                  }`}
-                >
-                  TRC20 (Tron) - Fast
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedNetwork('BEP20')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition ${
-                    selectedNetwork === 'BEP20'
-                      ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00]'
-                      : 'border-slate-200 text-slate-600'
-                  }`}
-                >
-                  BEP20 (BSC)
-                </button>
+              <div className="p-3 rounded-2xl bg-emerald-50 border-2 border-emerald-500/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs font-mono shadow-xs">
+                    TRC
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-emerald-900 font-outfit">TRC20 (TRON Network)</div>
+                    <div className="text-[10px] text-emerald-700">Official Express Settlement Network</div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
+                  Verified Active
+                </span>
               </div>
             </div>
 
