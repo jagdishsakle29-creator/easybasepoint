@@ -189,5 +189,20 @@
     "creditedAt": "2026-09-12T18:36:17.078Z",
     "updatedAt": "2026-09-12T18:36:17.078Z",
     "createdAt": "2026-09-12T18:36:17.078Z"
+  },
+  "DEP_CONC_1": {
+    "id": "DEP_CONC_1",
+    "amount": 1000,
+    "utrNumber": "999888777666",
+    "paymentScreenshot": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
+    "totalInr": 1000,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "proofUrl": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
+    "status": "pending_verification",
+    "credited": false,
+    "createdAt": "2026-09-12T18:36:29.358Z"
   }
 }
