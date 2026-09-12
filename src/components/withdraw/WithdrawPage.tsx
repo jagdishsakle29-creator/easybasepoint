@@ -122,7 +122,7 @@ export const WithdrawPage: React.FC = () => {
     // Verify against user registered account password or custom transactionPin
     const account = storage.findAccount(user?.phone || user?.email || '');
     const validPassword = account?.password;
-    const userPin = user?.transactionPin;
+    const userPin = user?.transactionPin || account?.transactionPin || account?.user?.transactionPin;
 
     let isAuthorized = false;
 
@@ -137,7 +137,7 @@ export const WithdrawPage: React.FC = () => {
         const updatedU = { ...user, transactionPin: entered };
         updateProfile({ transactionPin: entered });
         if (account) {
-          storage.saveAccount({ ...account, user: updatedU });
+          storage.saveAccount({ ...account, transactionPin: entered, user: updatedU });
         }
       }
     } else if (!userPin && validPassword) {

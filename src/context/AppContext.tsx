@@ -53,7 +53,7 @@ interface AppContextType {
   
   // Auth
   login: (emailOrPhone: string, pass: string) => { success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean };
-  register: (name: string, email: string, phone: string, pass: string, refCode?: string) => { success: boolean; message: string; alreadyExists?: boolean };
+  register: (name: string, email: string, phone: string, pass: string, refCode?: string, pin?: string) => { success: boolean; message: string; alreadyExists?: boolean };
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   
@@ -787,7 +787,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: string, 
     phone: string, 
     pass: string, 
-    refCode?: string
+    refCode?: string,
+    pin?: string
   ): { success: boolean; message: string; alreadyExists?: boolean } => {
     if (!name || !phone) {
       addToast('error', 'Please fill in your name and mobile phone.');
@@ -812,6 +813,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
       referredBy: refCode || undefined,
       isGoogleAuthEnabled: false,
+      transactionPin: pin ? pin.trim() : undefined,
       role: 'user',
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -834,6 +836,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     storage.saveAccount({
       user: newUser,
       password: pass,
+      transactionPin: pin ? pin.trim() : undefined,
       wallet: initialWallet,
     });
 

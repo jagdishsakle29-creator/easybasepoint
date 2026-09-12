@@ -35,6 +35,7 @@ const STORAGE_KEYS = {
 export interface RegisteredAccount {
   user: User;
   password?: string;
+  transactionPin?: string;
   wallet: Wallet;
 }
 

@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Send,
   Loader2,
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { otpService } from '../../services/otpService';
@@ -49,13 +51,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Form error display state
   const [formError, setFormError] = useState('');
 
-  // Company Server-Side OTP Verification States
-  const [otpCode, setOtpCode] = useState('');
-  const [otpStatus, setOtpStatus] = useState<'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error'>('idle');
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpError, setOtpError] = useState('');
-  const [maskedContact, setMaskedContact] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
+  // Lifetime 6-Digit Security PIN States
+  const [pinCode, setPinCode] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pinError, setPinError] = useState('');
 
   // Prefill referral code if URL has ?ref=...
   useEffect(() => {
@@ -67,53 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, []);
 
-  // OTP Countdown timer
-  useEffect(() => {
-    let interval: any = null;
-    if (otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => prev - 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer]);
-
   if (!isOpen) return null;
-
-  // Request Official Company Server-Side OTP
-  const handleSendCompanyOtp = async () => {
-    const cleanDigits = phone.replace(/[^0-9]/g, '');
-    if (!cleanDigits || cleanDigits.length !== 10) {
-      setFormError('Mobile number must be exactly 10 digits.');
-      addToast('error', 'Mobile number must be exactly 10 digits.');
-      return;
-    }
-
-    setOtpStatus('sending');
-    setOtpError('');
-    setFormError('');
-
-    try {
-      const res = await otpService.requestOtp(cleanDigits, 'sms');
-      if (res.ok) {
-        setOtpStatus('sent');
-        setOtpTimer(res.cooldownSeconds || 60);
-        setMaskedContact(res.maskedContact || `+91 ${cleanDigits.slice(0, 2)}******${cleanDigits.slice(-2)}`);
-        addToast('success', res.message || 'Verification code sent to your registered mobile number!');
-      } else {
-        setOtpStatus('error');
-        setOtpError(res.message || 'Failed to send verification code.');
-        setFormError(res.message || 'Failed to send verification code.');
-        addToast('error', res.message || 'Failed to send verification code.');
-      }
-    } catch (err: any) {
-      setOtpStatus('error');
-      setOtpError('Failed to connect to authentication server.');
-      addToast('error', 'Network error requesting verification code.');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,36 +121,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         addToast('error', 'Mobile number must be exactly 10 digits.');
         return;
       }
-      if (otpStatus !== 'verified') {
-        if (otpStatus !== 'sent') {
-          setFormError('Please click "Send OTP" first to receive your company verification code.');
-          addToast('error', 'Please request an OTP first.');
-          return;
-        }
-
-        const cleanOtp = otpCode.trim();
-        if (!cleanOtp || cleanOtp.length !== 6) {
-          setOtpError('Please enter the complete 6-digit verification code.');
-          setFormError('Please enter the complete 6-digit verification code.');
-          addToast('error', '6-digit verification code is required.');
-          return;
-        }
-
-        setIsVerifying(true);
-        setOtpStatus('verifying');
-        const vRes = await otpService.verifyOtp(cleanDigits, cleanOtp);
-        setIsVerifying(false);
-
-        if (!vRes.ok) {
-          setOtpStatus('error');
-          setOtpError(vRes.message || 'Invalid verification code.');
-          setFormError(vRes.message || 'Invalid verification code.');
-          addToast('error', vRes.message || 'Invalid verification code.');
-          return;
-        }
-
-        setOtpStatus('verified');
-        addToast('success', 'Mobile identity verified successfully!');
+      const cleanPin = pinCode.replace(/[^0-9]/g, '').trim();
+      if (!cleanPin || cleanPin.length !== 6) {
+        setPinError('Please enter your 6-digit lifetime security PIN.');
+        setFormError('Please enter a 6-digit permanent security PIN (strictly 6 numbers).');
+        addToast('error', '6-digit permanent security PIN is required.');
+        return;
       }
       if (password !== confirmPassword) {
         setFormError('Passwords do not match. Please re-enter your password.');
@@ -210,7 +139,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      const res = register(name.trim(), cleanEmail, cleanDigits, password, referralCode);
+      const res = register(name.trim(), cleanEmail, cleanDigits, password, referralCode, cleanPin);
       if (res.success) {
         setFormError('');
         onClose();
@@ -413,7 +342,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>Mobile Number (10 Digits) *</span>
                   </label>
                   <span className="text-[10px] text-emerald-300 font-extrabold bg-emerald-500/20 px-1.5 py-0.5 rounded">
-                    Verified OTP Required
+                    10 Digits Primary Mobile
                   </span>
                 </div>
                 <input
@@ -456,82 +385,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </select>
               </div>
 
-              {/* Company-Controlled Server OTP Verification Card */}
-              <div className="p-3.5 bg-emerald-950/40 rounded-2xl border-2 border-emerald-500/40 space-y-2.5 shadow-lg">
+              {/* Lifetime Permanent 6-Digit Security PIN Card */}
+              <div className="p-4 bg-gradient-to-b from-orange-950/50 to-[#0c1626] rounded-2xl border-2 border-orange-500/50 space-y-3 shadow-xl">
                 <div className="flex justify-between items-center gap-2">
-                  <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Official OTP Verification *</span>
+                  <span className="text-xs font-black text-orange-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
+                    <span>Permanent 6-Digit Security PIN *</span>
                   </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/40">
+                    Lifetime Security PIN
+                  </span>
+                </div>
 
-                  {otpStatus === 'verified' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/30 text-emerald-300 text-[11px] font-black border border-emerald-400/40">
-                      <Check className="w-3 h-3 text-emerald-300" />
-                      Verified
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={otpTimer > 0 || otpStatus === 'sending' || phone.length !== 10}
-                      onClick={handleSendCompanyOtp}
-                      className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-500/30 transition disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-                    >
-                      {otpStatus === 'sending' ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Sending...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3 h-3" />
-                          <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send OTP'}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-slate-200">
+                    Enter your lifetime 6-digit transaction PIN:
+                  </p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    This permanent 6-digit PIN will stay with your account forever. It is required to authorize all your withdrawals and payout requests.
+                  </p>
                 </div>
 
                 <div className="relative">
                   <input
-                    type="text"
+                    type={showPin ? 'text' : 'password'}
                     required
                     maxLength={6}
-                    disabled={otpStatus === 'verified'}
-                    value={otpCode}
+                    value={pinCode}
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-                      setOtpCode(val);
-                      setOtpError('');
+                      setPinCode(val);
+                      setPinError('');
                     }}
-                    placeholder="Enter 6-digit verification code"
-                    className={`w-full px-3 py-2.5 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-black/40 text-emerald-300 placeholder-emerald-700/60 focus:outline-none focus:ring-2 disabled:opacity-75 ${
-                      otpError
+                    placeholder="Enter 6-digit permanent PIN (e.g. 123456)"
+                    className={`w-full px-4 py-3 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-black/60 text-orange-300 placeholder-slate-500 focus:outline-none focus:ring-2 pr-11 ${
+                      pinError
                         ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/40 text-rose-300'
-                        : 'border-emerald-400/60 focus:border-emerald-400 focus:ring-emerald-500/30'
+                        : 'border-orange-500/50 focus:border-[#FF6B00] focus:ring-orange-500/30'
                     }`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-400 p-1 cursor-pointer transition"
+                    title={showPin ? 'Hide PIN' : 'Show PIN'}
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
 
-                {otpError && (
+                {pinError && (
                   <div className="p-2.5 bg-rose-950/80 rounded-xl border border-rose-500 text-rose-200 font-bold text-xs flex items-center gap-2 animate-fadeIn">
                     <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                    <span>❌ {otpError}</span>
+                    <span>{pinError}</span>
                   </div>
                 )}
 
-                {otpStatus === 'sent' && (
-                  <div className="text-[11px] text-emerald-300 flex items-center gap-1.5 pt-0.5">
-                    <Check className="w-3 h-3 text-emerald-400" />
-                    <span>OTP sent to {maskedContact || 'your phone'}. Valid for 5 minutes.</span>
-                  </div>
-                )}
-
-                {otpStatus === 'verified' && (
-                  <div className="text-[11px] text-emerald-300 flex items-center gap-1.5 pt-0.5 font-bold">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Mobile number verified by Company Gateway.</span>
-                  </div>
-                )}
+                <div className="text-[11px] text-emerald-300/90 flex items-center gap-1.5 pt-0.5 font-medium">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <span>Remember this 6-digit PIN. It will never expire and is required for cashouts.</span>
+                </div>
               </div>
 
               {/* Password */}
