@@ -264,8 +264,10 @@
     "accountDetails": {
       "upiId": "Djalok@axl"
     },
-    "status": "pending",
+    "status": "completed",
     "createdAt": "2026-09-12T22:04:52.066Z",
-    "type": "withdrawal"
+    "type": "withdrawal",
+    "approvedAt": "2026-09-12T22:05:02.941Z",
+    "updatedAt": "2026-09-12T22:05:02.941Z"
   }
 }
