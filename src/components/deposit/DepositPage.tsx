@@ -112,7 +112,48 @@ export const DepositPage: React.FC = () => {
     }, 800);
   };
 
-  const handleLaunchUpi = (appName: string, customAppUrl?: string) => {
+  const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
+    const upiId = settings.adminUpiId || 'basepnt@ybl';
+    const amount = topUpAmount || 500;
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+    const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+
+    if (app === 'phonepe') {
+      if (isAndroid) {
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.phonepe.app;end`;
+      }
+      if (isIOS) {
+        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+      }
+      return standardUpi;
+    }
+
+    if (app === 'paytm') {
+      if (isAndroid) {
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=net.one97.paytm;end`;
+      }
+      if (isIOS) {
+        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+      }
+      return standardUpi;
+    }
+
+    if (app === 'gpay') {
+      if (isAndroid) {
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+      }
+      if (isIOS) {
+        return `tez://upi/pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+      }
+      return standardUpi;
+    }
+
+    return standardUpi;
+  };
+
+  const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
     const upiId = settings.adminUpiId || 'basepnt@ybl';
     try {
       navigator.clipboard.writeText(upiId);
@@ -120,28 +161,25 @@ export const DepositPage: React.FC = () => {
 
     // Only mobile phones (Android / iPhone) have native UPI apps installed
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !/Macintosh/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     if (!isMobile) {
+      e.preventDefault();
       // Desktop / Mac: Do not trigger custom URI schemes which cause Safari/Chrome invalid address popups!
-      addToast('success', `Copied UPI ID: ${upiId}! Please scan the QR Code below on your phone.`);
+      addToast('success', `Copied UPI ID: ${upiId}! Please scan the QR Code below with PhonePe/Paytm on your phone.`);
       const qrEl = document.getElementById('deposit-qr-section');
       if (qrEl) qrEl.scrollIntoView({ behavior: 'smooth' });
       return;
     }
 
-    // On iOS Safari, custom schemes (phonepe://, paytmmp://) cause "Safari cannot open the page because the address is invalid" if app isn't installed.
-    // Standard NPCI generic URI (upi://) is the universal safe scheme on iOS.
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`;
-    const targetUrl = isIOS ? standardUpi : (customAppUrl || standardUpi);
-
     addToast('success', `Copied UPI ID: ${upiId}! Opening ${appName}...`);
 
-    try {
-      window.location.href = targetUrl;
-    } catch {
-      window.location.href = standardUpi;
-    }
+    // Fallback: in case custom app isn't installed, trigger standard UPI chooser after 600ms
+    setTimeout(() => {
+      const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`;
+      try {
+        window.location.href = standardUpi;
+      } catch {}
+    }, 600);
   };
 
   return (
@@ -736,10 +774,10 @@ export const DepositPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-2.5">
                       {/* PhonePe */}
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi('PhonePe', `phonepe://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                      <a
+                        href={getAppLaunchUrl('phonepe')}
+                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left no-underline"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#5f259f] font-black text-sm font-outfit shadow-xs flex-shrink-0">
                           पे
@@ -748,13 +786,13 @@ export const DepositPage: React.FC = () => {
                           <div className="text-xs font-black tracking-wide font-outfit truncate">PhonePe</div>
                           <div className="text-[10px] text-purple-200 group-hover:text-white truncate">Open PhonePe ➔</div>
                         </div>
-                      </button>
+                      </a>
 
                       {/* Paytm */}
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi('Paytm', `paytmmp://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                      <a
+                        href={getAppLaunchUrl('paytm')}
+                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left no-underline"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#002970] font-black text-xs font-outfit shadow-xs flex-shrink-0">
                           Pay
@@ -763,13 +801,13 @@ export const DepositPage: React.FC = () => {
                           <div className="text-xs font-black tracking-wide font-outfit truncate">Paytm</div>
                           <div className="text-[10px] text-cyan-200 group-hover:text-white truncate">Open Paytm ➔</div>
                         </div>
-                      </button>
+                      </a>
 
                       {/* Google Pay */}
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi('Google Pay', `tez://upi/pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                      <a
+                        href={getAppLaunchUrl('gpay')}
+                        onClick={(e) => handleLaunchUpi(e, 'Google Pay', 'gpay')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left no-underline"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#2563eb] font-black text-sm font-outfit shadow-xs flex-shrink-0">
                           G
@@ -778,13 +816,13 @@ export const DepositPage: React.FC = () => {
                           <div className="text-xs font-black tracking-wide font-outfit truncate">Google Pay</div>
                           <div className="text-[10px] text-blue-200 group-hover:text-white truncate">Open GPay ➔</div>
                         </div>
-                      </button>
+                      </a>
 
                       {/* BHIM / Other UPI */}
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi('UPI App')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                      <a
+                        href={getAppLaunchUrl('upi')}
+                        onClick={(e) => handleLaunchUpi(e, 'UPI App', 'upi')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left no-underline"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#047857] font-black text-xs font-outfit shadow-xs flex-shrink-0">
                           UPI
@@ -793,8 +831,18 @@ export const DepositPage: React.FC = () => {
                           <div className="text-xs font-black tracking-wide font-outfit truncate">BHIM / Other</div>
                           <div className="text-[10px] text-emerald-200 group-hover:text-white truncate">Open Any UPI ➔</div>
                         </div>
-                      </button>
+                      </a>
                     </div>
+
+                    {/* Universal Chooser Button */}
+                    <a
+                      href={getAppLaunchUrl('upi')}
+                      onClick={(e) => handleLaunchUpi(e, 'UPI Payment App', 'upi')}
+                      className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-98 transition text-xs font-black font-outfit cursor-pointer no-underline"
+                    >
+                      <Sparkles className="w-4 h-4 text-yellow-200 animate-pulse" />
+                      <span>⚡ Open Any Installed UPI App (Auto-Detect)</span>
+                    </a>
                   </div>
 
                   {/* QR Code and Official UPI */}
