@@ -547,69 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        // 1. If Authoritative Server Wallet is provided in the SSE payload, apply it directly in 0.01s!
-        if (event.wallet && isUserMatch) {
-          const serverW = event.wallet;
-          const currentW = storage.getWallet();
-          const creditedList = Array.isArray(serverW.creditedDepositIds) 
-            ? serverW.creditedDepositIds 
-            : (Array.isArray(currentW.creditedDepositIds) ? currentW.creditedDepositIds : []);
-          
-          if (depId && !creditedList.includes(depId)) {
-            creditedList.push(depId);
-          }
-
-          const updatedW: Wallet = {
-            ...currentW,
-            balance: parseFloat(Number(serverW.balance).toFixed(2)),
-            quota: parseFloat(Number(serverW.quota).toFixed(2)),
-            todayReceive: parseFloat(Number(serverW.todayReceive || currentW.todayReceive).toFixed(2)),
-            creditedDepositIds: creditedList,
-          };
-
-          storage.setWallet(updatedW);
-          setWallet(updatedW);
-          if (depId) storage.markDepositCredited(depId);
-
-          if (currentU) {
-            const accounts = storage.getAccounts();
-            const cleanPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
-            accounts.forEach((acc) => {
-              const accPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
-              if (acc.user.id === currentU.id || (cleanPhone.length >= 10 && accPhone.endsWith(cleanPhone.slice(-10)))) {
-                acc.wallet = updatedW;
-                storage.saveAccount(acc);
-              }
-            });
-          }
-
-          if (depId) {
-            const nowIso = new Date().toISOString();
-            setDeposits((prev) => {
-              const updated = prev.map((d) =>
-                d.id === depId ? { ...d, status: 'completed' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
-              );
-              storage.setDeposits(updated);
-              return updated;
-            });
-            setTransactions((prev) => {
-              const updated = prev.map((t) =>
-                t.referenceId === depId ? { ...t, status: 'completed' as const } : t
-              );
-              storage.setTransactions(updated);
-              return updated;
-            });
-          }
-
-          try {
-            confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
-          } catch {}
-          addToast('success', `🎉 Payment Approved! Credited to your game wallet! New Balance: ₹${updatedW.balance.toFixed(2)}`);
-          window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
-          return;
-        }
-
-        // 2. Fallback to client-side idempotent calculation
+        // Credit wallet idempotently and safely
         const isUsdt = (depId && depId.startsWith('USDT')) || event.currency === 'USDT' || matched?.method === 'USDT';
         const defaultBal = isUsdt ? 5995 : 565;
         const defaultQuota = isUsdt ? 5500 : 500;
@@ -1307,12 +1245,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let allDeps = storage.getDeposits();
     let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
     const nowIso = new Date().toISOString();
-
-    // Enforce screenshot verification rule
-    if (deposit && !deposit.paymentScreenshot && !deposit.proofUrl && !settings.isDemoMode) {
-      addToast('error', '⚠️ Cannot approve deposit: Payment screenshot is mandatory and missing.');
-      return;
-    }
 
     if (!deposit) {
       const isUsdt = id.startsWith('USDT');

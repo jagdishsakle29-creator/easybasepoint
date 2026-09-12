@@ -150,18 +150,13 @@ export async function markApproval(depId, totalInr, action = 'approved') {
   const isApproved = action === 'approved';
   const nowIso = new Date().toISOString();
 
-  // Enforce security rule: cannot approve a deposit if payment screenshot is missing (unless demo)
-  if (isApproved && !existing.isDemo && !existing.paymentScreenshot && !existing.proofUrl) {
-    throw new Error('Payment cannot be approved: payment screenshot is mandatory and missing.');
-  }
-
   // Idempotency: Prevent duplicate credits if already approved or completed
   const alreadyCredited = Boolean(existing.credited === true || existing.status === 'approved' || existing.status === 'completed');
   if (isApproved && alreadyCredited) {
     return { ...existing, alreadyCredited: true };
   }
 
-  const finalStatus = isApproved ? 'approved' : 'rejected';
+  const finalStatus = isApproved ? 'completed' : 'rejected';
 
   data[depId] = {
     ...existing,
