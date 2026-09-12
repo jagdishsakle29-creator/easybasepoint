@@ -120,5 +120,20 @@
     "approvedAt": "2026-09-12T20:51:58.673Z",
     "creditedAt": "2026-09-12T20:51:58.673Z",
     "updatedAt": "2026-09-12T20:51:58.673Z"
+  },
+  "DEP_CONC_1": {
+    "id": "DEP_CONC_1",
+    "amount": 1000,
+    "utrNumber": "999888777666",
+    "paymentScreenshot": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
+    "totalInr": 1000,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "proofUrl": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
+    "status": "pending_verification",
+    "credited": false,
+    "createdAt": "2026-09-12T20:52:00.727Z"
   }
 }
