@@ -89,5 +89,21 @@
     "createdAt": "2026-09-12T21:32:00.341Z",
     "approvedAt": "2026-09-12T21:32:02.389Z",
     "updatedAt": "2026-09-12T21:32:02.389Z"
+  },
+  "WDR_TG_REJ_1789248724996": {
+    "id": "WDR_TG_REJ_1789248724996",
+    "userId": "USER_TEST_3",
+    "userPhone": "9876543210",
+    "amount": 750,
+    "netAmount": 750,
+    "method": "upi",
+    "accountDetails": {
+      "upiId": "invalid@upi"
+    },
+    "status": "pending",
+    "type": "withdrawal",
+    "fee": 0,
+    "userName": "",
+    "createdAt": "2026-09-12T21:32:05.952Z"
   }
 }
