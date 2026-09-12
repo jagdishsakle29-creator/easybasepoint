@@ -1,1 +1,9 @@
-{}
+{
+  "DEP-INIT": {
+    "id": "DEP-INIT",
+    "amount": 500,
+    "totalInr": 565,
+    "status": "completed",
+    "credited": true
+  }
+}
