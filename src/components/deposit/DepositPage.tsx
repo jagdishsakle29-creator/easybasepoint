@@ -84,39 +84,10 @@ export const DepositPage: React.FC = () => {
   };
 
   const handleSelectPackage = (pkg: QuotaPackage) => {
-    setSelectedPkg(pkg);
-    setPurchaseStatus('SELECTED');
-    setPurchaseError(null);
-  };
-
-  const handleCloseBuyModal = () => {
-    if (purchaseStatus === 'PROCESSING') return;
+    setTopUpAmount(pkg.price);
     setSelectedPkg(null);
-    setPurchaseStatus('IDLE');
-    setPurchaseError(null);
-  };
-
-  const handleConfirmBuy = async () => {
-    if (!selectedPkg || purchaseStatus === 'PROCESSING') return;
-    
-    setPurchaseStatus('PROCESSING');
-    setPurchaseError(null);
-
-    // Brief processing tick for smooth UX
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
-    // Call server-authoritative purchase handler with packageId
-    const res = buyQuota(selectedPkg.id);
-
-    if (res.success) {
-      setPurchaseStatus('SUCCESS');
-      setTimeout(() => {
-        handleCloseBuyModal();
-      }, 1400);
-    } else {
-      setPurchaseStatus('FAILED');
-      setPurchaseError(res.message || 'Purchase failed.');
-    }
+    setIsTopUpModalOpen(true);
+    addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR to activate.`);
   };
 
   const handleConfirmTopUp = () => {
@@ -149,27 +120,27 @@ export const DepositPage: React.FC = () => {
 
     if (app === 'phonepe') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.phonepe.app;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
         return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
       }
-      return standardUpi;
+      return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
     }
 
     if (app === 'paytm') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=net.one97.paytm;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
         return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
       }
-      return standardUpi;
+      return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
     }
 
     if (app === 'gpay') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
         return `tez://upi/pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
@@ -186,25 +157,21 @@ export const DepositPage: React.FC = () => {
       navigator.clipboard.writeText(upiId);
     } catch {}
 
-    // Only mobile phones (Android / iPhone) have native UPI apps installed
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !/Macintosh/i.test(navigator.userAgent);
-
-    if (!isMobile) {
-      e.preventDefault();
-      // Desktop / Mac: Do not trigger custom URI schemes which cause Safari/Chrome invalid address popups!
-      addToast('success', `Copied UPI ID: ${upiId}! Please scan the QR Code below with PhonePe/Paytm on your phone.`);
-      const qrEl = document.getElementById('deposit-qr-section');
-      if (qrEl) qrEl.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-
     addToast('success', `Copied UPI ID: ${upiId}! Opening ${appName}...`);
 
-    // Fallback: in case custom app isn't installed, trigger standard UPI chooser after 600ms
+    const appUrl = getAppLaunchUrl(appKey);
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount || 500}&cu=INR&tn=Deposit`;
+
+    try {
+      window.location.href = appUrl;
+    } catch {}
+
+    // Universal fallback: if specific app scheme doesn't respond after 600ms, trigger universal upi://
     setTimeout(() => {
-      const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`;
       try {
-        window.location.href = standardUpi;
+        if (appKey !== 'upi') {
+          window.location.href = standardUpi;
+        }
       } catch {}
     }, 600);
   };
@@ -682,152 +649,7 @@ export const DepositPage: React.FC = () => {
         </div>
       )}
 
-      {/* =======================================================
-          BUY CONFIRMATION MODAL - Explicit State Machine
-         ======================================================= */}
-      {selectedPkg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-orange-100 text-[#FF6B00] flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 font-outfit">Confirm Quota Purchase</h3>
-                  <p className="text-[11px] text-slate-400">Package Level: {selectedPkg.level}</p>
-                </div>
-              </div>
-              <button
-                disabled={purchaseStatus === 'PROCESSING'}
-                onClick={handleCloseBuyModal}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Success State Card */}
-            {purchaseStatus === 'SUCCESS' ? (
-              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2 animate-fadeIn">
-                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto animate-bounce" />
-                <h4 className="text-base font-black text-emerald-900 font-outfit">Quota Purchase Confirmed!</h4>
-                <p className="text-xs text-emerald-700 font-medium">
-                  ₹{selectedPkg.quota.toLocaleString('en-IN')} added to your quota balance. Daily returns activated!
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Breakdown table */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2.5 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Selected Package Price:</span>
-                    <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.price.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Applicable Bonus ({selectedPkg.incomePercent}%):</span>
-                    <span className="font-bold text-emerald-600 font-outfit">+₹{selectedPkg.income.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Total Quota Credited:</span>
-                    <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.quota.toFixed(2)}</span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
-                    <span className="font-bold text-slate-800">Your Current Balance:</span>
-                    <span className={`font-extrabold font-outfit ${wallet.balance < selectedPkg.price ? 'text-rose-600' : 'text-slate-900'}`}>
-                      ₹{wallet.balance.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Insufficient balance or error notice */}
-                {purchaseStatus === 'FAILED' && purchaseError ? (
-                  <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Purchase Failed</p>
-                      <p className="mt-0.5">{purchaseError}</p>
-                    </div>
-                  </div>
-                ) : wallet.balance < selectedPkg.price ? (
-                  <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Insufficient Balance</p>
-                      <p className="mt-0.5">
-                        You need ₹{(selectedPkg.price - wallet.balance).toFixed(2)} more. Top up now to complete this purchase.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                    <span>
-                      Verified transaction: Quota balance and daily returns will be activated immediately upon confirmed purchase.
-                    </span>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="space-y-2.5 pt-2">
-                  {/* Primary Option: Pay & Deposit fresh money via UPI / QR */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const price = selectedPkg.price;
-                      handleCloseBuyModal();
-                      setTopUpAmount(price);
-                      setIsTopUpModalOpen(true);
-                    }}
-                    className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span>⚡ Pay & Deposit ₹{selectedPkg.price.toLocaleString('en-IN')} via UPI / QR</span>
-                  </button>
-
-                  {/* Secondary Option: Deduct from existing wallet balance (only if user has enough funds) */}
-                  {wallet.balance >= selectedPkg.price ? (
-                    <div className="p-3 bg-slate-100 rounded-2xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between text-[11px] text-slate-600">
-                        <span>Or Pay from In-Game Wallet:</span>
-                        <strong className="text-slate-900 font-outfit font-black">₹{wallet.balance.toFixed(2)} Available</strong>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={purchaseStatus === 'PROCESSING'}
-                        onClick={handleConfirmBuy}
-                        className="w-full py-2.5 border-2 border-slate-300 hover:bg-slate-200/80 text-slate-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                      >
-                        {purchaseStatus === 'PROCESSING' ? (
-                          <>
-                            <RotateCw className="w-4 h-4 animate-spin text-[#FF6B00]" />
-                            <span>Deducting from Balance...</span>
-                          </>
-                        ) : (
-                          <span>💳 Deduct ₹{selectedPkg.price.toLocaleString('en-IN')} from Wallet Balance</span>
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-center text-slate-500">
-                      Wallet balance (₹{wallet.balance.toFixed(2)}) is insufficient. Click the orange button above to pay via UPI / QR.
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={purchaseStatus === 'PROCESSING'}
-                    onClick={handleCloseBuyModal}
-                    className="w-full py-2.5 text-slate-400 hover:text-slate-600 font-bold text-xs rounded-xl transition disabled:opacity-40"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* =======================================================
           DEDICATED PAYMENT GATEWAY MODAL (OPENS CLEANLY, CLOSES ON SUBMIT)
