@@ -34,7 +34,7 @@ export const HistoryPage: React.FC = () => {
             amount: matchingDep.totalInr || t.amount,
             note: matchingDep.status === 'completed'
               ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
-              : t.note,
+              : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`),
           };
         }
       }
@@ -55,7 +55,7 @@ export const HistoryPage: React.FC = () => {
           status: dep.status,
           timestamp: dep.createdAt,
           note: isUsdt
-            ? `USDT Deposit (${dep.amount} USDT • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Confirmation'})`
+            ? `USDT Deposit (${dep.amount} USDT • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
             : `INR Deposit (₹${dep.amount} • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
           referenceId: dep.id,
         });
@@ -64,6 +64,8 @@ export const HistoryPage: React.FC = () => {
 
     return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [transactions, deposits]);
+
+  const pendingDeposits = combinedItems.filter((i) => i.type === 'deposit' && i.status === 'pending');
 
   const filtered = combinedItems.filter((t) => {
     if (activeTab !== 'all') {
@@ -88,35 +90,35 @@ export const HistoryPage: React.FC = () => {
     switch (status) {
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-            <CheckCircle2 className="w-3 h-3" />
-            Completed
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            Approved & Credited
           </span>
         );
       case 'pending':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-            <Clock className="w-3 h-3" />
-            Pending
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse shadow-xs">
+            <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+            Pending Verification
           </span>
         );
       case 'processing':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
-            <Clock className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-300">
+            <Clock className="w-3.5 h-3.5 text-blue-600" />
             Processing
           </span>
         );
       case 'rejected':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
-            <XCircle className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
+            <XCircle className="w-3.5 h-3.5 text-rose-600" />
             Rejected
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
             {status}
           </span>
         );
@@ -165,6 +167,30 @@ export const HistoryPage: React.FC = () => {
         <h1 className="text-xl font-black text-[#0B1528] font-outfit">Transaction History</h1>
         <span className="text-xs text-slate-400 font-medium">Total: {combinedItems.length}</span>
       </div>
+
+      {/* Active Pending Orders Alert Banner */}
+      {pendingDeposits.length > 0 && (
+        <div className="p-3.5 bg-gradient-to-r from-amber-500/15 via-orange-500/20 to-amber-500/15 rounded-2xl border-2 border-amber-400/50 shadow-sm space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md flex-shrink-0">
+                <Clock className="w-4 h-4 animate-spin" />
+              </div>
+              <div>
+                <h3 className="font-outfit font-black text-xs text-amber-950 tracking-wide uppercase">
+                  {pendingDeposits.length} Deposit Order Awaiting Admin Approval
+                </h3>
+                <p className="text-[11px] font-bold text-amber-800">
+                  Total: ₹{pendingDeposits.reduce((acc, d) => acc + d.amount, 0).toFixed(2)} • Will credit automatically upon verification!
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-xl bg-amber-500 text-white shadow-xs uppercase tracking-wider animate-pulse">
+              PENDING
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Segmented Filter Tabs: All, Deposit, Withdrawal, Reward, Commission */}
       <div className="flex items-center gap-1.5 bg-[#0B1528] p-1.5 rounded-2xl overflow-x-auto no-scrollbar border border-orange-500/20 shadow-md">

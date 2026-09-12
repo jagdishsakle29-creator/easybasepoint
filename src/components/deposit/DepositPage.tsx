@@ -30,6 +30,7 @@ export const DepositPage: React.FC = () => {
     packages, 
     wallet, 
     settings, 
+    deposits,
     buyQuota, 
     submitInrDeposit, 
     addToast,
@@ -578,6 +579,79 @@ export const DepositPage: React.FC = () => {
               ))
             )}
           </div>
+
+          {/* Recent Deposit Orders Section (Always visible so user can see Pending / Approved status) */}
+          {deposits.length > 0 && (
+            <div className="space-y-2.5 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
+                  <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                  <span>Your Deposit Status & Orders</span>
+                </div>
+                <span className="text-[10px] font-bold text-slate-400">
+                  {deposits.filter((d) => d.status === 'pending').length} Pending
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {deposits.slice(0, 5).map((dep) => {
+                  const isPending = dep.status === 'pending';
+                  const isCompleted = dep.status === 'completed';
+
+                  return (
+                    <div
+                      key={dep.id}
+                      className={`glass-card rounded-2xl p-3.5 border transition-all ${
+                        isPending
+                          ? 'border-amber-300 bg-amber-50/40 shadow-xs'
+                          : isCompleted
+                          ? 'border-emerald-200 bg-emerald-50/30'
+                          : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs text-slate-900">{dep.id}</span>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase">
+                              {dep.method}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {new Date(dep.createdAt).toLocaleDateString()} {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-sm font-black font-outfit text-[#0B1528]">
+                            ₹{(dep.totalInr || dep.amount).toFixed(2)}
+                          </div>
+                          <div className="mt-0.5">
+                            {isPending ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                <Clock className="w-3 h-3 animate-spin text-amber-600" />
+                                Pending Approval
+                              </span>
+                            ) : isCompleted ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Approved & Credited
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">
+                                <X className="w-3 h-3" />
+                                Rejected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
