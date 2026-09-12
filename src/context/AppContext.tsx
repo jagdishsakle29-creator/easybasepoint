@@ -126,6 +126,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { storage.setUpis(upis); }, [upis]);
   useEffect(() => { storage.setUsdts(usdts); }, [usdts]);
 
+  // Real-time cross-tab synchronization (e.g. Admin approves in one tab, Game wallet updates in other tab)
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'ebp_v2_wallet') {
+        const w = storage.getWallet();
+        setWallet(w);
+      }
+      if (e.key === 'ebp_v2_deposits') {
+        const d = storage.getDeposits();
+        setDeposits(d);
+      }
+      if (e.key === 'ebp_v2_transactions') {
+        const t = storage.getTransactions();
+        setTransactions(t);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Watch for completed/approved deposits to notify user with popup
+  const [notifiedDepositIds, setNotifiedDepositIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    deposits.forEach((dep) => {
+      if (dep.status === 'completed' && !notifiedDepositIds.has(dep.id)) {
+        setNotifiedDepositIds((prev) => new Set(prev).add(dep.id));
+        // If this belongs to user or user is active
+        if (!user || dep.userId === user.id || (user.phone && dep.userPhone && user.phone.endsWith(dep.userPhone.slice(-10)))) {
+          addToast('success', `🎉 Payment Approved! ₹${dep.totalInr.toFixed(2)} added to your game wallet!`);
+        }
+      } else if (dep.status === 'rejected' && !notifiedDepositIds.has(dep.id)) {
+        setNotifiedDepositIds((prev) => new Set(prev).add(dep.id));
+        if (!user || dep.userId === user.id || (user.phone && dep.userPhone && user.phone.endsWith(dep.userPhone.slice(-10)))) {
+          addToast('error', `❌ Payment of ₹${dep.totalInr.toFixed(2)} was rejected by admin.`);
+        }
+      }
+    });
+  }, [deposits, user]);
+
   const addToast = (type: Toast['type'], message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -378,7 +417,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       proofUrl: refNumber,
     };
 
-    setDeposits((prev) => [newDeposit, ...prev]);
+    const updatedDeposits = [newDeposit, ...deposits];
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
+
     telegramService.sendDepositAlert(newDeposit, user.name, user.phone, settings);
 
     // Create Transaction record so it immediately appears in user History
@@ -393,14 +435,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       note: `INR Deposit (₹${amount} + ₹${standardBonus.toFixed(2)} regular + ₹${extraFreeBonus} tier bonus | UTR: ${refNumber})`,
       referenceId: newDeposit.id,
     };
-    setTransactions((prev) => [newTx, ...prev]);
+    const updatedTx = [newTx, ...transactions];
+    setTransactions(updatedTx);
+    storage.setTransactions(updatedTx);
 
     if (settings.isDemoMode) {
-      setWallet((prev) => ({
-        ...prev,
-        balance: parseFloat((prev.balance + total).toFixed(2)),
-        quota: parseFloat((prev.quota + amount).toFixed(2)),
-      }));
+      setWallet((prev) => {
+        const updatedW = {
+          ...prev,
+          balance: parseFloat((prev.balance + total).toFixed(2)),
+          quota: parseFloat((prev.quota + amount).toFixed(2)),
+        };
+        storage.setWallet(updatedW);
+        return updatedW;
+      });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
     } else {
       addToast('info', `Deposit of ₹${amount} submitted! Check karke 5-7 minutes me balance add ho jayega.`);
@@ -529,42 +577,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deposit = deposits.find((d) => d.id === id);
     if (!deposit) return;
 
-    // 1. Mark deposit as completed
-    setDeposits((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: 'completed' } : d))
-    );
+    // 1. Mark deposit as completed in state and storage
+    const updatedDeposits = deposits.map((d) => (d.id === id ? { ...d, status: 'completed' as const } : d));
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
 
     // 2. Add full amount to user's wallet balance and quota!
-    setWallet((prev) => {
-      const newBal = parseFloat((prev.balance + deposit.totalInr).toFixed(2));
-      const newQuota = parseFloat((prev.quota + deposit.amount).toFixed(2));
-      const updatedWallet = { ...prev, balance: newBal, quota: newQuota };
-      storage.setWallet(updatedWallet);
-      return updatedWallet;
-    });
+    const currentWallet = storage.getWallet();
+    const newBal = parseFloat((currentWallet.balance + deposit.totalInr).toFixed(2));
+    const newQuota = parseFloat((currentWallet.quota + deposit.amount).toFixed(2));
+    const updatedWallet = { ...currentWallet, balance: newBal, quota: newQuota };
+    setWallet(updatedWallet);
+    storage.setWallet(updatedWallet);
 
-    // 3. Update or create transaction record in history
+    // 3. Update target account in registered accounts if exists
+    const accounts = storage.getAccounts();
+    const accIndex = accounts.findIndex(
+      (a) => a.user.id === deposit.userId || (deposit.userPhone && a.user.phone.endsWith(deposit.userPhone.slice(-10)))
+    );
+    if (accIndex >= 0) {
+      accounts[accIndex].wallet.balance = newBal;
+      accounts[accIndex].wallet.quota = newQuota;
+      storage.saveAccount(accounts[accIndex]);
+    }
+
+    // 4. Update or create transaction record in history
     setTransactions((prev) => {
       const exists = prev.some((t) => t.referenceId === id);
+      let updatedTxList: Transaction[];
       if (exists) {
-        return prev.map((t) =>
+        updatedTxList = prev.map((t) =>
           t.referenceId === id
-            ? { ...t, status: 'completed', amount: deposit.totalInr, note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)` }
+            ? { ...t, status: 'completed' as const, amount: deposit.totalInr, note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)` }
             : t
         );
+      } else {
+        const newTx: Transaction = {
+          id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+          userId: deposit.userId,
+          type: 'deposit',
+          amount: deposit.totalInr,
+          currency: 'INR',
+          status: 'completed',
+          timestamp: new Date().toISOString(),
+          note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)`,
+          referenceId: deposit.id,
+        };
+        updatedTxList = [newTx, ...prev];
       }
-      const newTx: Transaction = {
-        id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-        userId: deposit.userId,
-        type: 'deposit',
-        amount: deposit.totalInr,
-        currency: 'INR',
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-        note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)`,
-        referenceId: deposit.id,
-      };
-      return [newTx, ...prev];
+      storage.setTransactions(updatedTxList);
+      return updatedTxList;
     });
 
     logAudit('APPROVE_DEPOSIT', `Approved deposit ${id}: ₹${deposit.totalInr} added to wallet`, deposit.userId);
@@ -575,20 +637,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deposit = deposits.find((d) => d.id === id);
     if (!deposit) return;
 
-    setDeposits((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: 'rejected' } : d))
-    );
+    const updatedDeposits = deposits.map((d) => (d.id === id ? { ...d, status: 'rejected' as const } : d));
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
 
-    setTransactions((prev) =>
-      prev.map((t) =>
+    setTransactions((prev) => {
+      const updatedTx = prev.map((t) =>
         t.referenceId === id
-          ? { ...t, status: 'rejected', note: `Deposit Rejected (${reason || 'Invalid UTR'})` }
+          ? { ...t, status: 'rejected' as const, note: `Deposit Rejected (${reason || 'Invalid UTR'})` }
           : t
-      )
-    );
+      );
+      storage.setTransactions(updatedTx);
+      return updatedTx;
+    });
 
     logAudit('REJECT_DEPOSIT', `Rejected deposit ${id}: ${reason || 'Invalid UTR'}`, deposit.userId);
-    addToast('info', `Deposit ${id} rejected: ${reason || 'Invalid UTR'}`);
+    addToast('error', `❌ Deposit ${id} rejected: ${reason || 'Invalid UTR'}`);
   };
 
   // Admin Actions
