@@ -48,6 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+  const [otpError, setOtpError] = useState('');
 
   // Prefill referral code if URL has ?ref=...
   useEffect(() => {
@@ -138,11 +139,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
       if (!isOtpSent) {
-        addToast('error', 'Please click "Send WhatsApp Code" to verify your WhatsApp number.');
+        addToast('error', 'Please click "Send Code" to verify your WhatsApp number.');
         return;
       }
       if (otpCode.trim() !== generatedOtp.trim()) {
-        addToast('error', 'Incorrect WhatsApp confirmation code! Please check your code or click Resend.');
+        setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
+        addToast('error', '❌ Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
         return;
       }
       if (password !== confirmPassword) {
@@ -414,11 +416,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     maxLength={4}
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setOtpCode(val);
+                      if (val.length === 4 && isOtpSent && val !== generatedOtp) {
+                        setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
+                      } else {
+                        setOtpError('');
+                      }
+                    }}
                     placeholder="Enter 4-digit code sent to WhatsApp"
-                    className="w-full px-3 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border-2 border-emerald-400/60 bg-black/40 text-emerald-300 placeholder-emerald-700/60 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/30"
+                    className={`w-full px-3 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border-2 bg-black/40 text-emerald-300 placeholder-emerald-700/60 focus:outline-none focus:ring-2 ${
+                      otpError
+                        ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/40 text-rose-300'
+                        : 'border-emerald-400/60 focus:border-emerald-400 focus:ring-emerald-500/30'
+                    }`}
                   />
                 </div>
+
+                {otpError && (
+                  <div className="p-2.5 bg-rose-950/80 rounded-xl border border-rose-500 text-rose-200 font-bold text-xs flex items-center gap-2 animate-fadeIn">
+                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    <span>❌ {otpError}</span>
+                  </div>
+                )}
 
                 {isOtpSent && generatedOtp && (
                   <div className="flex items-center justify-between text-[11px] text-emerald-300 pt-0.5">

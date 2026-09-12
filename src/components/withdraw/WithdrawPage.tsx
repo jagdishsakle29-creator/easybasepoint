@@ -32,7 +32,7 @@ export const WithdrawPage: React.FC = () => {
   } = useApp();
 
   const [method, setMethod] = useState<WithdrawalMethod>('bank');
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<number>(() => Math.max(450, settings.minWithdrawal || 450));
   
   // Bank fields
   const [accountHolder, setAccountHolder] = useState(() => bankCards[0]?.accountHolder || '');
@@ -52,6 +52,7 @@ export const WithdrawPage: React.FC = () => {
   const [generatedWaOtp, setGeneratedWaOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+  const [otpError, setOtpError] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -149,7 +150,8 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
     if (waOtp.trim() !== generatedWaOtp.trim()) {
-      addToast('error', 'Invalid WhatsApp security code! Please check your code or click resend.');
+      setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code dalein.');
+      addToast('error', '❌ Code wrong dala aapne! Kripya sahi 4-digit WhatsApp code dalein.');
       return;
     }
 
@@ -542,11 +544,30 @@ export const WithdrawPage: React.FC = () => {
               required
               maxLength={4}
               value={waOtp}
-              onChange={(e) => setWaOtp(e.target.value.replace(/[^0-9]/g, ''))}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                setWaOtp(val);
+                if (val.length === 4 && isOtpSent && val !== generatedWaOtp) {
+                  setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code dalein.');
+                } else {
+                  setOtpError('');
+                }
+              }}
               placeholder="Enter 4-digit code sent to your WhatsApp"
-              className="w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border border-emerald-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-950"
+              className={`w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-emerald-950 ${
+                otpError 
+                  ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950' 
+                  : 'border-emerald-300 focus:ring-emerald-500'
+              }`}
             />
           </div>
+
+          {otpError && (
+            <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-300 text-rose-700 font-bold text-xs flex items-center gap-2 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+              <span>❌ {otpError}</span>
+            </div>
+          )}
 
           {isOtpSent && generatedWaOtp && (
             <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">

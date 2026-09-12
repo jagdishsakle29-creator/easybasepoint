@@ -97,13 +97,14 @@ export const DepositPage: React.FC = () => {
       addToast('error', 'Please enter or select a valid deposit amount.');
       return;
     }
-    if (!utrRef.trim() || utrRef.trim().length < 6) {
-      addToast('error', 'Please enter your 12-digit UPI UTR number after payment.');
+    const cleanUtr = utrRef.trim();
+    if (!cleanUtr || cleanUtr.length !== 12) {
+      addToast('error', '⚠️ 12-Digit UTR dalna compulsory hai! UTR dale bina payment approval ke liye nahi bheja ja sakta.');
       return;
     }
     setIsProcessingTopUp(true);
     setTimeout(() => {
-      submitInrDeposit(topUpAmount, utrRef);
+      submitInrDeposit(topUpAmount, cleanUtr);
       setIsProcessingTopUp(false);
       setIsTopUpModalOpen(false);
       setUtrRef('');
@@ -214,20 +215,81 @@ export const DepositPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Amount Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Select or Enter Amount
-                  </label>
+                {/* Amount Selection & Tiered Free Bonus */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                      Select or Enter Amount
+                    </label>
+                    <span className="text-[10px] font-extrabold text-amber-300">
+                      🎁 Extra Free Bonus Active
+                    </span>
+                  </div>
+
+                  {/* 3 Prominent Free Bonus Tier Buttons */}
+                  <div className="p-2.5 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 rounded-2xl border border-amber-400/40 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-black text-amber-200 uppercase flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                        <span>Daily Free Cash Bonus Tiers</span>
+                      </span>
+                      <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">
+                        Free Gift
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setTopUpAmount(5000)}
+                        className={`p-2 rounded-xl border transition cursor-pointer ${
+                          topUpAmount === 5000
+                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
+                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="text-xs font-black">₹5,000</div>
+                        <div className="text-[10px] font-black text-emerald-300">+₹100 Free</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTopUpAmount(20000)}
+                        className={`p-2 rounded-xl border transition cursor-pointer ${
+                          topUpAmount === 20000
+                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
+                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="text-xs font-black">₹20,000</div>
+                        <div className="text-[10px] font-black text-emerald-300">+₹1,000 Free</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTopUpAmount(50000)}
+                        className={`p-2 rounded-xl border transition cursor-pointer ${
+                          topUpAmount === 50000
+                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
+                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="text-xs font-black">₹50,000</div>
+                        <div className="text-[10px] font-black text-emerald-300">+₹5,000 Free</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Standard Quick Buttons */}
                   <div className="grid grid-cols-4 gap-1.5">
-                    {[500, 890, 1400, 2100, 3000, 10000, 28000, 47000].map((amt) => (
+                    {[500, 890, 1400, 2100, 3000, 5000, 20000, 50000].map((amt) => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setTopUpAmount(amt)}
-                        className={`py-1.5 rounded-xl border text-[11px] font-bold font-outfit transition ${
+                        className={`py-1.5 rounded-xl border text-[11px] font-bold font-outfit transition cursor-pointer ${
                           topUpAmount === amt
-                            ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-xs'
+                            ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-xs font-black'
                             : 'border-white/20 bg-white/5 text-slate-200 hover:bg-white/10'
                         }`}
                       >
@@ -235,6 +297,7 @@ export const DepositPage: React.FC = () => {
                       </button>
                     ))}
                   </div>
+
                   <div className="relative mt-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
                     <input
@@ -251,22 +314,43 @@ export const DepositPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 12-Digit UTR Number Input Field */}
+            {/* 12-Digit UTR Number Input Field with Compulsory Lock */}
             <div className="space-y-1 pt-1">
-              <label className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center justify-between">
-                <span>Enter 12-Digit UPI Ref / UTR Number</span>
-                <span className="text-[10px] text-slate-400 font-normal">Required after payment</span>
-              </label>
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                  <span>Enter 12-Digit UPI Ref / UTR Number</span>
+                  <span className="text-rose-400">* (Mandatory)</span>
+                </label>
+                <span className="text-[10px] font-mono font-bold text-slate-300">
+                  {utrRef.trim().length}/12 Digits
+                </span>
+              </div>
               <input
                 type="text"
                 required
                 maxLength={12}
                 value={utrRef}
                 onChange={(e) => setUtrRef(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
-                placeholder="Paste 12-digit UTR from your UPI payment receipt"
-                className="w-full px-4 py-3 bg-white text-slate-900 font-mono font-bold text-xs tracking-wider rounded-xl border-2 border-orange-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+                placeholder="Enter 12-digit UTR from your UPI payment app"
+                className={`w-full px-4 py-3 bg-white text-slate-900 font-mono font-black text-xs tracking-wider rounded-xl border-2 focus:outline-none transition ${
+                  utrRef.trim().length === 12
+                    ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                    : 'border-orange-400 focus:ring-2 focus:ring-[#FF6B00]'
+                }`}
               />
             </div>
+
+            {/* UTR Warning Banner if not 12 digits */}
+            {utrRef.trim().length !== 12 && (
+              <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                <span>
+                  {utrRef.trim().length === 0
+                    ? '⚠️ UTR number dalega tabhi payment approval ke liye bheja jayega, warna submit nahi hoga.'
+                    : `⚠️ UTR incomplete hai! ${12 - utrRef.trim().length} digits aur dalein (12-digit UTR required).`}
+                </span>
+              </div>
+            )}
 
             {/* Exact Required Guarantee Notice in Hindi */}
             <div className="p-3.5 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2.5 text-xs shadow-inner">
@@ -281,20 +365,39 @@ export const DepositPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Submit UTR Button */}
-            <button
-              type="button"
-              disabled={isProcessingTopUp || !topUpAmount || topUpAmount <= 0}
-              onClick={handleConfirmTopUp}
-              className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-[#FFA24D] hover:from-[#E55F00] hover:to-[#FF6B00] text-white font-extrabold text-sm rounded-2xl shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-              <span>
-                {isProcessingTopUp 
-                  ? 'Verifying UTR with Banking Server...' 
-                  : `Submit UTR & Deposit ₹${topUpAmount} (+₹${((topUpAmount * settings.inrRewardPercent) / 100).toFixed(0)} Bonus)`}
-              </span>
-            </button>
+            {/* Submit UTR Button - Locked until 12-digit UTR is entered */}
+            {(() => {
+              let extraTier = 0;
+              if (topUpAmount >= 50000) extraTier = 5000;
+              else if (topUpAmount >= 20000) extraTier = 1000;
+              else if (topUpAmount >= 5000) extraTier = 100;
+              const regBonus = (topUpAmount * settings.inrRewardPercent) / 100;
+              const totalBns = regBonus + extraTier;
+              const totalRec = topUpAmount + totalBns;
+              const isUtrReady = utrRef.trim().length === 12;
+
+              return (
+                <button
+                  type="button"
+                  disabled={isProcessingTopUp || !topUpAmount || topUpAmount <= 0 || !isUtrReady}
+                  onClick={handleConfirmTopUp}
+                  className={`w-full py-4 text-white font-black text-sm rounded-2xl shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 ${
+                    isUtrReady
+                      ? 'bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-[#FFA24D] hover:from-[#E55F00] hover:to-[#FF6B00] cursor-pointer ring-2 ring-amber-300/40'
+                      : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  <Send className="w-4 h-4" />
+                  <span>
+                    {isProcessingTopUp 
+                      ? 'Verifying UTR with Banking Server...' 
+                      : !isUtrReady
+                      ? '⚠️ Enter 12-Digit UTR to Submit for Approval'
+                      : `Submit UTR & Deposit ₹${topUpAmount} (+₹${totalBns.toFixed(0)} Bonus = ₹${totalRec.toFixed(0)})`}
+                  </span>
+                </button>
+              );
+            })()}
           </div>
 
           {/* "How to Buy Quota?" Section */}
@@ -712,16 +815,23 @@ export const DepositPage: React.FC = () => {
               </div>
 
               {/* Transaction / UTR reference */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">
-                  UPI Ref / UTR Number
-                </label>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    12-Digit UPI UTR Number * (Required)
+                  </label>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {utrRef.trim().length}/12 Digits
+                  </span>
+                </div>
                 <input
                   type="text"
-                  placeholder="12-digit UTR number after payment"
+                  required
+                  maxLength={12}
+                  placeholder="Paste 12-digit UTR number"
                   value={utrRef}
-                  onChange={(e) => setUtrRef(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
+                  onChange={(e) => setUtrRef(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                  className="w-full mt-1 px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
             </div>
@@ -729,7 +839,7 @@ export const DepositPage: React.FC = () => {
             {/* Secure Gateway Notice */}
             <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span>Instant 256-bit SSL encrypted settlement directly to your wallet.</span>
+              <span>Payment check karke 5-7 minutes me account me balance add ho jayega.</span>
             </div>
 
             {/* Actions */}
@@ -743,11 +853,11 @@ export const DepositPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={isProcessingTopUp}
+                disabled={isProcessingTopUp || utrRef.trim().length !== 12}
                 onClick={handleConfirmTopUp}
-                className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-50"
+                className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isProcessingTopUp ? 'Connecting Gateway...' : 'Confirm Top Up'}
+                {isProcessingTopUp ? 'Connecting Gateway...' : utrRef.trim().length !== 12 ? 'Enter 12-Digit UTR' : 'Confirm Deposit'}
               </button>
             </div>
           </div>

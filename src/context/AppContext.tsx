@@ -339,8 +339,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return { success: false, message: 'Not logged in' };
     if (amount <= 0) return { success: false, message: 'Invalid amount' };
 
-    const bonus = (amount * settings.inrRewardPercent) / 100;
-    const total = amount + bonus;
+    // Extra Tier Free Bonus:
+    // 50,000+ -> +5,000 Free
+    // 20,000+ -> +1,000 Free
+    // 5,000+  -> +100 Free
+    let extraFreeBonus = 0;
+    let tierLabel = '';
+    if (amount >= 50000) {
+      extraFreeBonus = 5000;
+      tierLabel = '₹5,000 Extra VIP Free Bonus';
+    } else if (amount >= 20000) {
+      extraFreeBonus = 1000;
+      tierLabel = '₹1,000 Extra High Free Bonus';
+    } else if (amount >= 5000) {
+      extraFreeBonus = 100;
+      tierLabel = '₹100 Extra Free Bonus';
+    }
+
+    const standardBonus = (amount * settings.inrRewardPercent) / 100;
+    const totalBonus = standardBonus + extraFreeBonus;
+    const total = amount + totalBonus;
 
     const newDeposit: DepositOrder = {
       id: `DEP-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -348,8 +366,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount,
       method: 'INR',
       calculatedInr: amount,
-      bonusInr: bonus,
-      activityRewardInr: 0,
+      bonusInr: standardBonus,
+      activityRewardInr: extraFreeBonus,
       totalInr: total,
       status: settings.isDemoMode ? 'completed' : 'pending',
       createdAt: new Date().toISOString(),
@@ -374,13 +392,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currency: 'INR',
         status: 'completed',
         timestamp: new Date().toISOString(),
-        note: `INR Deposit (Demo credited: ₹${amount} + ₹${bonus.toFixed(2)} bonus)`,
+        note: `INR Deposit (₹${amount} + ₹${standardBonus.toFixed(2)} regular + ₹${extraFreeBonus} tier bonus)`,
         referenceId: newDeposit.id,
       };
       setTransactions((prev) => [newTx, ...prev]);
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
     } else {
-      addToast('info', 'Deposit submitted! Awaiting payment verification.');
+      addToast('info', `Deposit submitted! ${tierLabel ? `${tierLabel} will be credited.` : 'Awaiting verification.'}`);
     }
 
     return { success: true, message: 'Deposit recorded' };

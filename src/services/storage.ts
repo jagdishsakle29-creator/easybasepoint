@@ -283,7 +283,7 @@ export const defaultSettings: RewardSettings = {
   lowBonusPercent: 7.00,
   middleBonusPercent: 9.00,
   highBonusPercent: 14.00,
-  minWithdrawal: 200.00,
+  minWithdrawal: 450.00,
   withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
@@ -379,6 +379,10 @@ export const storage = {
       if (!parsed.adminUpiId || parsed.adminUpiId === 'easybasepoint@okhdfcbank') {
         parsed.adminUpiId = 'basepnt@ybl';
         parsed.adminUpiName = 'Bank Of India (basepnt@ybl)';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      if (!parsed.minWithdrawal || parsed.minWithdrawal < 450) {
+        parsed.minWithdrawal = 450.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       return { ...defaultSettings, ...parsed };
