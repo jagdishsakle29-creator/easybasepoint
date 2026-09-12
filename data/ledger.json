@@ -50,5 +50,21 @@
     "approvedAt": "2026-09-12T20:51:11.933Z",
     "creditedAt": "2026-09-12T20:51:11.933Z",
     "updatedAt": "2026-09-12T20:51:11.933Z"
+  },
+  "FAKE_DEP_NO_PROOF": {
+    "id": "FAKE_DEP_NO_PROOF",
+    "totalInr": 565,
+    "amount": 500,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "paymentScreenshot": "",
+    "status": "completed",
+    "credited": true,
+    "approvedAt": "2026-09-12T20:51:13.049Z",
+    "creditedAt": "2026-09-12T20:51:13.049Z",
+    "updatedAt": "2026-09-12T20:51:13.049Z",
+    "createdAt": "2026-09-12T20:51:13.049Z"
   }
 }
