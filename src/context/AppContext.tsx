@@ -76,7 +76,7 @@ interface AppContextType {
   deleteUsdt: (id: string) => void;
   
   // Admin Operations
-  approveDeposit: (id: string) => void;
+  approveDeposit: (id: string, fallbackTotalInr?: number) => void;
   rejectDeposit: (id: string, reason?: string) => void;
   approveWithdrawal: (id: string) => void;
   rejectWithdrawal: (id: string, reason: string) => void;
@@ -168,8 +168,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (event.action === 'approved') {
         const allCurrentDeps = storage.getDeposits();
         const matched = allCurrentDeps.find((d) => d.id === event.depId) || deposits.find((d) => d.id === event.depId);
-        const amountToAdd = matched ? matched.totalInr : (event.totalInr && event.totalInr > 0 ? event.totalInr : 565);
-        const quotaToAdd = matched ? matched.amount : 500;
+        const isUsdt = event.depId.startsWith('USDT') || matched?.method === 'USDT';
+        const defaultBal = isUsdt ? 5995 : 565;
+        const defaultQuota = isUsdt ? 5500 : 500;
+
+        const amountToAdd = matched ? matched.totalInr : (event.totalInr && event.totalInr > 0 ? event.totalInr : defaultBal);
+        const quotaToAdd = matched ? (matched.method === 'USDT' ? (matched.calculatedInr || matched.amount * 110) : matched.amount) : defaultQuota;
 
         // 1. Credit wallet in React state and localStorage immediately
         setWallet((prev) => {
@@ -191,7 +195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTransactions((prev) => {
           const updated = prev.map((t) =>
             t.referenceId === event.depId
-              ? { ...t, status: 'completed' as const, amount: amountToAdd, note: `INR Deposit Approved (+Bonus)` }
+              ? { ...t, status: 'completed' as const, amount: amountToAdd, note: isUsdt ? `USDT Deposit Approved (+₹${amountToAdd.toFixed(2)})` : `INR Deposit Approved (+Bonus)` }
               : t
           );
           storage.setTransactions(updated);
@@ -247,13 +251,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeDeposits = cloudSync.subscribeToDeposits((incoming) => {
       setDeposits((prev) => {
         if (prev.some((d) => d.id === incoming.id)) return prev;
+        const isUsdt = incoming.method === 'USDT' || incoming.id.startsWith('USDT');
         const newDep: DepositOrder = {
           id: incoming.id,
           userId: incoming.userId,
           userPhone: incoming.userPhone,
           amount: incoming.amount,
-          method: 'INR',
-          calculatedInr: incoming.amount,
+          method: isUsdt ? 'USDT' : 'INR',
+          calculatedInr: isUsdt ? incoming.amount * (settings.usdtRate || 110) : incoming.amount,
           bonusInr: (incoming.amount * settings.inrRewardPercent) / 100,
           activityRewardInr: 0,
           totalInr: incoming.totalInr,
@@ -621,44 +626,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newDeposit: DepositOrder = {
       id: `USDT-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: user.id,
+      userPhone: user.phone,
       amount: usdtAmount,
       method: 'USDT',
       calculatedInr,
       bonusInr,
       activityRewardInr: activityReward,
       totalInr,
-      network,
-      walletAddress: settings.adminUsdtTrc20,
+      network: 'TRC20',
+      walletAddress: settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW',
       status: settings.isDemoMode ? 'completed' : 'pending',
       createdAt: new Date().toISOString(),
-      proofUrl: txHash,
+      proofUrl: txHash || 'TRC20-TRANSFER',
+      utrNumber: txHash || 'TRC20-TRANSFER',
     };
 
-    setDeposits((prev) => [newDeposit, ...prev]);
+    const updatedDeposits = [newDeposit, ...deposits];
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
+
+    // Broadcast to Admin Panel & Telegram Cloud
+    cloudSync.broadcastDeposit({
+      id: newDeposit.id,
+      userId: user.id,
+      userPhone: user.phone,
+      amount: usdtAmount,
+      totalInr,
+      utrNumber: txHash || 'TRC20-TRANSFER',
+      method: 'USDT',
+      createdAt: newDeposit.createdAt,
+    });
+
+    // Send Telegram Alert to Admin Bot
     telegramService.sendDepositAlert(newDeposit, user.name, user.phone, settings);
 
-    if (settings.isDemoMode) {
-      setWallet((prev) => ({
-        ...prev,
-        balance: parseFloat((prev.balance + totalInr).toFixed(2)),
-        quota: parseFloat((prev.quota + calculatedInr).toFixed(2)),
-      }));
+    // Create Transaction record so it immediately appears in user History
+    const newTx: Transaction = {
+      id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: user.id,
+      type: 'deposit',
+      amount: totalInr,
+      currency: 'INR',
+      status: settings.isDemoMode ? 'completed' : 'pending',
+      timestamp: new Date().toISOString(),
+      note: `USDT Deposit (${usdtAmount} USDT @ ₹${settings.usdtRate} | TxID: ${txHash || 'TRC20 Express'})`,
+      referenceId: newDeposit.id,
+    };
+    const updatedTx = [newTx, ...transactions];
+    setTransactions(updatedTx);
+    storage.setTransactions(updatedTx);
 
-      const newTx: Transaction = {
-        id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-        userId: user.id,
-        type: 'deposit',
-        amount: totalInr,
-        currency: 'INR',
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-        note: `USDT Deposit: ${usdtAmount} USDT @ ₹${settings.usdtRate} (Demo Credited)`,
-        referenceId: newDeposit.id,
-      };
-      setTransactions((prev) => [newTx, ...prev]);
+    if (settings.isDemoMode) {
+      setWallet((prev) => {
+        const updatedW = {
+          ...prev,
+          balance: parseFloat((prev.balance + totalInr).toFixed(2)),
+          quota: parseFloat((prev.quota + calculatedInr).toFixed(2)),
+        };
+        storage.setWallet(updatedW);
+        return updatedW;
+      });
       addToast('success', `Demo USDT credited: ₹${totalInr.toFixed(2)} added!`);
     } else {
-      addToast('info', 'USDT Order created! Blockchain confirmation pending.');
+      addToast('info', `USDT deposit of ${usdtAmount} USDT (₹${totalInr.toFixed(2)}) submitted! Credited upon confirmation.`);
     }
 
     return { success: true, message: 'USDT order submitted' };
@@ -724,24 +754,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Admin Deposit Actions
-  const approveDeposit = (id: string) => {
+  const approveDeposit = (id: string, fallbackTotalInr?: number) => {
     let allDeps = storage.getDeposits();
-    const deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
-    if (!deposit) return;
+    let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
+
+    // If deposit is not found locally (e.g. cross-device approval via Telegram link),
+    // synthesize a valid deposit record so the approval goes through and credits immediately!
+    if (!deposit) {
+      const isUsdt = id.startsWith('USDT');
+      const amount = isUsdt ? 50 : 500;
+      const totalInr = fallbackTotalInr && fallbackTotalInr > 0 ? fallbackTotalInr : (isUsdt ? 5995 : 565);
+      deposit = {
+        id,
+        userId: user?.id || 'PLAYER-1',
+        amount,
+        method: isUsdt ? 'USDT' : 'INR',
+        calculatedInr: isUsdt ? amount * 110 : amount,
+        bonusInr: totalInr - (isUsdt ? amount * 110 : amount),
+        activityRewardInr: 0,
+        totalInr,
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+      };
+    }
 
     // 1. Mark deposit as completed in state and storage
-    const updatedDeposits = (allDeps.length > 0 ? allDeps : deposits).map((d) =>
+    const updatedDeposits = (allDeps.some((d) => d.id === id) ? allDeps : [deposit, ...allDeps]).map((d) =>
       d.id === id ? { ...d, status: 'completed' as const } : d
     );
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
     // 2. Add full amount to game wallet balance and quota!
+    const addBal = Number(deposit.totalInr) || fallbackTotalInr || (deposit.method === 'USDT' ? 5995 : 565);
+    const addQuota = Number(deposit.method === 'USDT' ? (deposit.calculatedInr || deposit.amount * 110) : deposit.amount) || 500;
+
     setWallet((prevWallet) => {
       const curBal = Number(prevWallet.balance) || 0;
       const curQuota = Number(prevWallet.quota) || 0;
-      const addBal = Number(deposit.totalInr) || 0;
-      const addQuota = Number(deposit.amount) || 0;
       const newWallet: Wallet = {
         ...prevWallet,
         balance: parseFloat((curBal + addBal).toFixed(2)),
@@ -755,9 +805,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const rawWallet = storage.getWallet();
     const updatedRawWallet: Wallet = {
       ...rawWallet,
-      balance: parseFloat(((Number(rawWallet.balance) || 0) + deposit.totalInr).toFixed(2)),
-      quota: parseFloat(((Number(rawWallet.quota) || 0) + deposit.amount).toFixed(2)),
-      todayReceive: parseFloat(((Number(rawWallet.todayReceive) || 0) + deposit.totalInr).toFixed(2)),
+      balance: parseFloat(((Number(rawWallet.balance) || 0) + addBal).toFixed(2)),
+      quota: parseFloat(((Number(rawWallet.quota) || 0) + addQuota).toFixed(2)),
+      todayReceive: parseFloat(((Number(rawWallet.todayReceive) || 0) + addBal).toFixed(2)),
     };
     storage.setWallet(updatedRawWallet);
 
@@ -765,9 +815,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const accounts = storage.getAccounts();
     accounts.forEach((acc) => {
       if (acc.user.id === deposit.userId || (deposit.userPhone && acc.user.phone.endsWith(deposit.userPhone.slice(-10)))) {
-        acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + deposit.totalInr).toFixed(2));
-        acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + deposit.amount).toFixed(2));
-        acc.wallet.todayReceive = parseFloat(((Number(acc.wallet.todayReceive) || 0) + deposit.totalInr).toFixed(2));
+        acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + addBal).toFixed(2));
+        acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + addQuota).toFixed(2));
+        acc.wallet.todayReceive = parseFloat(((Number(acc.wallet.todayReceive) || 0) + addBal).toFixed(2));
         storage.saveAccount(acc);
       }
     });
@@ -776,22 +826,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions((prev) => {
       const exists = prev.some((t) => t.referenceId === id);
       let updatedTxList: Transaction[];
+      const isUsdt = deposit.method === 'USDT';
+      const txNote = isUsdt
+        ? `USDT Deposit Approved (+₹${addBal.toFixed(2)})`
+        : `INR Deposit Approved (+₹${(deposit.bonusInr + (deposit.activityRewardInr || 0)).toFixed(0)} Bonus)`;
+
       if (exists) {
         updatedTxList = prev.map((t) =>
           t.referenceId === id
-            ? { ...t, status: 'completed' as const, amount: deposit.totalInr, note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)` }
+            ? { ...t, status: 'completed' as const, amount: addBal, note: txNote }
             : t
         );
       } else {
         const newTx: Transaction = {
           id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-          userId: deposit.userId,
+          userId: deposit.userId || user?.id || 'PLAYER-1',
           type: 'deposit',
-          amount: deposit.totalInr,
+          amount: addBal,
           currency: 'INR',
           status: 'completed',
           timestamp: new Date().toISOString(),
-          note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)`,
+          note: txNote,
           referenceId: deposit.id,
         };
         updatedTxList = [newTx, ...prev];
@@ -801,7 +856,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 5. Instant Real-Time Broadcast to all players via ntfy.sh (0.1s latency)
-    cloudSync.broadcastApproval(deposit.id, 'approved', deposit.totalInr);
+    cloudSync.broadcastApproval(deposit.id, 'approved', addBal);
 
     // 6. Celebration confetti & audit log
     try {
@@ -813,8 +868,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
 
     window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
-    logAudit('APPROVE_DEPOSIT', `Approved deposit ${id}: ₹${deposit.totalInr} added to wallet`, deposit.userId);
-    addToast('success', `🎉 Payment Approved! ₹${deposit.totalInr.toFixed(2)} has been added to game wallet!`);
+    logAudit('APPROVE_DEPOSIT', `Approved deposit ${id}: ₹${addBal.toFixed(2)} added to wallet`, deposit.userId);
+    addToast('success', `🎉 Payment Approved! ₹${addBal.toFixed(2)} has been added to game wallet!`);
   };
 
   const rejectDeposit = (id: string, reason?: string) => {

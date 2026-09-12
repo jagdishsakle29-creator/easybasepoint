@@ -17,11 +17,38 @@ import { useApp } from '../../context/AppContext';
 import { TransactionType, TransactionStatus } from '../../types';
 
 export const HistoryPage: React.FC = () => {
-  const { transactions } = useApp();
+  const { transactions, deposits } = useApp();
   const [activeTab, setActiveTab] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filtered = transactions.filter((t) => {
+  // Combine transactions and deposits so every single deposit is guaranteed to appear in history
+  const combinedItems = React.useMemo(() => {
+    const items = [...transactions];
+    const existingRefIds = new Set(transactions.map((t) => t.referenceId || t.id));
+
+    deposits.forEach((dep) => {
+      if (!existingRefIds.has(dep.id)) {
+        const isUsdt = dep.method === 'USDT' || dep.id.startsWith('USDT');
+        items.push({
+          id: dep.id,
+          userId: dep.userId,
+          type: 'deposit',
+          amount: dep.totalInr || dep.amount,
+          currency: 'INR',
+          status: dep.status,
+          timestamp: dep.createdAt,
+          note: isUsdt
+            ? `USDT Deposit (${dep.amount} USDT • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Confirmation'})`
+            : `INR Deposit (₹${dep.amount} • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
+          referenceId: dep.id,
+        });
+      }
+    });
+
+    return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [transactions, deposits]);
+
+  const filtered = combinedItems.filter((t) => {
     if (activeTab !== 'all') {
       if (activeTab === 'reward' && (t.type === 'reward' || t.type === 'commission')) {
         // match
@@ -119,7 +146,7 @@ export const HistoryPage: React.FC = () => {
       {/* Title */}
       <div className="flex items-center justify-between px-1">
         <h1 className="text-xl font-black text-[#0B1528] font-outfit">Transaction History</h1>
-        <span className="text-xs text-slate-400 font-medium">Total: {transactions.length}</span>
+        <span className="text-xs text-slate-400 font-medium">Total: {combinedItems.length}</span>
       </div>
 
       {/* Segmented Filter Tabs: All, Deposit, Withdrawal, Reward, Commission */}

@@ -30,7 +30,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   isForced = false 
 }) => {
-  const { login, register, addToast } = useApp();
+  const { login, register, addToast, user } = useApp();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
 
   // Form states
@@ -221,15 +221,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
-          {/* Cross (X) close button always present so user can go back anytime! */}
-          <button 
-            type="button"
-            onClick={onClose} 
-            className="p-2 text-slate-300 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 cursor-pointer shadow-md"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Close button only if already logged in and not forced */}
+          {!isForced && user && (
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="p-2 text-slate-300 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 cursor-pointer shadow-md"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Colorful Bonus Callout Banner */}

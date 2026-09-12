@@ -52,8 +52,9 @@ const AppContent: React.FC = () => {
     }
 
     const approveDepParam = params.get('approve_dep');
+    const totalParam = params.get('total');
     if (approveDepParam) {
-      approveDeposit(approveDepParam);
+      approveDeposit(approveDepParam, totalParam ? parseFloat(totalParam) : undefined);
       addToast('success', `🎉 Deposit ${approveDepParam} approved! Wallet credited.`);
     }
 
@@ -118,6 +119,20 @@ const AppContent: React.FC = () => {
         return <HomePage />;
     }
   };
+
+  // Force login before showing any game/app screens (Guest browsing completely disabled)
+  if (!user && activeTab !== 'admin') {
+    return (
+      <div className="min-h-screen bg-[#070D18] flex flex-col items-center justify-center p-4 font-sans selection:bg-[#FF6B00] selection:text-white relative">
+        <ToastContainer />
+        <AuthModal
+          isOpen={true}
+          isForced={true}
+          onClose={() => {}}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F3F6FD] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-white">
@@ -197,17 +212,14 @@ const AppContent: React.FC = () => {
                   <span>Telegram</span>
                 </button>
 
-                <span className="text-xs font-medium text-slate-500">
-                  {user ? `Logged in: ${user.name}` : 'Guest User'}
+                <span className="text-xs font-semibold text-slate-700">
+                  {user?.name || 'Administrator'}
                 </span>
                 <button
-                  onClick={() => {
-                    setIsAuthDismissed(false);
-                    setIsAuthOpen(true);
-                  }}
+                  onClick={() => setIsAuthOpen(true)}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                 >
-                  {user ? 'Switch / Re-login' : 'Sign In'}
+                  Switch Account
                 </button>
               </div>
             </div>
@@ -228,14 +240,11 @@ const AppContent: React.FC = () => {
       {/* Global Toast Alerts */}
       <ToastContainer />
 
-      {/* Authentication Modal / Entry Gate */}
+      {/* Authentication Modal (For Switching Account) */}
       <AuthModal
-        isOpen={isAuthOpen || (!user && !isAuthDismissed)}
+        isOpen={isAuthOpen}
         isForced={false}
-        onClose={() => {
-          setIsAuthOpen(false);
-          setIsAuthDismissed(true);
-        }}
+        onClose={() => setIsAuthOpen(false)}
       />
 
       {/* Post-Login Join Telegram Announcement Modal */}

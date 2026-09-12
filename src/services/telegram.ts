@@ -51,15 +51,20 @@ export const telegramService = {
 
     try {
       const maskedPhone = this.maskPhone(userPhone);
-      const text = `💰 *NEW DEPOSIT REQUEST*\n` +
+      const isUsdt = deposit.method === 'USDT' || deposit.id.startsWith('USDT');
+      const amountStr = isUsdt 
+        ? `${deposit.amount} USDT (₹${(deposit.calculatedInr || deposit.amount * 110).toFixed(2)} INR)` 
+        : `₹${deposit.amount.toFixed(2)} INR`;
+
+      const text = `💰 *NEW ${isUsdt ? 'USDT (TRC20)' : 'INR'} DEPOSIT REQUEST*\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `🆔 *Deposit ID:* \`${deposit.id}\`\n` +
         `👤 *User:* ${userName} (${maskedPhone})\n` +
-        `💵 *Deposit Amount:* ₹${deposit.amount.toFixed(2)} INR\n` +
+        `💵 *Deposit Amount:* ${amountStr}\n` +
         `🎁 *13% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
         `📈 *Total Receivable:* *₹${deposit.totalInr.toFixed(2)} INR*\n` +
-        `💳 *Method:* ${deposit.method}\n` +
-        `🔢 *Ref / UTR / Hash:* \`${deposit.proofUrl || 'Pending'}\`\n` +
+        `💳 *Method:* ${deposit.method} ${isUsdt ? '(TRON Network)' : '(UPI Transfer)'}\n` +
+        `🔢 *Ref / UTR / TxID:* \`${deposit.proofUrl || deposit.utrNumber || 'Pending'}\`\n` +
         `⏱ *Time:* ${new Date(deposit.createdAt).toLocaleTimeString()}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payment:_`;
@@ -74,8 +79,8 @@ export const telegramService = {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${deposit.id}` },
-                { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}` },
+                { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${deposit.id}&total=${deposit.totalInr}` },
+                { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}:${deposit.totalInr}` },
               ],
               [
                 { text: '❌ Reject Deposit', callback_data: `reject_dep:${deposit.id}` },

@@ -112,6 +112,23 @@ export const DepositPage: React.FC = () => {
     }, 800);
   };
 
+  const handleLaunchUpi = (appName: string, customAppUrl?: string) => {
+    const upiId = settings.adminUpiId || 'basepnt@ybl';
+    navigator.clipboard.writeText(upiId);
+    addToast('success', `Copied UPI ID: ${upiId} • Opening ${appName}...`);
+
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`;
+    const isApple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+
+    if (isApple) {
+      window.location.href = standardUpi;
+    } else if (customAppUrl) {
+      window.location.href = customAppUrl;
+    } else {
+      window.location.href = standardUpi;
+    }
+  };
+
   return (
     <div className="space-y-4 pb-20 animate-fadeIn">
       {/* Top Segmented Tabs: INR | USDT */}
@@ -679,82 +696,89 @@ export const DepositPage: React.FC = () => {
                         Auto-Fill ₹{topUpAmount}
                       </span>
                     </div>
+
+                    {/* Official UPI ID 1-Tap Copy Bar */}
+                    <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400">Official UPI ID:</span>
+                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'basepnt@ybl'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
+                          addToast('success', `Copied ${settings.adminUpiId || 'basepnt@ybl'} to clipboard!`);
+                        }}
+                        className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition"
+                      >
+                        Copy UPI
+                      </button>
+                    </div>
+
                     <p className="text-[11px] text-slate-300">
-                      Tap any button below to directly open that app on your mobile with ₹{topUpAmount} pre-filled:
+                      Tap any app below to open directly with ₹{topUpAmount} pre-filled, or copy UPI ID above to pay manually:
                     </p>
 
                     <div className="grid grid-cols-2 gap-2.5">
                       {/* PhonePe */}
-                      <a
-                        href={`phonepe://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening PhonePe... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
-                        }}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchUpi('PhonePe', `phonepe://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#5f259f] font-black text-sm font-outfit shadow-xs flex-shrink-0">
                           पे
                         </div>
-                        <div className="text-left min-w-0">
+                        <div className="min-w-0">
                           <div className="text-xs font-black tracking-wide font-outfit truncate">PhonePe</div>
                           <div className="text-[10px] text-purple-200 group-hover:text-white truncate">Open PhonePe ➔</div>
                         </div>
-                      </a>
+                      </button>
 
                       {/* Paytm */}
-                      <a
-                        href={`paytmmp://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening Paytm... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
-                        }}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchUpi('Paytm', `paytmmp://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#002970] font-black text-xs font-outfit shadow-xs flex-shrink-0">
                           Pay
                         </div>
-                        <div className="text-left min-w-0">
+                        <div className="min-w-0">
                           <div className="text-xs font-black tracking-wide font-outfit truncate">Paytm</div>
                           <div className="text-[10px] text-cyan-200 group-hover:text-white truncate">Open Paytm ➔</div>
                         </div>
-                      </a>
+                      </button>
 
                       {/* Google Pay */}
-                      <a
-                        href={`tez://upi/pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening Google Pay... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
-                        }}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchUpi('Google Pay', `tez://upi/pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`)}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#2563eb] font-black text-sm font-outfit shadow-xs flex-shrink-0">
                           G
                         </div>
-                        <div className="text-left min-w-0">
+                        <div className="min-w-0">
                           <div className="text-xs font-black tracking-wide font-outfit truncate">Google Pay</div>
                           <div className="text-[10px] text-blue-200 group-hover:text-white truncate">Open GPay ➔</div>
                         </div>
-                      </a>
+                      </button>
 
                       {/* BHIM / Other UPI */}
-                      <a
-                        href={`upi://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening UPI App... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
-                        }}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchUpi('UPI App')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
                       >
                         <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#047857] font-black text-xs font-outfit shadow-xs flex-shrink-0">
                           UPI
                         </div>
-                        <div className="text-left min-w-0">
+                        <div className="min-w-0">
                           <div className="text-xs font-black tracking-wide font-outfit truncate">BHIM / Other</div>
                           <div className="text-[10px] text-emerald-200 group-hover:text-white truncate">Open Any UPI ➔</div>
                         </div>
-                      </a>
+                      </button>
                     </div>
                   </div>
 

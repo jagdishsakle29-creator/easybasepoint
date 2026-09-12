@@ -78,16 +78,19 @@ async function handleCallbackQuery(query) {
   console.log(`[ACTION] Admin triggered: ${data}`);
 
   if (data === 'approve_dep_demo' || data.startsWith('approve_dep:')) {
-    const depId = data === 'approve_dep_demo' ? 'DEMO-809214' : data.replace('approve_dep:', '');
+    const raw = data === 'approve_dep_demo' ? 'DEMO-809214' : data.replace('approve_dep:', '');
+    const parts = raw.split(':');
+    const depId = parts[0];
+    const totalInr = parts[1] ? parseFloat(parts[1]) : (depId.startsWith('USDT') ? 5995 : 565);
     
-    // Instant 0.1s Broadcast to Game Clients via ntfy.sh
+    // Instant 0.1s Broadcast to Game Clients via ntfy.sh with totalInr
     try {
       await fetch('https://ntfy.sh/ebp_approvals_lord12', {
         method: 'POST',
         headers: { 'Title': 'Deposit Approved' },
-        body: JSON.stringify({ depId, action: 'approved', timestamp: new Date().toISOString() }),
+        body: JSON.stringify({ depId, action: 'approved', totalInr, timestamp: new Date().toISOString() }),
       });
-      console.log(`[SYNC] ✅ Broadcasted approved deposit ${depId} to Game Clients in 0.1s!`);
+      console.log(`[SYNC] ✅ Broadcasted approved deposit ${depId} (₹${totalInr}) to Game Clients in 0.1s!`);
     } catch (e) {
       console.error(`[SYNC] Error broadcasting ${depId}:`, e.message);
     }
