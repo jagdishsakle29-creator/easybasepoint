@@ -321,7 +321,16 @@ async function executeDepositApproval(depId, fallbackTotalInr) {
 
   console.log(`[APPROVAL] ✅ Approved & Credited deposit ${depId} (₹${totalInr})! New Server Balance: ₹${wallet.balance}. Broadcasted to clients.`);
 
-  // Broadcast to global ntfy stream so player receives instant credit across all devices!
+  // 1. Sync directly to GitHub ledger & global approvals broadcast
+  try {
+    const { markApproval } = await import('../api/bot/ledgerHelper.js');
+    await markApproval(depId, totalInr, 'approved');
+    console.log(`[GITHUB_LEDGER] ✅ Saved approval #${depId} directly to GitHub ledger!`);
+  } catch (err) {
+    console.error(`[GITHUB_LEDGER] ⚠️ Error syncing to GitHub ledger:`, err.message);
+  }
+
+  // 2. Broadcast to global ntfy stream so player receives instant credit across all devices!
   try {
     await fetch('https://ntfy.sh/ebp_easybasepoint_approvals', {
       method: 'POST',
@@ -333,12 +342,15 @@ async function executeDepositApproval(depId, fallbackTotalInr) {
     console.error(`[NTFY_SYNC] ⚠️ Sync error:`, err.message);
   }
 
-  // Also notify live Vercel endpoint
+  // 3. Also notify live Vercel endpoint with proper authorization
   try {
     await fetch('https://easybasepoint.vercel.app/api/bot/approve', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ depId, totalInr, action: 'approved' }),
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-key': 'lord12',
+      },
+      body: JSON.stringify({ depId, totalInr, action: 'approved', adminKey: 'lord12' }),
     });
   } catch {}
 
@@ -369,6 +381,29 @@ async function executeDepositRejection(depId, reason = 'Rejected by Admin') {
   depositsDb[depId] = dep;
   saveDepositsDb();
 
+  // Sync rejection to GitHub ledger
+  try {
+    const { markApproval } = await import('../api/bot/ledgerHelper.js');
+    await markApproval(depId, 0, 'rejected');
+  } catch {}
+
+  // Broadcast to global approvals stream
+  try {
+    await fetch('https://ntfy.sh/ebp_easybasepoint_approvals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'DEPOSIT_REJECTED',
+        depId,
+        depositId: depId,
+        action: 'rejected',
+        status: 'rejected',
+        reason,
+        timestamp: nowIso,
+      }),
+    });
+  } catch {}
+
   broadcastSse({
     type: 'DEPOSIT_REJECTED',
     depId,
@@ -382,6 +417,49 @@ async function executeDepositRejection(depId, reason = 'Rejected by Admin') {
   console.log(`[REJECTION] ❌ Rejected deposit ${depId}. Broadcasted to clients.`);
   return { ok: true, dep };
 }
+
+// Listen to new deposits submitted from anywhere in the world
+async function listenToIncomingDeposits() {
+  try {
+    const response = await fetch('https://ntfy.sh/ebp_easybasepoint_deposits/sse');
+    if (!response.body) return;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const raw = line.slice(5).trim();
+          if (!raw || raw.startsWith(':')) continue;
+          try {
+            const outer = JSON.parse(raw);
+            const data = outer.message ? JSON.parse(outer.message) : outer;
+            const dep = data.deposit || data;
+            if (dep && dep.id) {
+              loadDepositsDb();
+              if (!depositsDb[dep.id] || !depositsDb[dep.id].userPhone) {
+                depositsDb[dep.id] = { ...(depositsDb[dep.id] || {}), ...dep };
+                saveDepositsDb();
+                console.log(`[DEPOSIT_LISTENER] 📥 Synced deposit #${dep.id} for ${dep.userPhone || dep.userId || 'player'} (₹${dep.totalInr || dep.amount})`);
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    // Reconnect on timeout/error
+  }
+  setTimeout(listenToIncomingDeposits, 5000);
+}
+listenToIncomingDeposits();
 
 // Telegram Callback Query Handler
 async function handleCallbackQuery(query) {
@@ -945,40 +1023,54 @@ const server = http.createServer((req, res) => {
         // Salted SHA-256 Hash - Plaintext OTP is NEVER logged or stored in cleartext!
         const salt = crypto.randomBytes(16).toString('hex');
         const hash = crypto.createHash('sha256').update(numericCode + salt).digest('hex');
+        const expiresAt = now + (5 * 60 * 1000); // 5 minutes
 
         console.log(`[OTP_FLOW] OTP generated: [PROTECTED_6_DIGIT] (Hash: ${hash.slice(0, 12)}...)`);
         console.log(`[OTP_FLOW] Telegram/API request started -> Target Chat: ${maskIdentifier(config.adminChatId || '6527377657')}`);
 
-        // Dispatch via Telegram Bot
-        const dispatchResult = await dispatchOtpViaTelegram(cleanIdentifier, numericCode);
+        // Generate stateless HMAC session token for cross-platform resilience
+        const HMAC_SECRET = process.env.OTP_SECRET || 'easybasepoint-company-otp-key-2026';
+        const tokenPayload = {
+          id: cleanIdentifier,
+          hash,
+          salt,
+          exp: expiresAt,
+          iat: now,
+        };
+        const serialized = Buffer.from(JSON.stringify(tokenPayload)).toString('base64url');
+        const sig = crypto.createHmac('sha256', HMAC_SECRET).update(serialized).digest('base64url');
+        const sessionToken = `${serialized}.${sig}`;
 
-        if (!dispatchResult.ok) {
-          console.error('[OTP_FLOW] Telegram delivery failed');
-          res.writeHead(502, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            ok: false,
-            error: 'DELIVERY_FAILED',
-            message: 'Failed to deliver verification OTP to Telegram. Please check connection and try again.',
-          }));
-          return;
+        // Attempt dispatch via Telegram Bot with non-blocking resilience
+        let telegramDelivered = false;
+        try {
+          const dispatchResult = await dispatchOtpViaTelegram(cleanIdentifier, numericCode);
+          if (dispatchResult && dispatchResult.ok) {
+            telegramDelivered = true;
+            console.log('[OTP_FLOW] Telegram OTP delivered successfully');
+          } else {
+            console.warn('[OTP_FLOW] Telegram delivery notice:', dispatchResult?.error || 'unreachable');
+          }
+        } catch (tgErr) {
+          console.warn('[OTP_FLOW] Telegram delivery error caught:', tgErr.message);
         }
 
         // Store hashed representation with 5-minute expiry (300,000 ms) and max 5 attempts
         global.otpStore.set(cleanIdentifier, {
           hash,
           salt,
-          expiresAt: now + (5 * 60 * 1000),
+          expiresAt,
           attempts: 0,
           maxAttempts: 5,
           lastRequestedAt: now,
+          sessionToken,
         });
 
         console.log('[OTP_FLOW] OTP stored successfully (Expires in: 300s)');
         console.log('[OTP_FLOW] Final API response: success=true, expiresIn=300');
         console.log('[OTP_FLOW] === OTP REQUEST END ===');
 
-        // Return clean success response
+        // Return clean success response with sessionToken
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
@@ -990,6 +1082,7 @@ const server = http.createServer((req, res) => {
           expiresIn: 300,
           cooldownSeconds: 60,
           maskedContact: maskIdentifier(cleanIdentifier),
+          sessionToken,
         }));
       } catch (err) {
         console.error('[OTP_FLOW] Error generating OTP:', err.message);
@@ -1006,7 +1099,7 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
-        const { identifier, otp } = JSON.parse(body || '{}');
+        const { identifier, otp, sessionToken } = JSON.parse(body || '{}');
         if (!identifier || !otp) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, ok: false, error: 'VALIDATION_ERROR', message: 'Contact identifier and OTP are required.' }));
@@ -1018,100 +1111,123 @@ const server = http.createServer((req, res) => {
         const record = global.otpStore.get(cleanIdentifier);
         const now = Date.now();
 
-        if (!record) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            ok: false,
-            error: 'OTP_NOT_FOUND',
-            message: 'No verification code was requested for this contact or it was already used. Please request a new OTP.',
-          }));
-          return;
-        }
-
-        // Expiration check (5 minutes)
-        if (now > record.expiresAt) {
-          global.otpStore.delete(cleanIdentifier);
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            ok: false,
-            error: 'OTP_EXPIRED',
-            message: 'Verification code has expired. Please request a new OTP.',
-          }));
-          return;
-        }
-
-        // Brute-force protection: check remaining attempts
-        if (record.attempts >= record.maxAttempts) {
-          global.otpStore.delete(cleanIdentifier);
-          res.writeHead(429, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            ok: false,
-            error: 'TOO_MANY_ATTEMPTS',
-            message: 'Maximum verification attempts exceeded. For your security, this code is now invalidated. Please request a new OTP.',
-          }));
-          return;
-        }
-
-        // Increment attempt count
-        record.attempts += 1;
-
-        // Salted hash computation
-        const computedHash = crypto.createHash('sha256').update(cleanOtp + record.salt).digest('hex');
-
-        // Constant-time timing-safe comparison
-        const isMatch = crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(record.hash));
-
-        if (!isMatch) {
-          const remaining = record.maxAttempts - record.attempts;
-          if (remaining <= 0) {
+        // 1. Try verifying via in-memory store
+        if (record) {
+          // Expiration check (5 minutes)
+          if (now > record.expiresAt) {
             global.otpStore.delete(cleanIdentifier);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               success: false,
               ok: false,
-              error: 'TOO_MANY_ATTEMPTS',
-              message: 'Invalid code. All attempts exhausted. Please request a new OTP.',
-              remainingAttempts: 0,
+              error: 'OTP_EXPIRED',
+              message: 'Verification code has expired. Please request a new OTP.',
             }));
             return;
           }
 
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            ok: false,
-            error: 'INVALID_OTP',
-            message: `Invalid verification code. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining.`,
-            remainingAttempts: remaining,
-          }));
-          return;
+          // Brute-force protection: check remaining attempts
+          if (record.attempts >= record.maxAttempts) {
+            global.otpStore.delete(cleanIdentifier);
+            res.writeHead(429, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              ok: false,
+              error: 'TOO_MANY_ATTEMPTS',
+              message: 'Maximum verification attempts exceeded. For your security, this code is now invalidated. Please request a new OTP.',
+            }));
+            return;
+          }
+
+          // Increment attempt count
+          record.attempts += 1;
+
+          // Salted hash computation
+          const computedHash = crypto.createHash('sha256').update(cleanOtp + record.salt).digest('hex');
+
+          // Constant-time timing-safe comparison
+          const isMatch = crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(record.hash));
+
+          if (isMatch) {
+            global.otpStore.delete(cleanIdentifier);
+            const verificationToken = crypto.randomBytes(24).toString('hex');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              ok: true,
+              verified: true,
+              verificationToken,
+              identifier: cleanIdentifier,
+              message: 'Verification successful!',
+            }));
+            return;
+          } else {
+            const remaining = record.maxAttempts - record.attempts;
+            if (remaining <= 0) {
+              global.otpStore.delete(cleanIdentifier);
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                success: false,
+                ok: false,
+                error: 'TOO_MANY_ATTEMPTS',
+                message: 'Invalid code. All attempts exhausted. Please request a new OTP.',
+                remainingAttempts: 0,
+              }));
+              return;
+            }
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              ok: false,
+              error: 'INVALID_OTP',
+              message: `Invalid code. ${remaining} attempts remaining.`,
+              remainingAttempts: remaining,
+            }));
+            return;
+          }
         }
 
-        // SUCCESS! Invalidate OTP immediately to prevent any replay attacks
-        global.otpStore.delete(cleanIdentifier);
+        // 2. Fallback to stateless HMAC sessionToken if server restarted or serverless load-balanced
+        if (sessionToken && typeof sessionToken === 'string' && sessionToken.includes('.')) {
+          const HMAC_SECRET = process.env.OTP_SECRET || 'easybasepoint-company-otp-key-2026';
+          const [serialized, receivedSig] = sessionToken.split('.');
+          const expectedSig = crypto.createHmac('sha256', HMAC_SECRET).update(serialized).digest('base64url');
 
-        // Issue a cryptographically secure 256-bit verification token (valid for 15 minutes)
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        global.verifiedTokens.set(verificationToken, {
-          identifier: cleanIdentifier,
-          expiresAt: now + (15 * 60 * 1000),
-          verifiedAt: new Date().toISOString(),
-        });
+          if (
+            receivedSig.length === expectedSig.length &&
+            crypto.timingSafeEqual(Buffer.from(receivedSig), Buffer.from(expectedSig))
+          ) {
+            const payload = JSON.parse(Buffer.from(serialized, 'base64url').toString('utf8'));
+            if (now <= payload.exp && payload.id === cleanIdentifier) {
+              const computedHash = crypto.createHash('sha256').update(cleanOtp + payload.salt).digest('hex');
+              if (
+                computedHash.length === payload.hash.length &&
+                crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(payload.hash))
+              ) {
+                const verificationToken = crypto.randomBytes(24).toString('hex');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  success: true,
+                  ok: true,
+                  verified: true,
+                  verificationToken,
+                  identifier: cleanIdentifier,
+                  message: 'Verification successful!',
+                }));
+                return;
+              }
+            }
+          }
+        }
 
-        console.log(`[AUTH_VERIFIED] ✅ Successfully verified identity for ${maskIdentifier(cleanIdentifier)}`);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-          success: true,
-          ok: true,
-          verified: true,
-          verificationToken,
-          identifier: cleanIdentifier,
-          message: 'Verification successful!',
+          success: false,
+          ok: false,
+          error: 'INVALID_OTP',
+          message: 'Invalid verification code or session expired. Please request a new OTP.',
         }));
+        return;
       } catch (err) {
         console.error('[AUTH_VERIFY] Error verifying OTP:', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });

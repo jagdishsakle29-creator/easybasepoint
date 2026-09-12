@@ -112,7 +112,7 @@ export const telegramService = {
         `🆔 *Request ID:* \`${withdrawal.id}\`\n` +
         `👤 *User:* ${withdrawal.userName}\n` +
         `💸 *Gross Amount:* ₹${withdrawal.amount.toFixed(2)} INR\n` +
-        `✂️ *Fee (5%):* -₹${withdrawal.fee.toFixed(2)} INR\n` +
+        `✂️ *Platform Fee (0%):* ₹0.00 INR (Zero Deduction)\n` +
         `🟢 *Net Payout:* *₹${withdrawal.netAmount.toFixed(2)} INR*\n` +
         `🏦 *Method:* ${withdrawal.method.toUpperCase()}\n` +
         `📋 *Account:* \`${withdrawal.accountDetails.accountNumber || withdrawal.accountDetails.upiId || withdrawal.accountDetails.usdtAddress}\`\n` +

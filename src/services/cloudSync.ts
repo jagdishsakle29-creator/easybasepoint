@@ -111,11 +111,14 @@ export const cloudSync = {
 
       const nowIso = new Date().toISOString();
 
-      // 1. Save to cloud serverless ledger
+      // 1. Save to cloud serverless ledger with secure admin authorization
       fetch(`${getApiBaseUrl()}/bot/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ depId, totalInr, action }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-key': 'lord12',
+        },
+        body: JSON.stringify({ depId, totalInr, action, adminKey: 'lord12' }),
       }).catch(() => {});
 
       // 2. Broadcast directly via SSE to player game across all mobile phones & tabs instantly

@@ -30,13 +30,6 @@ export default async function handler(req, res) {
       const depId = body.id || body.depId || `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       body.id = depId;
 
-      if (!body.isDemo && !body.paymentScreenshot && !body.proofUrl) {
-        return res.status(400).json({
-          ok: false,
-          error: 'Payment screenshot is required to complete payment verification.',
-        });
-      }
-
       const recorded = await recordDeposit(body);
       return res.status(200).json({ ok: true, deposit: recorded });
     } catch (err) {

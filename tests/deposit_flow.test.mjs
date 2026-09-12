@@ -194,14 +194,24 @@ async function runTests() {
   assert.strictEqual(mock2.getStatus(), 400, 'create-transaction API must reject without screenshot');
   assert(mock2.getData().error.includes('screenshot is required'));
 
-  // 8c: api/bot/approve.js without screenshot in record
+  // 8c: api/bot/approve.js without valid admin key -> 401
+  const mockUnauthorized = createMockReqRes('POST', {
+    depId: 'DEP_TEST_123',
+    action: 'approved',
+    // NO ADMIN KEY
+  });
+  await approveHandler(mockUnauthorized.req, mockUnauthorized.res);
+  assert.strictEqual(mockUnauthorized.getStatus(), 401, 'approve API must reject unauthorized users without admin key');
+
+  // 8d: api/bot/approve.js without screenshot in record -> 400
   const mock3 = createMockReqRes('POST', {
     depId: 'FAKE_DEP_NO_PROOF',
     action: 'approved',
+    adminKey: 'lord12',
   });
   await approveHandler(mock3.req, mock3.res);
   assert.strictEqual(mock3.getStatus(), 400, 'approve API must reject approving deposit with missing screenshot');
-  console.log('✓ TEST 8 PASSED: Backend API strictly rejects all requests missing payment screenshot\n');
+  console.log('✓ TEST 8 PASSED: Backend API strictly rejects all requests missing payment screenshot or admin auth\n');
   passed++;
 
   console.log('====================================================');

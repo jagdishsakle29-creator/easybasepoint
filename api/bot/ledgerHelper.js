@@ -44,18 +44,10 @@ export async function fetchLedgerFromGitHub() {
 }
 
 let isWriting = false;
-let pendingWrite = null;
-
 export async function saveLedgerToGitHub(updatedData) {
   memoryLedger = updatedData;
   lastFetchTime = Date.now();
 
-  if (isWriting) {
-    pendingWrite = updatedData;
-    return;
-  }
-
-  isWriting = true;
   try {
     // Get fresh SHA if missing
     if (!lastSha) {
@@ -64,7 +56,7 @@ export async function saveLedgerToGitHub(updatedData) {
     }
 
     const contentBase64 = Buffer.from(JSON.stringify(updatedData, null, 2)).toString('base64');
-    const updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${LEDGER_PATH}`, {
+    let updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${LEDGER_PATH}`, {
       method: 'PUT',
       headers: {
         Authorization: `token ${GITHUB_TOKEN}`,
@@ -78,24 +70,34 @@ export async function saveLedgerToGitHub(updatedData) {
       }),
     });
 
+    if (!updateRes.ok) {
+      // Refresh SHA on conflict and retry once
+      const fresh = await fetchLedgerFromGitHub();
+      lastSha = fresh.sha;
+      updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${LEDGER_PATH}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `update ledger ${Date.now()}`,
+          content: contentBase64,
+          sha: lastSha,
+          branch: LEDGER_BRANCH,
+        }),
+      });
+    }
+
     if (updateRes.ok) {
       const json = await updateRes.json();
       lastSha = json.content?.sha || lastSha;
-    } else {
-      // Refresh SHA on conflict
-      const fresh = await fetchLedgerFromGitHub();
-      lastSha = fresh.sha;
+      return true;
     }
   } catch (err) {
     console.error('[LEDGER_HELPER] save error:', err.message);
-  } finally {
-    isWriting = false;
-    if (pendingWrite) {
-      const nextData = pendingWrite;
-      pendingWrite = null;
-      saveLedgerToGitHub(nextData);
-    }
   }
+  return false;
 }
 
 export async function broadcastToNtfy(topicUrl, payload) {
@@ -137,8 +139,8 @@ export async function recordDeposit(deposit) {
     createdAt: deposit.createdAt || new Date().toISOString(),
   };
 
-  saveLedgerToGitHub(data);
-  broadcastToNtfy(NTFY_DEPOSITS_TOPIC, { type: 'NEW_DEPOSIT', deposit: data[id] });
+  await saveLedgerToGitHub(data);
+  await broadcastToNtfy(NTFY_DEPOSITS_TOPIC, { type: 'NEW_DEPOSIT', deposit: data[id] });
   return data[id];
 }
 
@@ -153,13 +155,22 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     throw new Error('Payment cannot be approved: payment screenshot is mandatory and missing.');
   }
 
+  // Idempotency: Prevent duplicate credits if already approved or completed
+  const alreadyCredited = Boolean(existing.credited === true || existing.status === 'approved' || existing.status === 'completed');
+  if (isApproved && alreadyCredited) {
+    return { ...existing, alreadyCredited: true };
+  }
+
   const finalStatus = isApproved ? 'approved' : 'rejected';
 
   data[depId] = {
     ...existing,
     id: depId,
     totalInr: totalInr ? Number(totalInr) : (existing.totalInr || 565),
-    amount: existing.amount || 500,
+    amount: existing.amount || (depId.startsWith('USDT') ? 50 : 500),
+    method: existing.method || (depId.startsWith('USDT') ? 'USDT' : 'INR'),
+    userId: existing.userId || '',
+    userPhone: existing.userPhone || '',
     remark: existing.remark || 'cousin',
     paymentScreenshot: existing.paymentScreenshot || existing.proofUrl || '',
     status: finalStatus,
@@ -167,9 +178,10 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     approvedAt: nowIso,
     creditedAt: isApproved ? nowIso : undefined,
     updatedAt: nowIso,
+    createdAt: existing.createdAt || nowIso,
   };
 
-  saveLedgerToGitHub(data);
+  await saveLedgerToGitHub(data);
 
   const approvalEvent = {
     type: isApproved ? 'DEPOSIT_APPROVED' : 'DEPOSIT_REJECTED',
@@ -179,11 +191,13 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     status: finalStatus,
     credited: isApproved,
     totalInr: data[depId].totalInr,
-    userId: existing.userId,
-    userPhone: existing.userPhone,
+    amount: data[depId].amount,
+    currency: data[depId].method,
+    userId: existing.userId || '',
+    userPhone: existing.userPhone || '',
     timestamp: nowIso,
   };
 
-  broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
+  await broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
   return data[depId];
 }

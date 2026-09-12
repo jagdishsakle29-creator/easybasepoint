@@ -767,7 +767,7 @@ export const DepositPage: React.FC = () => {
             const isDepSuccessful = (d: typeof deposits[0]) =>
               d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
             const isDepPending = (d: typeof deposits[0]) =>
-              d.status === 'pending' || (d.status as string) === 'processing';
+              d.status === 'pending' || d.status === 'pending_verification' || (d.status as string) === 'processing';
             const isDepCancelled = (d: typeof deposits[0]) =>
               d.status === 'rejected' || d.status === 'failed' || (d.status as string) === 'cancelled';
 

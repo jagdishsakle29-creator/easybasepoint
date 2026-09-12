@@ -25,6 +25,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
 import { storage } from '../../services/storage';
+import { otpService } from '../../services/otpService';
 
 export const WithdrawPage: React.FC = () => {
   const { 
@@ -57,10 +58,63 @@ export const WithdrawPage: React.FC = () => {
   // USDT field
   const [usdtAddress, setUsdtAddress] = useState(() => usdts[0]?.address || '');
 
+  // Security Authorization Mode: 'pin' (Permanent 6-Digit PIN) or 'otp' (Telegram / Contact OTP)
+  const [authChoice, setAuthChoice] = useState<'pin' | 'otp'>('pin');
+
   // 6-Digit Transaction Security PIN / Password Authorization
   const [securityPin, setSecurityPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState('');
+
+  // One-Time Verification OTP States
+  const [withdrawalOtp, setWithdrawalOtp] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpError, setOtpError] = useState('');
+  const [otpSessionToken, setOtpSessionToken] = useState('');
+
+  // OTP Countdown timer
+  useEffect(() => {
+    let interval: any;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
+
+  const handleRequestOtp = async () => {
+    if (otpTimer > 0 || isSendingOtp) return;
+    const identifier = user?.phone || user?.email || '';
+    if (!identifier) {
+      addToast('error', 'No registered mobile number or email found for your account.');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    setOtpError('');
+    try {
+      const res = await otpService.requestOtp(identifier);
+      setIsSendingOtp(false);
+      if (res.ok) {
+        setIsOtpSent(true);
+        setOtpTimer(res.cooldownSeconds || 60);
+        if (res.sessionToken) {
+          setOtpSessionToken(res.sessionToken);
+        }
+        addToast('success', res.message || 'OTP sent successfully to your Telegram / contact!');
+      } else {
+        setOtpError(res.message);
+        addToast('error', res.message);
+      }
+    } catch {
+      setIsSendingOtp(false);
+      setOtpError('Failed to send verification code. Please check your connection.');
+      addToast('error', 'Failed to send verification code. Please try again.');
+    }
+  };
 
   // Reset PIN Modal States
   const [isResetPinModalOpen, setIsResetPinModalOpen] = useState(false);
@@ -83,7 +137,7 @@ export const WithdrawPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (amount < settings.minWithdrawal) {
@@ -121,27 +175,57 @@ export const WithdrawPage: React.FC = () => {
       }
     }
 
-    // Require 6-Digit Security PIN or Account Password
-    const entered = securityPin.trim();
-    if (!entered || (entered.length !== 6 && entered.length < 4)) {
-      setPinError('Please enter your 6-digit permanent Security PIN.');
-      addToast('error', '6-digit permanent Security PIN is required.');
-      return;
-    }
+    // Security Verification: Handle Either PIN or OTP
+    if (authChoice === 'otp') {
+      const cleanOtp = withdrawalOtp.trim();
+      if (!cleanOtp || cleanOtp.length !== 6) {
+        setOtpError('Please enter the 6-digit verification code received on Telegram / contact.');
+        addToast('error', '6-digit verification code is required.');
+        return;
+      }
 
-    // Verify against user registered account password or custom transactionPin
-    const account = storage.findAccount(user?.id || user?.phone || user?.email || '');
-    const validPassword = (account?.password || '').trim();
-    const userPin = (user?.transactionPin || account?.transactionPin || account?.user?.transactionPin || '').trim();
+      setIsSubmitting(true);
+      setOtpError('');
+      const identifier = user?.phone || user?.email || '';
+      const verifyRes = await otpService.verifyOtp(identifier, cleanOtp, otpSessionToken);
+      if (!verifyRes.ok) {
+        setIsSubmitting(false);
+        setOtpError(verifyRes.message || 'Invalid verification code.');
+        addToast('error', verifyRes.message || 'Invalid verification code. Please check and try again.');
+        return;
+      }
+    } else {
+      // Require 6-Digit Security PIN or Account Password
+      const entered = securityPin.trim();
+      if (!entered || (entered.length !== 6 && entered.length < 4)) {
+        setPinError('Please enter your 6-digit permanent Security PIN.');
+        addToast('error', '6-digit permanent Security PIN is required.');
+        return;
+      }
 
-    let isAuthorized = false;
+      // Verify against user registered account password or custom transactionPin
+      const account = storage.findAccount(user?.id || user?.phone || user?.email || '');
+      const validPassword = (account?.password || '').trim();
+      const userPin = (user?.transactionPin || account?.transactionPin || account?.user?.transactionPin || '').trim();
 
-    if (userPin && entered === userPin) {
-      isAuthorized = true;
-    } else if (validPassword && entered === validPassword) {
-      isAuthorized = true;
-      // If user authorized using password, establish this entered PIN as their transaction PIN if 6 digits
-      if (entered.length === 6 && /^\d+$/.test(entered)) {
+      let isAuthorized = false;
+
+      if (userPin && entered === userPin) {
+        isAuthorized = true;
+      } else if (validPassword && entered === validPassword) {
+        isAuthorized = true;
+        // If user authorized using password, establish this entered PIN as their transaction PIN if 6 digits
+        if (entered.length === 6 && /^\d+$/.test(entered)) {
+          if (user) {
+            updateProfile({ transactionPin: entered });
+            if (account) {
+              storage.saveAccount({ ...account, transactionPin: entered, user: { ...user, transactionPin: entered } });
+            }
+          }
+        }
+      } else if (!userPin) {
+        // First-time setting PIN: automatically establish this entered PIN as their permanent security PIN!
+        isAuthorized = true;
         if (user) {
           updateProfile({ transactionPin: entered });
           if (account) {
@@ -149,25 +233,17 @@ export const WithdrawPage: React.FC = () => {
           }
         }
       }
-    } else if (!userPin) {
-      // First-time setting PIN: automatically establish this entered PIN as their permanent security PIN!
-      isAuthorized = true;
-      if (user) {
-        updateProfile({ transactionPin: entered });
-        if (account) {
-          storage.saveAccount({ ...account, transactionPin: entered, user: { ...user, transactionPin: entered } });
-        }
-      }
-    }
 
-    if (!isAuthorized) {
-      setPinError('❌ Incorrect Security PIN! If you forgot your PIN, click "Forgot or Reset 6-Digit PIN" below.');
-      addToast('error', '❌ Incorrect Security PIN. Please check or reset your PIN.');
-      return;
+      if (!isAuthorized) {
+        setPinError('❌ Incorrect Security PIN! If you forgot your PIN, click "Forgot or Reset 6-Digit PIN" below or use "Request OTP".');
+        addToast('error', '❌ Incorrect Security PIN. Please check or reset your PIN.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setPinError('');
+    setOtpError('');
 
     const details = {
       accountHolder: method === 'bank' ? accountHolder : undefined,
@@ -186,6 +262,7 @@ export const WithdrawPage: React.FC = () => {
       setAccountNumber('');
       setConfirmAccountNumber('');
       setSecurityPin('');
+      setWithdrawalOtp('');
       addToast('success', 'Withdrawal request authorized successfully! Processing payout.');
     }
   };
@@ -535,81 +612,163 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
-        {/* Permanent 6-Digit Security PIN Card (Same as Sign Up) */}
+        {/* Dual Security Authorization: Permanent 6-Digit PIN or One-Time OTP */}
         <div className="p-4 bg-gradient-to-b from-orange-50/95 to-amber-50/80 rounded-2xl border-2 border-orange-300 shadow-sm space-y-3">
-          <div className="flex justify-between items-center gap-2">
+          <div className="flex justify-between items-center gap-2 flex-wrap">
             <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
-              <span>Permanent 6-Digit Security PIN *</span>
+              <span>Withdrawal Authorization *</span>
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
-              Lifetime Security PIN
-            </span>
-          </div>
-
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold text-slate-800">
-              Enter your lifetime 6-digit transaction PIN:
-            </p>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              This permanent 6-digit PIN was created during your Sign Up. It is required to authorize all your withdrawals and payout requests.
-            </p>
-          </div>
-
-          <div className="relative">
-            <input
-              type={showPin ? 'text' : 'password'}
-              required
-              maxLength={6}
-              value={securityPin}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-                setSecurityPin(val);
-                setPinError('');
-              }}
-              placeholder="Enter 6-digit permanent PIN (e.g. 123456)"
-              className={`w-full px-4 py-3 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 pr-11 ${
-                pinError
-                  ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
-                  : 'border-orange-300 focus:border-[#FF6B00] focus:ring-orange-500/30'
-              }`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPin(!showPin)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer transition"
-              title={showPin ? 'Hide PIN' : 'Show PIN'}
-            >
-              {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {pinError && (
-            <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-300 text-rose-700 font-bold text-xs flex items-center gap-2 animate-fadeIn">
-              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-              <span>{pinError}</span>
+            
+            {/* Mode Toggle Tabs */}
+            <div className="flex p-0.5 rounded-xl bg-orange-200/70 border border-orange-300 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => { setAuthChoice('pin'); setPinError(''); setOtpError(''); }}
+                className={`px-2.5 py-1 rounded-lg transition font-black cursor-pointer ${
+                  authChoice === 'pin' ? 'bg-[#FF6B00] text-white shadow-xs' : 'text-slate-700 hover:text-slate-900'
+                }`}
+              >
+                6-Digit PIN
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthChoice('otp'); setPinError(''); setOtpError(''); }}
+                className={`px-2.5 py-1 rounded-lg transition font-black cursor-pointer ${
+                  authChoice === 'otp' ? 'bg-[#FF6B00] text-white shadow-xs' : 'text-slate-700 hover:text-slate-900'
+                }`}
+              >
+                Request OTP
+              </button>
             </div>
+          </div>
+
+          {authChoice === 'pin' ? (
+            <>
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-slate-800">
+                  Enter your permanent 6-digit transaction PIN:
+                </p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  This permanent 6-digit PIN was created during your Sign Up. It is required to authorize all your withdrawals and payout requests.
+                </p>
+              </div>
+
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  required
+                  maxLength={6}
+                  value={securityPin}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                    setSecurityPin(val);
+                    setPinError('');
+                  }}
+                  placeholder="Enter 6-digit permanent PIN (e.g. 123456)"
+                  className={`w-full px-4 py-3 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 pr-11 ${
+                    pinError
+                      ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
+                      : 'border-orange-300 focus:border-[#FF6B00] focus:ring-orange-500/30'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer transition"
+                  title={showPin ? 'Hide PIN' : 'Show PIN'}
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {pinError && (
+                <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-300 text-rose-700 font-bold text-xs flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="text-[11px] text-emerald-800 flex items-center gap-1.5 font-medium">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                  <span>Permanent 6-digit PIN</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetPinModalOpen(true);
+                    setResetError('');
+                    setResetAccountPassword('');
+                    setResetNewPin('');
+                  }}
+                  className="text-xs font-bold text-[#FF6B00] hover:text-orange-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Reset 6-Digit PIN?</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">
+                    Verification Code (OTP) via Telegram / Contact:
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Tap &quot;Request OTP&quot; to receive your 6-digit confirmation code.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={otpTimer > 0 || isSendingOtp}
+                  onClick={handleRequestOtp}
+                  className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSendingOtp ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Request OTP'}</span>
+                </button>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={withdrawalOtp}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                    setWithdrawalOtp(val);
+                    setOtpError('');
+                  }}
+                  placeholder="Enter 6-digit verification code"
+                  className={`w-full px-4 py-3 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 ${
+                    otpError
+                      ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
+                      : 'border-orange-300 focus:border-[#FF6B00] focus:ring-orange-500/30'
+                  }`}
+                />
+              </div>
+
+              {otpError && (
+                <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-300 text-rose-700 font-bold text-xs flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>{otpError}</span>
+                </div>
+              )}
+
+              {isOtpSent && (
+                <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
+                  <span className="flex items-center gap-1 font-semibold text-emerald-700">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Verification OTP dispatched to Telegram bot &amp; registered contact
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">Valid 5 mins</span>
+                </div>
+              )}
+            </>
           )}
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="text-[11px] text-emerald-800 flex items-center gap-1.5 font-medium">
-              <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-              <span>Permanent 6-digit PIN</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsResetPinModalOpen(true);
-                setResetError('');
-                setResetAccountPassword('');
-                setResetNewPin('');
-              }}
-              className="text-xs font-bold text-[#FF6B00] hover:text-orange-600 hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Reset 6-Digit PIN?</span>
-            </button>
-          </div>
         </div>
 
         {/* Security & Verification Notice */}

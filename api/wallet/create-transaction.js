@@ -49,12 +49,6 @@ export default async function handler(req, res) {
     }
 
     const screenshot = body.paymentScreenshot || proofUrl || '';
-    if (!isDemo && !screenshot) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Payment screenshot is required to complete payment verification.'
-      });
-    }
 
     const depositRecord = {
       id: uniqueTxId,

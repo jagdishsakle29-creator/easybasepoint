@@ -47,7 +47,7 @@ const getApiBase = (): string => {
   if (typeof window !== 'undefined' && window.location) {
     return `${window.location.origin}/api/auth`;
   }
-  return 'http://127.0.0.1:5174/api/auth';
+  return 'https://easybasepoint.vercel.app/api/auth';
 };
 
 export const otpService = {
