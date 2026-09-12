@@ -19,5 +19,16 @@
     "approvedAt": "2026-09-12T18:01:28.823Z",
     "creditedAt": "2026-09-12T18:01:28.823Z",
     "updatedAt": "2026-09-12T18:01:28.823Z"
+  },
+  "DEP-TEST-AUTO-1789236297701": {
+    "id": "DEP-TEST-AUTO-1789236297701",
+    "amount": 500,
+    "totalInr": 565,
+    "userId": "test-user-1",
+    "userPhone": "9876543210",
+    "status": "pending",
+    "method": "INR",
+    "credited": false,
+    "createdAt": "2026-09-12T18:04:58.266Z"
   }
 }
