@@ -17,6 +17,7 @@ export interface SendOtpResponse {
   cooldownSeconds?: number;
   expiresInSeconds?: number;
   maskedContact?: string;
+  sessionToken?: string;
   missingConfig?: string[];
 }
 
@@ -39,6 +40,8 @@ export interface ProviderStatusResponse {
   allowDevFallbackOtp?: boolean;
   requiredEnvVars?: string[];
 }
+
+let activeSessionToken = '';
 
 const getApiBase = (): string => {
   if (typeof window !== 'undefined' && window.location) {
@@ -72,6 +75,10 @@ export const otpService = {
         };
       }
 
+      if (data.sessionToken) {
+        activeSessionToken = data.sessionToken;
+      }
+
       return {
         ok: true,
         success: true,
@@ -80,6 +87,7 @@ export const otpService = {
         cooldownSeconds: data.cooldownSeconds || 60,
         expiresInSeconds: data.expiresInSeconds || 300,
         maskedContact: data.maskedContact,
+        sessionToken: data.sessionToken,
       };
     } catch (err: any) {
       return {
@@ -94,15 +102,16 @@ export const otpService = {
   /**
    * Verify an OTP on Company Backend Gateway
    */
-  async verifyOtp(identifier: string, otp: string): Promise<VerifyOtpResponse> {
+  async verifyOtp(identifier: string, otp: string, sessionTokenOverride?: string): Promise<VerifyOtpResponse> {
     try {
       const cleanId = identifier.trim();
       const cleanOtp = otp.trim();
+      const token = sessionTokenOverride || activeSessionToken;
 
       const res = await fetch(`${getApiBase()}/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: cleanId, otp: cleanOtp }),
+        body: JSON.stringify({ identifier: cleanId, otp: cleanOtp, sessionToken: token }),
       });
 
       const data = await res.json().catch(() => ({}));
