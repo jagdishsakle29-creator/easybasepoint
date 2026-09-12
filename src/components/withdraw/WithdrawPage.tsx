@@ -17,7 +17,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Check
+  Check,
+  XCircle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
@@ -177,8 +178,8 @@ export const WithdrawPage: React.FC = () => {
     }
   };
 
-  // Recent withdrawals for this user
-  const recentWithdrawals = withdrawals.slice(0, 3);
+  // Status filter state for withdrawals
+  const [withdrawStatusFilter, setWithdrawStatusFilter] = useState<'all' | 'successful' | 'pending' | 'cancelled'>('all');
 
   return (
     <div className="space-y-4 pb-20 animate-fadeIn">
@@ -603,47 +604,198 @@ export const WithdrawPage: React.FC = () => {
         </button>
       </form>
 
-      {/* Recent Withdrawal Requests */}
-      {recentWithdrawals.length > 0 && (
-        <div className="space-y-2 pt-2">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
-            Recent Withdrawal Requests
-          </h4>
-          <div className="space-y-2">
-            {recentWithdrawals.map((req) => (
-              <div key={req.id} className="glass-card rounded-2xl p-3.5 flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-bold text-slate-800">
-                    ₹{req.amount.toFixed(2)} ({req.method.toUpperCase()})
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {new Date(req.createdAt).toLocaleString()}
-                  </div>
-                </div>
+      {/* Recent Withdrawal Requests with 3 Sections: Successful, Pending, Cancelled */}
+      {withdrawals.length > 0 && (() => {
+        const successfulWiths = withdrawals.filter((w) => w.status === 'completed');
+        const pendingWiths = withdrawals.filter((w) => w.status === 'pending' || w.status === 'processing');
+        const cancelledWiths = withdrawals.filter((w) => w.status === 'rejected');
 
-                <div className="text-right">
-                  <span
-                    className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${
-                      req.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : req.status === 'rejected'
-                        ? 'bg-rose-100 text-rose-800'
-                        : req.status === 'processing'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {req.status}
+        const successfulTotal = successfulWiths.reduce((sum, w) => sum + w.amount, 0);
+        const pendingTotal = pendingWiths.reduce((sum, w) => sum + w.amount, 0);
+        const cancelledTotal = cancelledWiths.reduce((sum, w) => sum + w.amount, 0);
+
+        const filteredWiths = withdrawals.filter((w) => {
+          if (withdrawStatusFilter === 'successful') return w.status === 'completed';
+          if (withdrawStatusFilter === 'pending') return w.status === 'pending' || w.status === 'processing';
+          if (withdrawStatusFilter === 'cancelled') return w.status === 'rejected';
+          return true;
+        });
+
+        return (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between px-1">
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider font-outfit">
+                Recent Withdrawal Requests
+              </h4>
+              <span className="text-[10px] font-bold text-slate-400">
+                Total: {withdrawals.length} Requests
+              </span>
+            </div>
+
+            {/* 3 Status Summary Stat Cards */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'successful' ? 'all' : 'successful')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  withdrawStatusFilter === 'successful'
+                    ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-400/50 shadow-xs'
+                    : 'bg-white border-emerald-200 hover:bg-emerald-50/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800">
+                    Successful
                   </span>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    Net: ₹{req.netAmount.toFixed(2)}
-                  </div>
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 </div>
+                <div className="text-xs font-black font-outfit text-emerald-700 mt-0.5">
+                  ₹{successfulTotal.toFixed(2)}
+                </div>
+                <div className="text-[9px] text-emerald-600/80 font-bold">
+                  {successfulWiths.length} Orders
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'pending' ? 'all' : 'pending')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  withdrawStatusFilter === 'pending'
+                    ? 'bg-amber-500/15 border-amber-500 ring-2 ring-amber-400/50 shadow-xs'
+                    : 'bg-white border-amber-200 hover:bg-amber-50/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-900">
+                    Pending
+                  </span>
+                  <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                </div>
+                <div className="text-xs font-black font-outfit text-amber-700 mt-0.5">
+                  ₹{pendingTotal.toFixed(2)}
+                </div>
+                <div className="text-[9px] text-amber-800/80 font-bold">
+                  {pendingWiths.length} Orders
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'cancelled' ? 'all' : 'cancelled')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  withdrawStatusFilter === 'cancelled'
+                    ? 'bg-rose-500/15 border-rose-500 ring-2 ring-rose-400/50 shadow-xs'
+                    : 'bg-white border-rose-200 hover:bg-rose-50/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-rose-800">
+                    Cancelled
+                  </span>
+                  <XCircle className="w-3 h-3 text-rose-600" />
+                </div>
+                <div className="text-xs font-black font-outfit text-rose-700 mt-0.5">
+                  ₹{cancelledTotal.toFixed(2)}
+                </div>
+                <div className="text-[9px] text-rose-600/80 font-bold">
+                  {cancelledWiths.length} Orders
+                </div>
+              </button>
+            </div>
+
+            {/* Status Segment Filter Buttons */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold">
+              <button
+                onClick={() => setWithdrawStatusFilter('all')}
+                className={`flex-1 py-1 rounded-lg transition-all ${
+                  withdrawStatusFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                All ({withdrawals.length})
+              </button>
+              <button
+                onClick={() => setWithdrawStatusFilter('successful')}
+                className={`flex-1 py-1 rounded-lg transition-all ${
+                  withdrawStatusFilter === 'successful'
+                    ? 'bg-emerald-600 text-white shadow-xs font-black'
+                    : 'text-emerald-700 hover:text-emerald-900'
+                }`}
+              >
+                ✅ Successful ({successfulWiths.length})
+              </button>
+              <button
+                onClick={() => setWithdrawStatusFilter('pending')}
+                className={`flex-1 py-1 rounded-lg transition-all ${
+                  withdrawStatusFilter === 'pending'
+                    ? 'bg-amber-500 text-white shadow-xs font-black'
+                    : 'text-amber-800 hover:text-amber-950'
+                }`}
+              >
+                ⏳ Pending ({pendingWiths.length})
+              </button>
+              <button
+                onClick={() => setWithdrawStatusFilter('cancelled')}
+                className={`flex-1 py-1 rounded-lg transition-all ${
+                  withdrawStatusFilter === 'cancelled'
+                    ? 'bg-rose-600 text-white shadow-xs font-black'
+                    : 'text-rose-700 hover:text-rose-900'
+                }`}
+              >
+                ❌ Cancelled ({cancelledWiths.length})
+              </button>
+            </div>
+
+            {/* Filtered Withdrawal List */}
+            {filteredWiths.length === 0 ? (
+              <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
+                No {withdrawStatusFilter} withdrawal records found.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-2">
+                {filteredWiths.slice(0, 10).map((req) => (
+                  <div key={req.id} className="glass-card rounded-2xl p-3.5 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="font-bold text-slate-800">
+                        ₹{req.amount.toFixed(2)} ({req.method.toUpperCase()})
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {new Date(req.createdAt).toLocaleString()}
+                      </div>
+                      {req.rejectionReason && (
+                        <div className="text-[10px] font-bold text-rose-600 mt-0.5">
+                          Reason: {req.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${
+                          req.status === 'completed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : req.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800'
+                            : req.status === 'processing'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {req.status === 'completed' ? 'Approved' : req.status}
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Net: ₹{req.netAmount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

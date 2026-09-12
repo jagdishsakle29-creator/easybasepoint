@@ -19,7 +19,8 @@ import {
   Coins,
   QrCode,
   Clock,
-  Send
+  Send,
+  XCircle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
@@ -58,6 +59,7 @@ export const DepositPage: React.FC = () => {
   const [topUpAmount, setTopUpAmount] = useState<number>(500);
   const [utrRef, setUtrRef] = useState<string>('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
+  const [depositStatusFilter, setDepositStatusFilter] = useState<'all' | 'successful' | 'pending' | 'cancelled'>('all');
 
   // Filtered packages
   const filteredPackages = useMemo(() => {
@@ -603,78 +605,225 @@ export const DepositPage: React.FC = () => {
             )}
           </div>
 
-          {/* Recent Deposit Orders Section (Always visible so user can see Pending / Approved status) */}
-          {deposits.length > 0 && (
-            <div className="space-y-2.5 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
-                  <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
-                  <span>Your Deposit Status & Orders</span>
+          {/* Recent Deposit Orders Section with 3 Sections: Successful, Pending, Cancelled */}
+          {deposits.length > 0 && (() => {
+            const isDepSuccessful = (d: typeof deposits[0]) =>
+              d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
+            const isDepPending = (d: typeof deposits[0]) =>
+              d.status === 'pending' || (d.status as string) === 'processing';
+            const isDepCancelled = (d: typeof deposits[0]) =>
+              d.status === 'rejected' || d.status === 'failed' || (d.status as string) === 'cancelled';
+
+            const successfulDeps = deposits.filter(isDepSuccessful);
+            const pendingDeps = deposits.filter(isDepPending);
+            const cancelledDeps = deposits.filter(isDepCancelled);
+
+            const successfulTotal = successfulDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
+            const pendingTotal = pendingDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
+            const cancelledTotal = cancelledDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
+
+            const filteredDeps = deposits.filter((d) => {
+              if (depositStatusFilter === 'successful') return isDepSuccessful(d);
+              if (depositStatusFilter === 'pending') return isDepPending(d);
+              if (depositStatusFilter === 'cancelled') return isDepCancelled(d);
+              return true;
+            });
+
+            return (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
+                    <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                    <span>Your Deposit Status & Orders</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Total: {deposits.length} Orders
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold text-slate-400">
-                  {deposits.filter((d) => d.status === 'pending').length} Pending
-                </span>
-              </div>
 
-              <div className="space-y-2">
-                {deposits.slice(0, 5).map((dep) => {
-                  const isPending = dep.status === 'pending';
-                  const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
-
-                  return (
-                    <div
-                      key={dep.id}
-                      className={`glass-card rounded-2xl p-3.5 border transition-all ${
-                        isPending
-                          ? 'border-amber-300 bg-amber-50/40 shadow-xs'
-                          : isCompleted
-                          ? 'border-emerald-200 bg-emerald-50/30'
-                          : 'border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-slate-900">{dep.id}</span>
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase">
-                              {dep.method}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {new Date(dep.createdAt).toLocaleDateString()} {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-sm font-black font-outfit text-[#0B1528]">
-                            ₹{(dep.totalInr || dep.amount).toFixed(2)}
-                          </div>
-                          <div className="mt-0.5">
-                            {isPending ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
-                                <Clock className="w-3 h-3 animate-spin text-amber-600" />
-                                Pending Approval
-                              </span>
-                            ) : isCompleted ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Approved & Credited
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">
-                                <X className="w-3 h-3" />
-                                Rejected
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                {/* 3 Status Summary Stat Cards */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDepositStatusFilter(depositStatusFilter === 'successful' ? 'all' : 'successful')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      depositStatusFilter === 'successful'
+                        ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-400/50 shadow-xs'
+                        : 'bg-white border-emerald-200 hover:bg-emerald-50/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800">
+                        Successful
+                      </span>
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                     </div>
-                  );
-                })}
+                    <div className="text-xs font-black font-outfit text-emerald-700 mt-0.5">
+                      ₹{successfulTotal.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-emerald-600/80 font-bold">
+                      {successfulDeps.length} Orders
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDepositStatusFilter(depositStatusFilter === 'pending' ? 'all' : 'pending')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      depositStatusFilter === 'pending'
+                        ? 'bg-amber-500/15 border-amber-500 ring-2 ring-amber-400/50 shadow-xs'
+                        : 'bg-white border-amber-200 hover:bg-amber-50/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-900">
+                        Pending
+                      </span>
+                      <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                    </div>
+                    <div className="text-xs font-black font-outfit text-amber-700 mt-0.5">
+                      ₹{pendingTotal.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-amber-800/80 font-bold">
+                      {pendingDeps.length} Orders
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDepositStatusFilter(depositStatusFilter === 'cancelled' ? 'all' : 'cancelled')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      depositStatusFilter === 'cancelled'
+                        ? 'bg-rose-500/15 border-rose-500 ring-2 ring-rose-400/50 shadow-xs'
+                        : 'bg-white border-rose-200 hover:bg-rose-50/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-rose-800">
+                        Cancelled
+                      </span>
+                      <XCircle className="w-3 h-3 text-rose-600" />
+                    </div>
+                    <div className="text-xs font-black font-outfit text-rose-700 mt-0.5">
+                      ₹{cancelledTotal.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-rose-600/80 font-bold">
+                      {cancelledDeps.length} Orders
+                    </div>
+                  </button>
+                </div>
+
+                {/* Status Segment Filter Buttons */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold">
+                  <button
+                    onClick={() => setDepositStatusFilter('all')}
+                    className={`flex-1 py-1 rounded-lg transition-all ${
+                      depositStatusFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-xs font-black'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    All ({deposits.length})
+                  </button>
+                  <button
+                    onClick={() => setDepositStatusFilter('successful')}
+                    className={`flex-1 py-1 rounded-lg transition-all ${
+                      depositStatusFilter === 'successful'
+                        ? 'bg-emerald-600 text-white shadow-xs font-black'
+                        : 'text-emerald-700 hover:text-emerald-900'
+                    }`}
+                  >
+                    ✅ Successful ({successfulDeps.length})
+                  </button>
+                  <button
+                    onClick={() => setDepositStatusFilter('pending')}
+                    className={`flex-1 py-1 rounded-lg transition-all ${
+                      depositStatusFilter === 'pending'
+                        ? 'bg-amber-500 text-white shadow-xs font-black'
+                        : 'text-amber-800 hover:text-amber-950'
+                    }`}
+                  >
+                    ⏳ Pending ({pendingDeps.length})
+                  </button>
+                  <button
+                    onClick={() => setDepositStatusFilter('cancelled')}
+                    className={`flex-1 py-1 rounded-lg transition-all ${
+                      depositStatusFilter === 'cancelled'
+                        ? 'bg-rose-600 text-white shadow-xs font-black'
+                        : 'text-rose-700 hover:text-rose-900'
+                    }`}
+                  >
+                    ❌ Cancelled ({cancelledDeps.length})
+                  </button>
+                </div>
+
+                {/* Filtered Deposit List */}
+                {filteredDeps.length === 0 ? (
+                  <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
+                    No {depositStatusFilter} deposit records found.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredDeps.slice(0, 10).map((dep) => {
+                      const isPending = isDepPending(dep);
+                      const isCompleted = isDepSuccessful(dep);
+
+                      return (
+                        <div
+                          key={dep.id}
+                          className={`glass-card rounded-2xl p-3.5 border transition-all ${
+                            isPending
+                              ? 'border-amber-300 bg-amber-50/40 shadow-xs'
+                              : isCompleted
+                              ? 'border-emerald-200 bg-emerald-50/30'
+                              : 'border-rose-200 bg-rose-50/20'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-slate-900">{dep.id}</span>
+                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase">
+                                  {dep.method}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {new Date(dep.createdAt).toLocaleDateString()} {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-sm font-black font-outfit text-[#0B1528]">
+                                ₹{(dep.totalInr || dep.amount).toFixed(2)}
+                              </div>
+                              <div className="mt-0.5">
+                                {isPending ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                    <Clock className="w-3 h-3 animate-spin text-amber-600" />
+                                    Pending Approval
+                                  </span>
+                                ) : isCompleted ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    Approved & Credited
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                    <XCircle className="w-3 h-3 text-rose-600" />
+                                    Rejected / Cancelled
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
