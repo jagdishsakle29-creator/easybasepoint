@@ -48,6 +48,10 @@ export async function saveLedgerToGitHub(updatedData) {
   memoryLedger = updatedData;
   lastFetchTime = Date.now();
 
+  if (process.env.NODE_ENV === 'test') {
+    return true;
+  }
+
   try {
     // Get fresh SHA if missing
     if (!lastSha) {
@@ -140,7 +144,10 @@ export async function recordDeposit(deposit) {
   };
 
   await saveLedgerToGitHub(data);
-  await broadcastToNtfy(NTFY_DEPOSITS_TOPIC, { type: 'NEW_DEPOSIT', deposit: data[id] });
+  const isSynthetic = id.startsWith('TEST_') || id.startsWith('DEMO_') || id.startsWith('FAKE_') || id.startsWith('DEP_PROD_') || id.startsWith('DEP_CONC_');
+  if (!isSynthetic && process.env.NODE_ENV !== 'test') {
+    await broadcastToNtfy(NTFY_DEPOSITS_TOPIC, { type: 'NEW_DEPOSIT', deposit: data[id] });
+  }
   return data[id];
 }
 
@@ -200,6 +207,9 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     timestamp: nowIso,
   };
 
-  await broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
+  const isSyntheticApproval = depId.startsWith('TEST_') || depId.startsWith('DEMO_') || depId.startsWith('FAKE_') || depId.startsWith('DEP_PROD_') || depId.startsWith('DEP_CONC_');
+  if (!isSyntheticApproval && process.env.NODE_ENV !== 'test') {
+    await broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
+  }
   return data[depId];
 }

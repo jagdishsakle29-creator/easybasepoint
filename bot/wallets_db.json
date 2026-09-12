@@ -3,14 +3,15 @@
     "key": "phone_9876543210",
     "userId": "usr-test",
     "phone": "9876543210",
-    "balance": 565,
-    "quota": 1000,
-    "todayReceive": 565,
-    "totalDeposited": 565,
+    "balance": 2938,
+    "quota": 3100,
+    "todayReceive": 2938,
+    "totalDeposited": 2938,
     "creditedDepositIds": [
-      "DEP-67305178"
+      "DEP-67305178",
+      "DEP_VERIFY_1789245708343"
     ],
-    "updatedAt": "2026-09-12T16:31:15.804Z"
+    "updatedAt": "2026-09-12T20:41:48.626Z"
   },
   "phone_1234567890": {
     "key": "phone_1234567890",

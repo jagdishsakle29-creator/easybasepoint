@@ -1,4 +1,5 @@
 // Test Verification Suite for Payment Deposit Flow
+process.env.NODE_ENV = 'test';
 import assert from 'assert';
 import { recordDeposit, markApproval } from '../api/bot/ledgerHelper.js';
 import depositsHandler from '../api/bot/deposits.js';

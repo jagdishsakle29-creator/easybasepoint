@@ -311,11 +311,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Central Ledger Reconciler: Checks if any completed deposits have not been credited to active wallet balance
   const reconcileWallet = useCallback(() => {
+    const currentU = storage.getUser();
+    if (!currentU || !currentU.id) return; // STRICT: Never reconcile or credit for unauthenticated users
+
     const currentW = storage.getWallet();
     const creditedList = Array.isArray(currentW.creditedDepositIds) ? [...currentW.creditedDepositIds] : [];
     const allDeps = storage.getDeposits();
-    const currentU = storage.getUser();
-    const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
+    const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
 
     let updatedBal = Number(currentW.balance) || 0;
     let updatedQuota = Number(currentW.quota) || 0;
@@ -326,11 +328,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const isCompleted = dep.credited === true || dep.status === 'completed' || dep.status === 'credited';
       if (!isCompleted) return;
 
+      // Filter out synthetic or test deposits
+      const isSynthetic = dep.id && (dep.id.startsWith('TEST_') || dep.id.startsWith('FAKE_') || dep.id.startsWith('DEP_PROD_') || dep.id.startsWith('DEMO_'));
+      if (isSynthetic) return;
+
       const depPhone = (dep.userPhone || '').replace(/[^0-9]/g, '');
+      // STRICT: Must strictly match the logged in user's ID or exact 10-digit mobile number
       const isUserMatch =
-        !currentU ||
         (dep.userId && dep.userId === currentU.id) ||
-        (cleanUserPhone.length >= 10 && depPhone.length >= 10 && depPhone.endsWith(cleanUserPhone.slice(-10)));
+        (cleanUserPhone.length === 10 && depPhone.length === 10 && depPhone === cleanUserPhone);
 
       if (isUserMatch && !creditedList.includes(dep.id)) {
         const isUsdt = dep.method === 'USDT' || dep.id.startsWith('USDT');
@@ -411,19 +417,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 1. Process all completed deposits from backend
-    if (backendDeps && backendDeps.length > 0) {
+    if (backendDeps && backendDeps.length > 0 && currentU && currentU.id) {
       backendDeps.forEach((bd: any) => {
         const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
-        if (isCompleted) {
+        const isSynthetic = bd.id && (bd.id.startsWith('TEST_') || bd.id.startsWith('FAKE_') || bd.id.startsWith('DEP_PROD_') || bd.id.startsWith('DEMO_'));
+        if (isCompleted && !isSynthetic) {
           const matched = allDeps.find((d) => d.id === bd.id);
-          const bdPhone = (bd.userPhone || '').replace(/[^0-9]/g, '');
+          const bdPhone = (bd.userPhone || (matched ? matched.userPhone : '') || '').replace(/[^0-9]/g, '');
 
+          // STRICT: Must match logged in user ID or exact 10-digit mobile number
           const isUserMatch =
-            Boolean(matched) ||
-            (currentU && bd.userId && bd.userId === currentU.id) ||
-            (cleanUserPhone.length >= 10 && bdPhone.length >= 10 && bdPhone.endsWith(cleanUserPhone.slice(-10)));
+            (bd.userId && bd.userId === currentU.id) ||
+            (matched && matched.userId && matched.userId === currentU.id) ||
+            (cleanUserPhone.length === 10 && bdPhone.length === 10 && bdPhone === cleanUserPhone);
 
-          if (isUserMatch || (!bd.userId && !bdPhone)) {
+          if (isUserMatch) {
             if (!creditedList.includes(bd.id)) {
               const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
               const defaultBal = isUsdt ? 5995 : 565;
@@ -439,26 +447,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 2. Also reconcile any locally completed deposits that haven't been credited yet
-    allDeps.forEach((ld) => {
-      const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited';
-      if (isCompleted && !creditedList.includes(ld.id)) {
-        const ldPhone = (ld.userPhone || '').replace(/[^0-9]/g, '');
-        const isUserMatch =
-          !currentU ||
-          (ld.userId && ld.userId === currentU.id) ||
-          (cleanUserPhone.length >= 10 && ldPhone.length >= 10 && ldPhone.endsWith(cleanUserPhone.slice(-10)));
+    if (currentU && currentU.id) {
+      allDeps.forEach((ld) => {
+        const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited';
+        const isSynthetic = ld.id && (ld.id.startsWith('TEST_') || ld.id.startsWith('FAKE_') || ld.id.startsWith('DEP_PROD_') || ld.id.startsWith('DEMO_'));
+        if (isCompleted && !isSynthetic && !creditedList.includes(ld.id)) {
+          const ldPhone = (ld.userPhone || '').replace(/[^0-9]/g, '');
+          const isUserMatch =
+            (ld.userId && ld.userId === currentU.id) ||
+            (cleanUserPhone.length === 10 && ldPhone.length === 10 && ldPhone === cleanUserPhone);
 
-        if (isUserMatch) {
-          const isUsdt = ld.method === 'USDT' || ld.id.startsWith('USDT');
-          const defaultBal = isUsdt ? 5995 : 565;
-          const defaultQuota = isUsdt ? 5500 : 500;
-          const amountToAdd = Number(ld.totalInr) || defaultBal;
-          const quotaToAdd = Number(ld.amount) || defaultQuota;
-          console.log(`[SYNC] Reconciling uncredited local deposit ${ld.id}: +₹${amountToAdd}`);
-          creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld);
+          if (isUserMatch) {
+            const isUsdt = ld.method === 'USDT' || ld.id.startsWith('USDT');
+            const defaultBal = isUsdt ? 5995 : 565;
+            const defaultQuota = isUsdt ? 5500 : 500;
+            const amountToAdd = Number(ld.totalInr) || defaultBal;
+            const quotaToAdd = Number(ld.amount) || defaultQuota;
+            console.log(`[SYNC] Reconciling uncredited local deposit ${ld.id}: +₹${amountToAdd}`);
+            creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld);
+          }
         }
-      }
-    });
+      });
+    }
 
     // Merge deposits into React state & storage
     if (backendDeps && backendDeps.length > 0) {
@@ -528,23 +538,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!depId && !event.wallet) return;
 
       if (event.action === 'approved' || event.type === 'DEPOSIT_APPROVED' || event.type === 'WALLET_UPDATED') {
+        const currentU = storage.getUser();
+        // STRICT: If no user is logged in, never credit wallet
+        if (!currentU || !currentU.id) return;
+
+        // STRICT: Never process synthetic test events into live client wallet
+        const isSynthetic = depId && (depId.startsWith('TEST_') || depId.startsWith('FAKE_') || depId.startsWith('DEP_PROD_') || depId.startsWith('DEMO_'));
+        if (isSynthetic) return;
+
         const allCurrentDeps = storage.getDeposits();
         const matched = allCurrentDeps.find((d) => d.id === depId);
-        const currentU = storage.getUser();
+        const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
+        const eventPhone = (event.userPhone || (matched ? matched.userPhone : '') || '').replace(/[^0-9]/g, '');
 
-        let isUserMatch = true;
-        if (currentU) {
-          const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
-          const eventPhone = (event.userPhone || (matched ? matched.userPhone : '') || '').replace(/[^0-9]/g, '');
-          isUserMatch = 
-            Boolean(matched) ||
-            (event.userId && event.userId === currentU.id) ||
-            (cleanUserPhone.length >= 10 && eventPhone.length >= 10 && eventPhone.endsWith(cleanUserPhone.slice(-10))) ||
-            (!event.userId && !eventPhone);
+        // STRICT OWNERSHIP: Must match this user's id, matching local deposit made by this user, or exact 10-digit phone
+        const isUserMatch = 
+          (event.userId && event.userId === currentU.id) ||
+          (matched && matched.userId && matched.userId === currentU.id) ||
+          (cleanUserPhone.length === 10 && eventPhone.length === 10 && eventPhone === cleanUserPhone);
 
-          if (!isUserMatch && (event.userId || eventPhone)) {
-            return;
-          }
+        if (!isUserMatch) {
+          // Event belongs to a different player or is an unassigned event - DO NOT CREDIT
+          return;
         }
 
         // Credit wallet idempotently and safely
@@ -779,7 +794,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const initialWallet: Wallet = {
       userId: newUser.id,
-      balance: 50.00,
+      balance: 0.00,
       quota: 0.00,
       referralBalance: 0.00,
       todayReceive: 0.00,
@@ -803,18 +818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     storage.setUser(newUser);
     storage.setWallet(initialWallet);
 
-    const welcomeTx: Transaction = {
-      id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-      userId: newUser.id,
-      type: 'reward',
-      amount: 50.00,
-      currency: 'INR',
-      status: 'completed',
-      timestamp: new Date().toISOString(),
-      note: '₹50 Signup Welcome Cash Bonus',
-    };
-    setTransactions((prev) => [welcomeTx, ...prev]);
-    addToast('success', 'Account registered! ₹50 Welcome Bonus added to your wallet!');
+    addToast('success', 'Account registered successfully! Welcome to EasyBasePoint.');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return { success: true, message: 'Registration successful' };
   };
