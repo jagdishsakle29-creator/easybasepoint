@@ -107,15 +107,18 @@
     "id": "DEP_PROD_VERIFIED_1",
     "userId": "USER_101",
     "amount": 2100,
-    "totalInr": 2373,
+    "totalInr": 565,
     "utrNumber": "123456789012",
     "paymentScreenshot": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
     "remark": "cousin",
     "method": "INR",
     "userPhone": "",
     "proofUrl": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
-    "status": "pending_verification",
-    "credited": false,
-    "createdAt": "2026-09-12T20:51:56.591Z"
+    "status": "completed",
+    "credited": true,
+    "createdAt": "2026-09-12T20:51:56.591Z",
+    "approvedAt": "2026-09-12T20:51:58.673Z",
+    "creditedAt": "2026-09-12T20:51:58.673Z",
+    "updatedAt": "2026-09-12T20:51:58.673Z"
   }
 }
