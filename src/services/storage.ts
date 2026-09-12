@@ -28,7 +28,14 @@ const STORAGE_KEYS = {
   BANK_CARDS: 'ebp_v2_bank_cards',
   UPIS: 'ebp_v2_upis',
   USDTS: 'ebp_v2_usdts',
+  ACCOUNTS: 'ebp_v2_accounts',
 };
+
+export interface RegisteredAccount {
+  user: User;
+  password?: string;
+  wallet: Wallet;
+}
 
 export const defaultUser: User | null = null;
 
@@ -416,6 +423,53 @@ export const storage = {
   },
   setAuditLogs(logs: AuditLog[]): void {
     localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+  },
+
+  getAccounts(): RegisteredAccount[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+    return raw ? JSON.parse(raw) : [];
+  },
+  saveAccount(account: RegisteredAccount): void {
+    const accounts = this.getAccounts();
+    const cleanPhone = account.user.phone.replace(/[^0-9]/g, '');
+    const cleanEmail = (account.user.email || '').toLowerCase().trim();
+
+    const index = accounts.findIndex((a) => {
+      const aPhone = a.user.phone.replace(/[^0-9]/g, '');
+      const aEmail = (a.user.email || '').toLowerCase().trim();
+      return (
+        (cleanPhone && aPhone.endsWith(cleanPhone.slice(-10))) ||
+        (cleanEmail && aEmail === cleanEmail)
+      );
+    });
+
+    if (index >= 0) {
+      accounts[index] = account;
+    } else {
+      accounts.push(account);
+    }
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+  },
+  findAccount(emailOrPhone: string): RegisteredAccount | undefined {
+    if (!emailOrPhone) return undefined;
+    const accounts = this.getAccounts();
+    const clean = emailOrPhone.trim().toLowerCase();
+    const cleanDigits = emailOrPhone.replace(/[^0-9]/g, '');
+
+    return accounts.find((a) => {
+      const aPhone = a.user.phone.replace(/[^0-9]/g, '');
+      const aEmail = (a.user.email || '').toLowerCase().trim();
+      
+      // Check phone match
+      if (cleanDigits.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) {
+        return true;
+      }
+      // Check email match
+      if (clean.includes('@') && aEmail === clean) {
+        return true;
+      }
+      return false;
+    });
   },
 
   resetAll(): void {

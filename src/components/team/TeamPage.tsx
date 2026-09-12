@@ -9,7 +9,9 @@ import {
   UserCheck, 
   ShieldCheck, 
   ExternalLink,
-  Plus
+  Plus,
+  MessageCircle,
+  Link as LinkIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
@@ -19,10 +21,12 @@ export const TeamPage: React.FC = () => {
   const { user, wallet, team, settings, addToast } = useApp();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedBitly, setCopiedBitly] = useState(false);
   const [activeTier, setActiveTier] = useState<'ALL' | 1 | 2>('ALL');
 
   const referralCode = user?.referralCode || 'EBP-98241';
   const referralUrl = `${window.location.origin}/?ref=${referralCode}`;
+  const bitlyShortUrl = `https://bit.ly/ebp-${referralCode.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralCode);
@@ -35,9 +39,24 @@ export const TeamPage: React.FC = () => {
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralUrl);
     setCopiedLink(true);
-    addToast('success', 'Referral link copied to clipboard!');
+    addToast('success', 'Original referral link copied!');
     confetti({ particleCount: 40, spread: 70, origin: { y: 0.8 } });
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopyBitly = () => {
+    navigator.clipboard.writeText(bitlyShortUrl);
+    setCopiedBitly(true);
+    addToast('success', 'Bit.ly Short Referral Link copied!');
+    confetti({ particleCount: 40, spread: 70, origin: { y: 0.8 } });
+    setTimeout(() => setCopiedBitly(false), 2000);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(
+      `🎁 Claim ₹50 Free Bonus on EasyBasePoint!\n\nEarn daily high returns & 20% lifetime commissions.\n\nRegister here: ${bitlyShortUrl}\n(Invite Code: ${referralCode})`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   const filteredTeam = team.filter((m) => {
@@ -126,48 +145,76 @@ export const TeamPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Invite Code & Share Section */}
-      <div className="glass-card rounded-3xl p-5 space-y-3.5">
+      {/* Invite Code & Bit.ly Short Link Section (Single Vibrant Color Theme) */}
+      <div className="rounded-3xl p-5 space-y-3.5 bg-gradient-to-br from-orange-500/10 via-amber-500/10 to-orange-500/15 border-2 border-orange-500/40 shadow-lg shadow-orange-500/5 relative overflow-hidden">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Share2 className="w-4 h-4 text-[#FF6B00]" />
-            <h3 className="font-extrabold text-slate-800 text-sm tracking-wide font-outfit uppercase">
-              Invite Friends
-            </h3>
+            <div className="w-8 h-8 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm">
+              <Share2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-sm tracking-wide font-outfit uppercase">
+                Invite Friends & Earn 20%
+              </h3>
+              <p className="text-[11px] text-orange-800 font-semibold">Share short bit.ly link for instant ₹50 bonus</p>
+            </div>
           </div>
-          <span className="text-xs text-slate-400">One-click copy</span>
+          <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#FF6B00] text-white shadow-xs">
+            20% Lifetime
+          </span>
         </div>
 
-        {/* Invite Code Box */}
-        <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90">
+        {/* 1. Bit.ly Short Referral Link Box */}
+        <div className="p-3.5 bg-white/95 rounded-2xl border border-orange-300 shadow-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold text-[#FF6B00] uppercase tracking-wider flex items-center gap-1">
+              <LinkIcon className="w-3 h-3" />
+              <span>Bit.ly Short Referral Link</span>
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              Auto Redirect
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 p-2 bg-orange-50/70 rounded-xl border border-orange-200">
+            <span className="font-mono text-xs font-bold text-orange-950 truncate flex-1 select-all">
+              {bitlyShortUrl}
+            </span>
+            <button
+              onClick={handleCopyBitly}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-extrabold text-xs rounded-lg shadow-orange-glow transition active:scale-95 flex-shrink-0"
+            >
+              {copiedBitly ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedBitly ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Direct 1-Click WhatsApp Share Button */}
+        <button
+          onClick={handleShareWhatsApp}
+          className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition active:scale-98 flex items-center justify-center gap-2"
+        >
+          <MessageCircle className="w-4 h-4 fill-white" />
+          <span>Share Short Link on WhatsApp</span>
+        </button>
+
+        {/* 3. Invite Code & Full URL Accordion/Box */}
+        <div className="flex items-center justify-between p-3 bg-white/90 rounded-2xl border border-orange-200">
           <div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              YOUR INVITATION CODE
+            <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+              INVITE CODE
             </div>
-            <div className="text-lg font-black text-[#0B1528] font-mono tracking-wider">
+            <div className="text-base font-black text-slate-900 font-mono tracking-wider">
               {referralCode}
             </div>
           </div>
           <button
             onClick={handleCopyCode}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-xl shadow-orange-glow transition active:scale-95 touch-press"
+            className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-95"
           >
-            {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
-          </button>
-        </div>
-
-        {/* Referral URL Box */}
-        <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
-          <span className="font-mono text-xs text-slate-600 truncate flex-1 mr-2 select-all">
-            {referralUrl}
-          </span>
-          <button
-            onClick={handleCopyLink}
-            className="p-2 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF6B00] transition flex-shrink-0"
-            title="Copy Referral Link"
-          >
-            {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
           </button>
         </div>
       </div>

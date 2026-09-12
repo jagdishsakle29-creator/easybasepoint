@@ -52,6 +52,8 @@ export const ProfilePage: React.FC = () => {
   const [totpCode, setTotpCode] = useState('');
 
   // Support ticket form state
+  const [supportCategory, setSupportCategory] = useState('Deposit Issue (UTR / Pending)');
+  const [ticketRefNumber, setTicketRefNumber] = useState('');
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketMessage, setTicketMessage] = useState('');
 
@@ -79,14 +81,17 @@ export const ProfilePage: React.FC = () => {
 
   const handleSendTicket = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ticketSubject || !ticketMessage) {
-      addToast('error', 'Please complete the support form.');
+    if (!ticketMessage.trim()) {
+      addToast('error', 'Please describe your problem in detail.');
       return;
     }
-    addSupportTicket(ticketSubject, ticketMessage);
+    const fullSubject = `[${supportCategory}] ${ticketSubject ? ticketSubject : supportCategory}${ticketRefNumber ? ` (Ref/UTR: ${ticketRefNumber})` : ''}`;
+    addSupportTicket(fullSubject, ticketMessage);
     setTicketSubject('');
     setTicketMessage('');
+    setTicketRefNumber('');
     setActiveModal(null);
+    addToast('success', 'Support ticket submitted! Support manager will contact you.');
   };
 
   const menuItems = [
@@ -411,44 +416,112 @@ export const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Contact Us Modal */}
+      {/* Contact Us Modal with Categorized Problem Selection */}
       {activeModal === 'contactUs' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 font-outfit">Contact Support</h3>
+              <div>
+                <h3 className="font-bold text-slate-900 font-outfit">Contact Support & Help Desk</h3>
+                <p className="text-[11px] text-slate-400">Select your problem category for fastest resolution</p>
+              </div>
               <button onClick={() => setActiveModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSendTicket} className="space-y-3">
+
+            {/* Instant Official Telegram Quick Action */}
+            <a
+              href={settings.telegramChannelUrl || 'https://t.me/easybasepoint'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-3 rounded-2xl bg-sky-50 border border-sky-200/80 hover:bg-sky-100 transition group"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <Send className="w-4 h-4 text-sky-600" />
+                <span className="font-bold text-sky-900">Live Telegram Support Manager</span>
+              </div>
+              <span className="text-[10px] font-black bg-sky-500 text-white px-2 py-0.5 rounded-full uppercase">
+                @easybasepoint
+              </span>
+            </a>
+
+            <form onSubmit={handleSendTicket} className="space-y-3.5">
+              {/* Problem Category Selection Options */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                  Select Problem / Issue Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'Deposit Issue (UTR / Pending)', label: '💳 Deposit / UTR Issue' },
+                    { id: 'Withdrawal Pending / Delay', label: '💸 Withdrawal Delay' },
+                    { id: 'Login / OTP / Account Problem', label: '🔑 Login / OTP Problem' },
+                    { id: 'Quota Package & Daily Yield', label: '📈 Quota & 13% Return' },
+                    { id: '20% Referral Commission Query', label: '🎁 Referral Bonus' },
+                    { id: 'General / Other Inquiry', label: '❓ Other Issue' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSupportCategory(cat.id)}
+                      className={`p-2.5 rounded-xl border text-left text-[11px] font-bold transition ${
+                        supportCategory === cat.id
+                          ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00] shadow-xs'
+                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* UTR / Transaction / Order Reference (Optional) */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Subject</label>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Transaction / UTR Reference (If applicable)
+                </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Deposit inquiry, withdrawal status"
+                  placeholder="e.g. 12-digit UTR, Order ID, or TXN Number"
+                  value={ticketRefNumber}
+                  onChange={(e) => setTicketRefNumber(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              {/* Brief Subject */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">Subject (Short Summary)</label>
+                <input
+                  type="text"
+                  placeholder={`e.g. Help needed regarding ${supportCategory}`}
                   value={ticketSubject}
                   onChange={(e) => setTicketSubject(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
+
+              {/* Message Details */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Message</label>
+                <label className="text-[11px] font-semibold text-slate-500">Describe Your Problem in Detail</label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="Describe your question or issue in detail..."
+                  placeholder="Please specify exact details so our support team can resolve it immediately..."
                   value={ticketMessage}
                   onChange={(e) => setTicketMessage(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
+
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#FF6B00] text-white rounded-xl text-xs font-bold shadow-orange-glow"
+                className="w-full py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white rounded-2xl text-xs font-extrabold shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2"
               >
-                Submit Ticket
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit Support Ticket</span>
               </button>
             </form>
           </div>

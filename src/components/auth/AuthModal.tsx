@@ -11,7 +11,9 @@ import {
   ArrowRight,
   MessageCircle,
   ShieldCheck,
-  Calendar
+  Calendar,
+  AlertCircle,
+  Send
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -32,7 +34,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
 
   // Form states
+  const [loginCredential, setLoginCredential] = useState(''); // Email or Phone
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [age, setAge] = useState('22');
   const [password, setPassword] = useState('');
@@ -41,6 +45,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // WhatsApp OTP verification states
   const [otpCode, setOtpCode] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
 
@@ -69,16 +74,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Generate confirmation code and open WhatsApp
   const handleSendWhatsAppOtp = () => {
-    if (!phone || phone.length < 10) {
-      addToast('error', 'Please enter a valid WhatsApp mobile number first.');
+    const cleanDigits = phone.replace(/[^0-9]/g, '');
+    if (!cleanDigits || cleanDigits.length < 10) {
+      addToast('error', 'Please enter a valid 10-digit WhatsApp mobile number first.');
       return;
     }
+
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
     setIsOtpSent(true);
     setOtpTimer(60);
-    const simulatedOtp = '8492';
-    setOtpCode(simulatedOtp);
-    addToast('success', `WhatsApp verification code ${simulatedOtp} sent to ${phone}!`);
+
+    const waMsg = encodeURIComponent(
+      `EasyBasePoint Account Opening Confirmation Code: ${code}\n\nPlease enter this code on the website to confirm your account and claim your ₹50 Instant Welcome Bonus!`
+    );
+    const targetPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const waUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${waMsg}`;
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    addToast('success', `WhatsApp Confirmation Code ${code} sent to WhatsApp!`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,9 +106,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (mode === 'login') {
-      const ok = login(phone, password);
-      if (ok) onClose();
+      const targetCred = loginCredential.trim();
+      if (!targetCred) {
+        addToast('error', 'Please enter your registered email or mobile number.');
+        return;
+      }
+      if (!password) {
+        addToast('error', 'Please enter your password.');
+        return;
+      }
+
+      const res = login(targetCred, password);
+      if (res.success) {
+        onClose();
+      } else if (res.notFound) {
+        // Account does not exist -> Redirect to Register tab as requested!
+        if (targetCred.includes('@')) {
+          setEmail(targetCred);
+        } else {
+          setPhone(targetCred);
+        }
+        setMode('register');
+      }
     } else if (mode === 'register') {
+      if (!name.trim()) {
+        addToast('error', 'Please enter your full name.');
+        return;
+      }
+      if (!phone.trim() || phone.replace(/[^0-9]/g, '').length < 10) {
+        addToast('error', 'Please enter a valid 10-digit mobile number.');
+        return;
+      }
+      if (!isOtpSent) {
+        addToast('error', 'Please click "Send WhatsApp Code" to verify your WhatsApp number.');
+        return;
+      }
+      if (otpCode.trim() !== generatedOtp.trim()) {
+        addToast('error', 'Incorrect WhatsApp confirmation code! Please check your code or click Resend.');
+        return;
+      }
       if (password !== confirmPassword) {
         addToast('error', 'Passwords do not match.');
         return;
@@ -101,8 +153,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         addToast('error', 'Password must be at least 6 characters.');
         return;
       }
-      const ok = register(name || 'EasyBase Member', `${phone.replace(/\s+/g, '')}@easybase.in`, phone, password, referralCode);
-      if (ok) onClose();
+
+      const cleanPhone = phone.trim();
+      const cleanEmail = (email && email.trim()) || `${cleanPhone.replace(/[^0-9]/g, '')}@ebp.com`;
+
+      const res = register(name.trim(), cleanEmail, cleanPhone, password, referralCode);
+      if (res.success) {
+        onClose();
+      } else if (res.alreadyExists) {
+        // Account already exists -> Switch to Login tab!
+        setLoginCredential(cleanPhone);
+        setMode('login');
+      }
     } else {
       addToast('info', 'Password reset instructions sent to your WhatsApp number.');
       setMode('login');
@@ -154,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Sign In
+              Sign In (Email / Phone)
             </button>
             <button
               type="button"
@@ -169,161 +231,230 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {mode === 'register' && (
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">Full Name</label>
-              <div className="relative mt-1">
-                <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Mobile Phone Number */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-500">Mobile Phone Number</label>
-            <div className="relative mt-1">
-              <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter 10-digit mobile number"
-                className="w-full pl-9 pr-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
-          </div>
-
-          {/* Age Requirement Field */}
-          <div>
-            <div className="flex justify-between items-center">
-              <label className="text-[11px] font-semibold text-slate-500">Age</label>
-              <span className="text-[10px] text-emerald-600 font-bold">18+ Eligible</span>
-            </div>
-            <div className="relative mt-1">
-              <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="number"
-                min={18}
-                max={99}
-                required
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                placeholder="Must be 18 or older"
-                className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
-          </div>
-
-          {/* WhatsApp OTP Verification (On Register) */}
-          {mode === 'register' && (
-            <div>
-              <div className="flex justify-between items-center">
+          {/* ========================================================
+              SIGN IN MODE
+             ======================================================== */}
+          {mode === 'login' && (
+            <>
+              {/* Email or Phone Input */}
+              <div>
                 <label className="text-[11px] font-semibold text-slate-500">
-                  WhatsApp Verification Code
+                  Email Address or Mobile Phone Number
                 </label>
-                <button
-                  type="button"
-                  disabled={otpTimer > 0}
-                  onClick={handleSendWhatsAppOtp}
-                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 disabled:opacity-50"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send to WhatsApp'}</span>
-                </button>
+                <div className="relative mt-1">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={loginCredential}
+                    onChange={(e) => setLoginCredential(e.target.value)}
+                    placeholder="Enter email or 10-digit mobile number"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
               </div>
-              <div className="relative mt-1">
-                <MessageCircle className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="Enter 4-digit WhatsApp OTP"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
-          )}
 
-          {/* Password */}
-          {mode !== 'forgot' && (
-            <div>
-              <div className="flex justify-between items-center">
-                <label className="text-[11px] font-semibold text-slate-500">Password</label>
-                {mode === 'login' && (
+              {/* Password */}
+              <div>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-semibold text-slate-500">Password</label>
                   <button
                     type="button"
                     onClick={() => setMode('forgot')}
-                    className="text-[11px] text-[#FF6B00] hover:underline"
+                    className="text-[11px] text-[#FF6B00] hover:underline font-medium"
                   >
                     Forgot Password?
                   </button>
+                </div>
+                <div className="relative mt-1">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your account password"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ========================================================
+              REGISTER MODE
+             ======================================================== */}
+          {mode === 'register' && (
+            <>
+              {/* Full Name */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">Full Name</label>
+                <div className="relative mt-1">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* Email Address */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">Email Address</label>
+                <div className="relative mt-1">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. yourname@gmail.com"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile Phone Number */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Mobile Phone Number (WhatsApp Enabled)
+                </label>
+                <div className="relative mt-1">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="10-digit mobile number"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* Age Requirement Field */}
+              <div>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-semibold text-slate-500">Age</label>
+                  <span className="text-[10px] text-emerald-600 font-bold">18+ Eligible</span>
+                </div>
+                <div className="relative mt-1">
+                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="number"
+                    min={18}
+                    max={99}
+                    required
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="Must be 18 or older"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* WhatsApp Account Opening Confirmation Code */}
+              <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] font-extrabold text-emerald-900 flex items-center gap-1">
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>WhatsApp Account Confirmation Code</span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={otpTimer > 0}
+                    onClick={handleSendWhatsAppOtp}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-extrabold shadow-xs transition disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send to WhatsApp'}</span>
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="Enter 4-digit code sent to WhatsApp"
+                    className="w-full px-3 py-2 text-xs font-mono tracking-widest text-center font-black rounded-xl border border-emerald-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {isOtpSent && generatedOtp && (
+                  <div className="flex items-center justify-between text-[10px] text-emerald-800 pt-0.5">
+                    <span>Code sent to WhatsApp! Check or enter:</span>
+                    <span className="font-mono font-black bg-emerald-200/80 px-1.5 py-0.5 rounded text-emerald-950">
+                      {generatedOtp}
+                    </span>
+                  </div>
                 )}
               </div>
-              <div className="relative mt-1">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+
+              {/* Password */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">Create Password</label>
+                <div className="relative mt-1">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">Confirm Password</label>
+                <div className="relative mt-1">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
+
+              {/* Referral Code (Optional) */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Referral Code (Optional)
+                </label>
                 <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  placeholder="EBP-98241"
+                  className="w-full mt-1 px-3 py-2.5 text-xs font-mono uppercase rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
-            </div>
+            </>
           )}
 
-          {mode === 'register' && (
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">Confirm Password</label>
-              <div className="relative mt-1">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
-          )}
-
-          {mode === 'register' && (
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Referral Code (Optional)
-              </label>
-              <input
-                type="text"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                placeholder="EBP-98241"
-                className="w-full mt-1 px-3 py-2.5 text-xs font-mono uppercase rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
-          )}
-
+          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-3.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-extrabold text-xs rounded-2xl shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 pt-3"
+            className="w-full py-3.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-extrabold text-xs rounded-2xl shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 pt-3 mt-2"
           >
             <span>
               {mode === 'login'
                 ? 'Sign In & Enter Dashboard'
                 : mode === 'register'
-                ? 'Verify & Complete Registration'
+                ? 'Confirm Code & Claim ₹50 Free Bonus'
                 : 'Send WhatsApp Reset Link'}
             </span>
             <ArrowRight className="w-4 h-4" />

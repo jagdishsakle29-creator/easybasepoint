@@ -50,8 +50,8 @@ interface AppContextType {
   setIsMobilePreview: (val: boolean) => void;
   
   // Auth
-  login: (emailOrPhone: string, pass: string) => boolean;
-  register: (name: string, email: string, phone: string, pass: string, refCode?: string) => boolean;
+  login: (emailOrPhone: string, pass: string) => { success: boolean; message: string; notFound?: boolean };
+  register: (name: string, email: string, phone: string, pass: string, refCode?: string) => { success: boolean; message: string; alreadyExists?: boolean };
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   
@@ -181,38 +181,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Auth Functions
-  const login = (emailOrPhone: string, _pass: string) => {
+  const login = (emailOrPhone: string, pass: string): { success: boolean; message: string; notFound?: boolean } => {
     if (!emailOrPhone) {
-      addToast('error', 'Please provide an email or mobile number.');
-      return false;
+      addToast('error', 'Please enter your mobile number or email.');
+      return { success: false, message: 'Missing credentials' };
     }
-    const loggedUser: User = {
-      id: `usr-${Date.now()}`,
-      name: emailOrPhone.includes('@') ? emailOrPhone.split('@')[0] : 'Member',
-      email: emailOrPhone.includes('@') ? emailOrPhone : `${emailOrPhone.replace(/[^0-9]/g, '')}@ebp.com`,
-      phone: emailOrPhone,
-      referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
-      isGoogleAuthEnabled: false,
-      role: 'user',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    };
-    setUser(loggedUser);
-    addToast('success', `Welcome back, ${loggedUser.name}!`);
+
+    const existingAccount = storage.findAccount(emailOrPhone);
+    if (!existingAccount) {
+      addToast('error', 'Account not found! Please register first to create your account.');
+      return { success: false, notFound: true, message: 'Account not found. Please register first.' };
+    }
+
+    if (existingAccount.password && existingAccount.password !== pass) {
+      addToast('error', 'Incorrect password! Please check and try again.');
+      return { success: false, message: 'Incorrect password.' };
+    }
+
+    setUser(existingAccount.user);
+    setWallet(existingAccount.wallet);
+    addToast('success', `Welcome back, ${existingAccount.user.name}!`);
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
-    return true;
+    return { success: true, message: 'Login successful' };
   };
 
-  const register = (name: string, email: string, phone: string, _pass: string, refCode?: string) => {
+  const register = (
+    name: string, 
+    email: string, 
+    phone: string, 
+    pass: string, 
+    refCode?: string
+  ): { success: boolean; message: string; alreadyExists?: boolean } => {
     if (!name || !phone) {
-      addToast('error', 'Please fill in all required fields.');
-      return false;
+      addToast('error', 'Please fill in your name and mobile phone.');
+      return { success: false, message: 'Required fields missing' };
     }
+
+    const existingPhone = storage.findAccount(phone);
+    const existingEmail = email ? storage.findAccount(email) : null;
+    if (existingPhone || existingEmail) {
+      addToast('info', 'An account already exists with this phone or email! Please Sign In.');
+      return { success: false, alreadyExists: true, message: 'Account already exists. Please Sign In.' };
+    }
+
+    const cleanPhone = phone.trim();
+    const cleanEmail = (email && email.trim()) || `${cleanPhone.replace(/[^0-9]/g, '')}@ebp.com`;
+
     const newUser: User = {
       id: `usr-${Date.now()}`,
-      name,
-      email: email || `${phone.replace(/[^0-9]/g, '')}@ebp.com`,
-      phone: phone || '+91 98000 00000',
+      name: name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
       referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
       referredBy: refCode || undefined,
       isGoogleAuthEnabled: false,
@@ -220,11 +239,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'active',
       createdAt: new Date().toISOString(),
     };
-    setUser(newUser);
-    
-    // Starting amount: strictly ₹50 Sign-in Bonus Credited directly to wallet balance
-    setWallet((prev) => ({
-      ...prev,
+
+    const initialWallet: Wallet = {
       userId: newUser.id,
       balance: 50.00,
       quota: 0.00,
@@ -235,7 +251,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       todayTeamMembers: 0,
       totalTeamRecharge: 0.00,
       totalTeamMembers: 0,
-    }));
+    };
+
+    // Save registered account to local persistence
+    storage.saveAccount({
+      user: newUser,
+      password: pass,
+      wallet: initialWallet,
+    });
+
+    setUser(newUser);
+    setWallet(initialWallet);
 
     const welcomeTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -250,7 +276,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions((prev) => [welcomeTx, ...prev]);
     addToast('success', 'Account registered! ₹50 Welcome Bonus added to your wallet!');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
-    return true;
+    return { success: true, message: 'Registration successful' };
   };
 
   const logout = () => {
