@@ -99,7 +99,7 @@ export const DepositPage: React.FC = () => {
     }
     const cleanUtr = utrRef.trim();
     if (!cleanUtr || cleanUtr.length !== 12) {
-      addToast('error', '⚠️ 12-Digit UTR dalna compulsory hai! UTR dale bina payment approval ke liye nahi bheja ja sakta.');
+      addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit for approval.');
       return;
     }
     setIsProcessingTopUp(true);
@@ -108,7 +108,7 @@ export const DepositPage: React.FC = () => {
       setIsProcessingTopUp(false);
       setIsTopUpModalOpen(false);
       setUtrRef('');
-      addToast('success', 'Payment check karke 5-7 minutes me aapke account me balance add ho jayega.');
+      addToast('success', 'Deposit submitted! Balance will be credited within 5-7 minutes after verification.');
     }, 800);
   };
 
@@ -689,7 +689,7 @@ export const DepositPage: React.FC = () => {
                         href={`phonepe://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
                         onClick={() => {
                           navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening PhonePe... ₹${topUpAmount} pay karke 12-digit UTR yahan enter karein.`);
+                          addToast('info', `Opening PhonePe... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
                         }}
                         className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
                       >
@@ -707,7 +707,7 @@ export const DepositPage: React.FC = () => {
                         href={`paytmmp://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
                         onClick={() => {
                           navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening Paytm... ₹${topUpAmount} pay karke 12-digit UTR yahan enter karein.`);
+                          addToast('info', `Opening Paytm... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
                         }}
                         className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
                       >
@@ -725,7 +725,7 @@ export const DepositPage: React.FC = () => {
                         href={`tez://upi/pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
                         onClick={() => {
                           navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening Google Pay... ₹${topUpAmount} pay karke 12-digit UTR yahan enter karein.`);
+                          addToast('info', `Opening Google Pay... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
                         }}
                         className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
                       >
@@ -743,7 +743,7 @@ export const DepositPage: React.FC = () => {
                         href={`upi://pay?pa=${encodeURIComponent(settings.adminUpiId || 'basepnt@ybl')}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`}
                         onClick={() => {
                           navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('info', `Opening UPI App... ₹${topUpAmount} pay karke 12-digit UTR yahan enter karein.`);
+                          addToast('info', `Opening UPI App... Pay ₹${topUpAmount} and enter the 12-digit UTR below.`);
                         }}
                         className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer"
                       >
@@ -830,21 +830,21 @@ export const DepositPage: React.FC = () => {
                       <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
                       <span>
                         {utrRef.length === 0
-                          ? '⚠️ 12-digit numeric UTR dalna compulsory hai! UTR dale bina payment submit nahi hoga.'
-                          : `⚠️ UTR me ${12 - utrRef.length} digits aur dalein (strictly 12 numbers required).`}
+                          ? '⚠️ 12-digit numeric UTR is mandatory! Enter 12 digits from receipt to submit.'
+                          : `⚠️ Please enter ${12 - utrRef.length} more digits (strictly 12 digits required).`}
                       </span>
                     </div>
                   )}
 
-                  {/* SLA Guarantee Notice in Hindi */}
+                  {/* SLA Guarantee Notice */}
                   <div className="p-3 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
                     <Clock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-black text-xs text-emerald-300 font-outfit">
-                        Payment check karke 5-7 minutes me aapke account me balance add ho jayega.
+                        Payment will be verified and balance will be credited within 5-7 minutes.
                       </p>
                       <p className="text-[10px] text-emerald-200/80 mt-0.5">
-                        Admin review confirmation popup will appear once approved by admin.
+                        An instant confirmation celebration popup will appear once approved by admin.
                       </p>
                     </div>
                   </div>

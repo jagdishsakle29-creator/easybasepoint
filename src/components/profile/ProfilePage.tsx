@@ -34,12 +34,12 @@ const SUPPORT_CATEGORIES = [
     badge: '5-7 Mins Fast',
     refLabel: '12-Digit Bank UTR / Order ID',
     refPlaceholder: 'Enter 12-digit UTR from PhonePe/GPay/Paytm',
-    helpTip: 'Payment check karke 5-7 minutes me account me balance add ho jata hai. Kripya apna 12-digit UTR sahi se verify karein.',
+    helpTip: 'Deposits are credited within 5-7 minutes after verification. Please ensure your 12-digit UTR is correct.',
     subIssues: [
-      { id: 'dep-not-added', title: 'Payment sent but balance not added in 5-7 mins', desc: 'Mene PhonePe/GPay se payment kar diya he lekin wallet me balance add nahi hua.' },
-      { id: 'dep-wrong-utr', title: 'Entered wrong 12-digit UTR by mistake', desc: 'Mene deposit form me galti se galat UTR number submit kar diya tha.' },
-      { id: 'dep-qr-failed', title: 'PhonePe QR / UPI transaction failed or stuck', desc: 'Bank se paise kat gaye lekin transaction pending dikh raha he.' },
-      { id: 'dep-manual-verify', title: 'Paid to basepnt@ybl & need priority approval', desc: 'Mene official UPI basepnt@ybl par direct payment kiya he, kripya verify karein.' },
+      { id: 'dep-not-added', title: 'Payment sent but balance not added in 5-7 mins', desc: 'Payment completed via PhonePe/GPay/UPI, but wallet balance has not been credited yet.' },
+      { id: 'dep-wrong-utr', title: 'Entered wrong 12-digit UTR by mistake', desc: 'An incorrect 12-digit UTR number was submitted in the deposit form by mistake.' },
+      { id: 'dep-qr-failed', title: 'PhonePe QR / UPI transaction failed or stuck', desc: 'Money was debited from bank account, but UPI payment shows pending or failed.' },
+      { id: 'dep-manual-verify', title: 'Paid to basepnt@ybl & need priority approval', desc: 'Direct payment made to official UPI basepnt@ybl; requesting priority verification.' },
     ]
   },
   { 
@@ -51,10 +51,10 @@ const SUPPORT_CATEGORIES = [
     refPlaceholder: 'e.g. ₹5,000 withdrawal',
     helpTip: 'Withdrawals have 0% deduction fee. Normal processing time is 15-30 minutes directly to your bank/UPI.',
     subIssues: [
-      { id: 'with-delay', title: 'Withdrawal pending for more than 30 mins', desc: 'Mene withdrawal request lagayi thi, abhi tak account me transfer nahi hua.' },
-      { id: 'with-wa-otp', title: 'WhatsApp security verification code not received', desc: 'Withdrawal karte time WhatsApp confirmation code mere number par nahi aa raha.' },
-      { id: 'with-wrong-bank', title: 'Incorrect Bank Account / IFSC / UPI ID entered', desc: 'Withdrawal address/bank details me typing mistake ho gayi thi, update karein.' },
-      { id: 'with-rejected', title: 'Withdrawal rejected or returned to balance', desc: 'Meri withdrawal request reject hui he, kripya check karke batayein.' },
+      { id: 'with-delay', title: 'Withdrawal pending for more than 30 mins', desc: 'Withdrawal request submitted over 30 minutes ago, but funds not received yet.' },
+      { id: 'with-wa-otp', title: 'WhatsApp security verification code not received', desc: 'WhatsApp 4-digit security verification code is not being delivered to my phone.' },
+      { id: 'with-wrong-bank', title: 'Incorrect Bank Account / IFSC / UPI ID entered', desc: 'Typo or incorrect bank account number, IFSC code, or UPI ID was entered.' },
+      { id: 'with-rejected', title: 'Withdrawal rejected or returned to balance', desc: 'Withdrawal request was rejected or reversed back to wallet balance; need review.' },
     ]
   },
   { 
@@ -66,10 +66,10 @@ const SUPPORT_CATEGORIES = [
     refPlaceholder: 'Enter 10-digit WhatsApp mobile number',
     helpTip: 'WhatsApp confirmation OTP is sent directly to your WhatsApp app. Make sure your WhatsApp is active on this phone.',
     subIssues: [
-      { id: 'log-wa-code', title: 'WhatsApp confirmation 4-digit code not arriving', desc: 'Account verification ke liye WhatsApp par 4-digit OTP nahi aa raha he.' },
-      { id: 'log-cant-login', title: 'Already have account but getting login error', desc: 'Mera account pehle se he lekin password ya login submit nahi ho raha.' },
-      { id: 'log-new-user', title: 'New user registration error or age selection', desc: 'Sign up karte time registration complete nahi ho raha he.' },
-      { id: 'log-reset-pwd', title: 'Forgot password / Need account reset', desc: 'Me apna account password bhul gaya hu, kripya reset me madad karein.' },
+      { id: 'log-wa-code', title: 'WhatsApp confirmation 4-digit code not arriving', desc: '4-digit OTP verification code is not arriving on WhatsApp for login.' },
+      { id: 'log-cant-login', title: 'Already have account but getting login error', desc: 'Existing account credentials giving incorrect password or login submission failure.' },
+      { id: 'log-new-user', title: 'New user registration error or age selection', desc: 'Encountering error or validation issue during new account sign up and registration.' },
+      { id: 'log-reset-pwd', title: 'Forgot password / Need account reset', desc: 'Forgot account password and need assistance resetting login access.' },
     ]
   },
   { 
@@ -81,10 +81,10 @@ const SUPPORT_CATEGORIES = [
     refPlaceholder: 'e.g. Low Risk ₹1,400 or ₹28,000 Quota',
     helpTip: 'Daily yield is 13% credited every 24 hours. VIP packages go up to ₹1.5 Lakh with high return.',
     subIssues: [
-      { id: 'q-profit-missing', title: 'Daily 13% quota profit not credited today', desc: 'Mere active quota package ka daily 13% return aaj wallet me credit nahi hua.' },
-      { id: 'q-upgrade', title: 'Want to upgrade to higher VIP quota (up to ₹1.5L)', desc: 'Mujhe bada package (Low/Medium/High VIP up to 1.5 Lakh) upgrade karna he.' },
-      { id: 'q-cycle-info', title: 'Quota cycle validity & expiry inquiry', desc: 'Mujhe apne current quota plan ki duration aur cycle expiry detail janni he.' },
-      { id: 'q-risk-select', title: 'How to select Low / Medium / High Risk plan', desc: 'Low, medium aur high risk quota plans ke bare me guidance chahiye.' },
+      { id: 'q-profit-missing', title: 'Daily 13% quota profit not credited today', desc: 'Daily 13% quota yield has not been credited to wallet for today.' },
+      { id: 'q-upgrade', title: 'Want to upgrade to higher VIP quota (up to ₹1.5L)', desc: 'Interested in upgrading to a higher tier VIP quota package (up to ₹1.5 Lakh).' },
+      { id: 'q-cycle-info', title: 'Quota cycle validity & expiry inquiry', desc: 'Need information regarding active quota plan duration, cycle, and expiry date.' },
+      { id: 'q-risk-select', title: 'How to select Low / Medium / High Risk plan', desc: 'Need guidance on choosing between Low, Medium, and High risk quota plans.' },
     ]
   },
   { 
@@ -96,10 +96,10 @@ const SUPPORT_CATEGORIES = [
     refPlaceholder: "e.g. Friend's 10-digit mobile number",
     helpTip: 'You receive 20% lifetime instant commission on Level 1 whenever your invited friend purchases a quota.',
     subIssues: [
-      { id: 'ref-bonus-missing', title: 'Friend registered & bought plan, 20% bonus missing', desc: 'Mere dost ne mere referral link se sign up karke plan liya lekin 20% bonus nahi mila.' },
-      { id: 'ref-link-issue', title: 'Referral link (bit.ly short link) not opening', desc: 'Mera bit.ly referral short link dosto ke phone me sahi se open nahi ho raha.' },
-      { id: 'ref-team-view', title: 'Friend joined but not appearing in Level 1 team', desc: 'Mera friend registered ho chuka he par mere Team list me show nahi kar raha.' },
-      { id: 'ref-l2-inquiry', title: 'Level 2 team bonus calculation inquiry', desc: 'Level 2 commission structure aur payouts ke bare me information chahiye.' },
+      { id: 'ref-bonus-missing', title: 'Friend registered & bought plan, 20% bonus missing', desc: 'Invited friend signed up and purchased a quota, but 20% bonus was not received.' },
+      { id: 'ref-link-issue', title: 'Referral link (bit.ly short link) not opening', desc: 'Referral link or bit.ly short link is failing to open properly on friend devices.' },
+      { id: 'ref-team-view', title: 'Friend joined but not appearing in Level 1 team', desc: 'Friend has registered through referral link but is not appearing in Level 1 team.' },
+      { id: 'ref-l2-inquiry', title: 'Level 2 team bonus calculation inquiry', desc: 'Need explanation regarding Level 2 team referral commission structure and payouts.' },
     ]
   },
   { 
@@ -111,10 +111,10 @@ const SUPPORT_CATEGORIES = [
     refPlaceholder: 'Brief reference or order number',
     helpTip: 'Official Telegram Support Manager @easybasepoint is active 24/7 for 1-on-1 personalized help.',
     subIssues: [
-      { id: 'oth-general', title: 'General inquiry about EasyBasePoint rules', desc: 'Mujhe EasyBasePoint platform ke features aur guidelines ke bare me puchna he.' },
-      { id: 'oth-profile', title: 'Request to update personal mobile / details', desc: 'Mujhe apne account me phone number ya bank information change karwani he.' },
-      { id: 'oth-app-bug', title: 'Website / App performance or page error', desc: 'Website use karte time technical issue ya error aa raha he.' },
-      { id: 'oth-manager', title: 'Request direct chat with Senior Support Manager', desc: 'Mujhe direct support supervisor se baat karni he fast solution ke liye.' },
+      { id: 'oth-general', title: 'General inquiry about EasyBasePoint rules', desc: 'General questions regarding EasyBasePoint platform rules, yields, and features.' },
+      { id: 'oth-profile', title: 'Request to update personal mobile / details', desc: 'Requesting update or correction to registered mobile number or bank details.' },
+      { id: 'oth-app-bug', title: 'Website / App performance or page error', desc: 'Experiencing technical glitch, display error, or slow performance on the website.' },
+      { id: 'oth-manager', title: 'Request direct chat with Senior Support Manager', desc: 'Requesting direct chat with a Senior Support Supervisor for priority resolution.' },
     ]
   },
 ];
@@ -160,12 +160,12 @@ export const ProfilePage: React.FC = () => {
     e.preventDefault();
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     if (cleanPhone.length !== 10) {
-      addToast('error', 'Mobile number strictly 10 digits ka hona chahiye.');
+      addToast('error', 'Mobile number must be exactly 10 digits.');
       return;
     }
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail.endsWith('@gmail.com') || cleanEmail.length <= 10) {
-      addToast('error', 'Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
+      addToast('error', 'Email address must end with @gmail.com (e.g. yourname@gmail.com).');
       return;
     }
     updateProfile({ name: name.trim(), phone: cleanPhone, email: cleanEmail });

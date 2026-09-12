@@ -149,8 +149,8 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
     if (waOtp.trim() !== generatedWaOtp.trim()) {
-      setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code dalein.');
-      addToast('error', '❌ Code wrong dala aapne! Kripya sahi 4-digit WhatsApp code dalein.');
+      setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
+      addToast('error', '❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
       return;
     }
 
@@ -547,7 +547,7 @@ export const WithdrawPage: React.FC = () => {
                 const val = e.target.value.replace(/[^0-9]/g, '');
                 setWaOtp(val);
                 if (val.length === 4 && isOtpSent && val !== generatedWaOtp) {
-                  setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code dalein.');
+                  setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
                 } else {
                   setOtpError('');
                 }

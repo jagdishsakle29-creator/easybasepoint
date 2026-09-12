@@ -78,12 +78,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate confirmation code and open WhatsApp via user requested official number: +9779716459259
+  // Generate confirmation code and open WhatsApp via official gateway: +9779716459259
   const handleSendWhatsAppOtp = () => {
     const cleanDigits = phone.replace(/[^0-9]/g, '');
     if (!cleanDigits || cleanDigits.length !== 10) {
-      setFormError('Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
-      addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
+      setFormError('Mobile number must be exactly 10 digits.');
+      addToast('error', 'Mobile number must be exactly 10 digits.');
       return;
     }
 
@@ -96,7 +96,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const waMsg = encodeURIComponent(
       `EasyBasePoint Account Opening Verification Code: ${code}\nUser Mobile: ${cleanDigits}\nPlease confirm my registration for ₹50 Welcome Bonus!`
     );
-    // User requested WhatsApp gateway number: +9779716459259
     const officialGatewayPhone = '9779716459259';
     const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
 
@@ -111,12 +110,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (mode === 'login') {
       const targetCred = loginCredential.trim();
       if (!targetCred) {
-        setFormError('Kripya apna registered mobile number ya email enter karein.');
-        addToast('error', 'Please enter your registered email or mobile number.');
+        setFormError('Please enter your registered mobile number or email.');
+        addToast('error', 'Please enter your registered mobile number or email.');
         return;
       }
       if (!password) {
-        setFormError('Kripya apna account password enter karein.');
+        setFormError('Please enter your account password.');
         addToast('error', 'Please enter your password.');
         return;
       }
@@ -126,13 +125,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setFormError('');
         onClose();
       } else if (res.notFound) {
-        setFormError('❌ Account not found! Ye mobile number ya email registered nahi hai. Kripya pehle Sign Up (Register) karein.');
-        addToast('error', 'Account not found! Kripya pehle Sign Up karein.');
+        setFormError('❌ Account not found! This mobile number or email is not registered. Please Sign Up first.');
+        addToast('error', 'Account not found! Please register an account first.');
       } else if (res.wrongPassword) {
-        setFormError('❌ Galat password! Aapne galat password daala hai. Kripya sahi password enter karein ya Forgot Password par click karein.');
-        addToast('error', '❌ Galat password! Password check karke dobara enter karein.');
+        setFormError('❌ Incorrect password! Please verify your password and try again.');
+        addToast('error', '❌ Incorrect password! Please check your password and try again.');
       } else {
-        setFormError(res.message || 'Login failed. Details verify karein.');
+        setFormError(res.message || 'Login failed. Please verify your credentials.');
       }
     } else if (mode === 'register') {
       if (!age || Number(age) < 18) {
@@ -141,41 +140,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
       if (!name.trim()) {
-        setFormError('Kripya apna full name enter karein.');
+        setFormError('Please enter your full name.');
         addToast('error', 'Please enter your full name.');
         return;
       }
       const cleanEmail = email.trim().toLowerCase();
       if (!cleanEmail || !cleanEmail.endsWith('@gmail.com') || cleanEmail.length <= 10) {
-        setFormError('Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
-        addToast('error', 'Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
+        setFormError('Email address must end with @gmail.com (e.g. yourname@gmail.com).');
+        addToast('error', 'Email address must end with @gmail.com (e.g. yourname@gmail.com).');
         return;
       }
       const cleanDigits = phone.replace(/[^0-9]/g, '');
       if (cleanDigits.length !== 10) {
-        setFormError('Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
-        addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
+        setFormError('Mobile number must be exactly 10 digits.');
+        addToast('error', 'Mobile number must be exactly 10 digits.');
         return;
       }
       if (!isOtpSent) {
-        setFormError('Kripya pehle "Send Code" par click karke WhatsApp verification code generate karein.');
+        setFormError('Please click "Send Code" first to receive your WhatsApp verification code.');
         addToast('error', 'Please click "Send Code" to verify your WhatsApp number.');
         return;
       }
       if (otpCode.trim() !== generatedOtp.trim()) {
-        setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
-        setFormError('❌ Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
-        addToast('error', '❌ Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
+        setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
+        setFormError('❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
+        addToast('error', '❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
         return;
       }
       if (password !== confirmPassword) {
-        setFormError('Passwords match nahi ho rahe hain. Kripya same password re-enter karein.');
+        setFormError('Passwords do not match. Please re-enter your password.');
         addToast('error', 'Passwords do not match.');
         return;
       }
       if (password.length < 6) {
-        setFormError('Password kam se kam 6 characters ka hona chahiye.');
-        addToast('error', 'Password must be at least 6 characters.');
+        setFormError('Password must be at least 6 characters long.');
+        addToast('error', 'Password must be at least 6 characters long.');
         return;
       }
 
@@ -184,7 +183,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setFormError('');
         onClose();
       } else if (res.alreadyExists) {
-        setFormError('⚠️ Account already registered! Ye mobile number ya email pehle se registered hai. Kripya Sign In tab par click karke login karein.');
+        setFormError('⚠️ Account already registered! This mobile number or email is already registered. Please Sign In.');
       } else {
         setFormError(res.message || 'Registration failed.');
       }
@@ -443,7 +442,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       const val = e.target.value.replace(/[^0-9]/g, '');
                       setOtpCode(val);
                       if (val.length === 4 && isOtpSent && val !== generatedOtp) {
-                        setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
+                        setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
                       } else {
                         setOtpError('');
                       }

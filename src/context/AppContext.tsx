@@ -354,13 +354,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const existingAccount = storage.findAccount(emailOrPhone);
     if (!existingAccount) {
-      addToast('error', '❌ Account not found! Pehle register karke account banayein.');
-      return { success: false, notFound: true, message: 'Account not found. Kripya pehle Sign Up karein.' };
+      addToast('error', '❌ Account not found! Please register an account first.');
+      return { success: false, notFound: true, message: 'Account not found. Please Sign Up first.' };
     }
 
     if (existingAccount.password && existingAccount.password !== pass) {
-      addToast('error', '❌ Galat password! Password check karke dobara enter karein.');
-      return { success: false, wrongPassword: true, message: 'Incorrect password. Galat password dala aapne.' };
+      addToast('error', '❌ Incorrect password! Please check your password and try again.');
+      return { success: false, wrongPassword: true, message: 'Incorrect password. Please try again.' };
     }
 
     setUser(existingAccount.user);
@@ -602,7 +602,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
     } else {
-      addToast('info', `Deposit of ₹${amount} submitted! Check karke 5-7 minutes me balance add ho jayega.`);
+      addToast('info', `Deposit of ₹${amount} submitted! Balance will be credited within 5-7 minutes after verification.`);
     }
 
     return { success: true, message: 'Deposit recorded' };
