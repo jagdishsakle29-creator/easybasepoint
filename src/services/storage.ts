@@ -15,38 +15,27 @@ import {
 } from '../types';
 
 const STORAGE_KEYS = {
-  USER: 'ebp_user',
-  WALLET: 'ebp_wallet',
-  PACKAGES: 'ebp_packages',
-  TRANSACTIONS: 'ebp_transactions',
-  DEPOSITS: 'ebp_deposits',
-  WITHDRAWALS: 'ebp_withdrawals',
-  TEAM: 'ebp_team',
-  SETTINGS: 'ebp_settings',
-  TICKETS: 'ebp_tickets',
-  LOGS: 'ebp_audit_logs',
-  BANK_CARDS: 'ebp_bank_cards',
-  UPIS: 'ebp_upis',
-  USDTS: 'ebp_usdts',
+  USER: 'ebp_v2_user',
+  WALLET: 'ebp_v2_wallet',
+  PACKAGES: 'ebp_v2_packages',
+  TRANSACTIONS: 'ebp_v2_transactions',
+  DEPOSITS: 'ebp_v2_deposits',
+  WITHDRAWALS: 'ebp_v2_withdrawals',
+  TEAM: 'ebp_v2_team',
+  SETTINGS: 'ebp_v2_settings',
+  TICKETS: 'ebp_v2_tickets',
+  LOGS: 'ebp_v2_audit_logs',
+  BANK_CARDS: 'ebp_v2_bank_cards',
+  UPIS: 'ebp_v2_upis',
+  USDTS: 'ebp_v2_usdts',
 };
 
-export const defaultUser: User = {
-  id: 'ebp-usr-782914',
-  name: 'Rajesh Kumar',
-  email: 'rajesh.kumar@example.com',
-  phone: '+91 98765 43210',
-  referralCode: 'EBP-98241',
-  telegram: '@rajesh_ebp',
-  isGoogleAuthEnabled: false,
-  role: 'user',
-  status: 'active',
-  createdAt: '2026-03-10T10:00:00Z',
-};
+export const defaultUser: User | null = null;
 
 export const defaultWallet: Wallet = {
-  userId: 'ebp-usr-782914',
-  balance: 508.20,
-  quota: 508.00,
+  userId: '',
+  balance: 0.00,
+  quota: 0.00,
   referralBalance: 0.00,
   todayReceive: 0.00,
   teamCommission: 0.00,
@@ -72,10 +61,10 @@ export const defaultPackages: QuotaPackage[] = [
   },
   {
     id: 'pkg-2',
-    price: 3000.00,
-    income: 210.00,
+    price: 890.00,
+    income: 62.30,
     incomePercent: 7.00,
-    quota: 3210.00,
+    quota: 952.30,
     level: 'LOW',
     riskLevel: 'LOW RISK',
     durationDays: 1,
@@ -84,10 +73,10 @@ export const defaultPackages: QuotaPackage[] = [
   },
   {
     id: 'pkg-3',
-    price: 10000.00,
-    income: 700.00,
+    price: 1400.00,
+    income: 98.00,
     incomePercent: 7.00,
-    quota: 10700.00,
+    quota: 1498.00,
     level: 'LOW',
     riskLevel: 'LOW RISK',
     durationDays: 1,
@@ -96,6 +85,66 @@ export const defaultPackages: QuotaPackage[] = [
   },
   {
     id: 'pkg-4',
+    price: 2100.00,
+    income: 147.00,
+    incomePercent: 7.00,
+    quota: 2247.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 4,
+  },
+  {
+    id: 'pkg-5',
+    price: 3000.00,
+    income: 210.00,
+    incomePercent: 7.00,
+    quota: 3210.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 5,
+  },
+  {
+    id: 'pkg-6',
+    price: 5500.00,
+    income: 385.00,
+    incomePercent: 7.00,
+    quota: 5885.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 6,
+  },
+  {
+    id: 'pkg-7',
+    price: 10000.00,
+    income: 700.00,
+    incomePercent: 7.00,
+    quota: 10700.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 7,
+  },
+  {
+    id: 'pkg-8',
+    price: 18000.00,
+    income: 1260.00,
+    incomePercent: 7.00,
+    quota: 19260.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 8,
+  },
+  {
+    id: 'pkg-9',
     price: 29000.00,
     income: 2030.00,
     incomePercent: 7.00,
@@ -104,12 +153,12 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 4,
+    sortOrder: 9,
   },
 
   // --- MIDDLE TIER (MEDIUM RISK, 9% return, 28,000 to 47,000 INR) ---
   {
-    id: 'pkg-5',
+    id: 'pkg-10',
     price: 28000.00,
     income: 2520.00,
     incomePercent: 9.00,
@@ -118,22 +167,34 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'MEDIUM RISK',
     durationDays: 3,
     isActive: true,
-    sortOrder: 5,
+    sortOrder: 10,
   },
   {
-    id: 'pkg-6',
-    price: 38000.00,
-    income: 3420.00,
+    id: 'pkg-11',
+    price: 35000.00,
+    income: 3150.00,
     incomePercent: 9.00,
-    quota: 41420.00,
+    quota: 38150.00,
     level: 'MIDDLE',
     riskLevel: 'MEDIUM RISK',
     durationDays: 3,
     isActive: true,
-    sortOrder: 6,
+    sortOrder: 11,
   },
   {
-    id: 'pkg-7',
+    id: 'pkg-12',
+    price: 42000.00,
+    income: 3780.00,
+    incomePercent: 9.00,
+    quota: 45780.00,
+    level: 'MIDDLE',
+    riskLevel: 'MEDIUM RISK',
+    durationDays: 3,
+    isActive: true,
+    sortOrder: 12,
+  },
+  {
+    id: 'pkg-13',
     price: 47000.00,
     income: 4230.00,
     incomePercent: 9.00,
@@ -142,12 +203,12 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'MEDIUM RISK',
     durationDays: 3,
     isActive: true,
-    sortOrder: 7,
+    sortOrder: 13,
   },
 
   // --- HIGH TIER / VIP (HIGH RISK, 12% - 14% return, up to 1.5 Lakh INR) ---
   {
-    id: 'pkg-8',
+    id: 'pkg-14',
     price: 65000.00,
     income: 7800.00,
     incomePercent: 12.00,
@@ -156,10 +217,22 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'HIGH RISK',
     durationDays: 7,
     isActive: true,
-    sortOrder: 8,
+    sortOrder: 14,
   },
   {
-    id: 'pkg-9',
+    id: 'pkg-15',
+    price: 85000.00,
+    income: 10625.00,
+    incomePercent: 12.50,
+    quota: 95625.00,
+    level: 'HIGH',
+    riskLevel: 'HIGH RISK',
+    durationDays: 7,
+    isActive: true,
+    sortOrder: 15,
+  },
+  {
+    id: 'pkg-16',
     price: 100000.00,
     income: 13000.00,
     incomePercent: 13.00,
@@ -168,10 +241,22 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'HIGH RISK',
     durationDays: 7,
     isActive: true,
-    sortOrder: 9,
+    sortOrder: 16,
   },
   {
-    id: 'pkg-10',
+    id: 'pkg-17',
+    price: 125000.00,
+    income: 16875.00,
+    incomePercent: 13.50,
+    quota: 141875.00,
+    level: 'HIGH',
+    riskLevel: 'HIGH RISK',
+    durationDays: 7,
+    isActive: true,
+    sortOrder: 17,
+  },
+  {
+    id: 'pkg-18',
     price: 150000.00,
     income: 21000.00,
     incomePercent: 14.00,
@@ -180,7 +265,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'HIGH RISK',
     durationDays: 7,
     isActive: true,
-    sortOrder: 10,
+    sortOrder: 18,
   },
 ];
 
@@ -195,7 +280,7 @@ export const defaultSettings: RewardSettings = {
   withdrawalFeePercent: 5.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
-  isDemoMode: true,
+  isDemoMode: false,
   adminUpiId: 'easybasepoint@okhdfcbank',
   adminUpiName: 'EasyBasePoint Enterprise Solutions',
   adminBankName: 'HDFC Bank Ltd',
@@ -210,67 +295,25 @@ export const defaultSettings: RewardSettings = {
   adminTelegramChatId: '6527377657',
 };
 
-export const defaultTransactions: Transaction[] = [
-  {
-    id: 'TXN-809214',
-    userId: 'ebp-usr-782914',
-    type: 'deposit',
-    amount: 500.00,
-    currency: 'INR',
-    status: 'completed',
-    timestamp: '2026-09-10T14:22:10Z',
-    note: 'INR Top Up via UPI Demo',
-    referenceId: 'UPI-REF-99214',
-  },
-  {
-    id: 'TXN-809215',
-    userId: 'ebp-usr-782914',
-    type: 'reward',
-    amount: 8.20,
-    currency: 'INR',
-    status: 'completed',
-    timestamp: '2026-09-10T14:22:15Z',
-    note: 'Signup Welcome Bonus',
-  },
-];
+export const defaultTransactions: Transaction[] = [];
 
-export const defaultBankCards: SavedBankCard[] = [
-  {
-    id: 'card-1',
-    bankName: 'State Bank of India',
-    accountHolder: 'Rajesh Kumar',
-    accountNumber: '••••••••4812',
-    ifscCode: 'SBIN0001234',
-    isDefault: true,
-  }
-];
+export const defaultBankCards: SavedBankCard[] = [];
 
-export const defaultUpis: SavedUpi[] = [
-  {
-    id: 'upi-1',
-    upiId: 'rajesh.kumar@okhdfcbank',
-    accountHolder: 'Rajesh Kumar',
-    isDefault: true,
-  }
-];
+export const defaultUpis: SavedUpi[] = [];
 
-export const defaultUsdts: SavedUsdtAddress[] = [
-  {
-    id: 'usdt-1',
-    address: 'TJ4b8xLm...KaxnSE',
-    network: 'TRC20',
-    label: 'Binance TRC20 Wallet',
-    isDefault: true,
-  }
-];
+export const defaultUsdts: SavedUsdtAddress[] = [];
 
 export const storage = {
-  getUser(): User {
+  getUser(): User | null {
     const raw = localStorage.getItem(STORAGE_KEYS.USER);
-    return raw ? JSON.parse(raw) : defaultUser;
+    return raw ? JSON.parse(raw) : null;
   },
-  setUser(user: User): void {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  setUser(user: User | null): void {
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.USER);
+    }
   },
 
   getWallet(): Wallet {

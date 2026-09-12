@@ -33,10 +33,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Form states
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('+91 98765 43210');
+  const [phone, setPhone] = useState('');
   const [age, setAge] = useState('22');
-  const [password, setPassword] = useState('demo1234');
-  const [confirmPassword, setConfirmPassword] = useState('demo1234');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
 
   // WhatsApp OTP verification states
@@ -133,14 +133,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
         </div>
 
-        {/* Real Amount & Trust Guarantee Badge */}
-        <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/80 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>100% Real Amount • No Fraudulent Claims</span>
+        {/* Real Amount & Welcome Bonus Callout */}
+        <div className="p-3 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 rounded-2xl border border-orange-200/80 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#FF6B00] flex-shrink-0" />
+            <span className="font-extrabold text-orange-950">🎁 Sign Up Bonus: Free ₹50 Cash!</span>
           </div>
-          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900">
-            13% Yield
+          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#FF6B00] text-white uppercase tracking-wider">
+            FREE ₹50
           </span>
         </div>
 
@@ -154,16 +154,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Sign In (Mobile & Age)
+              Sign In
             </button>
             <button
               type="button"
               onClick={() => setMode('register')}
               className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-                mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+                mode === 'register' ? 'bg-[#FF6B00] text-white shadow-xs' : 'text-[#FF6B00]'
               }`}
             >
-              Register (WhatsApp OTP)
+              🎁 Register (Free ₹50)
             </button>
           </div>
         )}
@@ -179,7 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Rajesh Kumar"
+                  placeholder="Enter your full name"
                   className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
@@ -196,7 +196,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210"
+                placeholder="Enter 10-digit mobile number"
                 className="w-full pl-9 pr-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
               />
             </div>

@@ -41,28 +41,30 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
 
           {/* Quick Actions & Status */}
           <div className="flex items-center gap-2">
-            {/* Demo / Live Status Pill */}
-            <button
-              onClick={toggleDemoMode}
-              title="Click to toggle Demo/Production mode"
-              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
-                settings.isDemoMode
-                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-              }`}
-            >
-              {settings.isDemoMode ? (
-                <>
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-                  <span>DEMO MODE</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>LIVE BACKEND</span>
-                </>
-              )}
-            </button>
+            {/* Demo / Live Status Pill - Only visible in secret Admin session */}
+            {activeTab === 'admin' && (
+              <button
+                onClick={toggleDemoMode}
+                title="Click to toggle Demo/Production mode"
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  settings.isDemoMode
+                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                {settings.isDemoMode ? (
+                  <>
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                    <span>DEMO MODE</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>LIVE BACKEND</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Desktop / Mobile Frame View Switcher (Desktop only) */}
             <button

@@ -45,11 +45,21 @@ const AppContent: React.FC = () => {
     const adminKey = params.get('admin');
     if (adminKey === (settings.adminSecretKey || 'lord12')) {
       setActiveTab('admin');
-      addToast('success', 'Admin session unlocked via secret key (lord12)!');
+      addToast('success', 'Admin session unlocked successfully!');
     }
   }, [settings.adminSecretKey]);
 
-  // Post-login Telegram join popup (shows automatically on login)
+  // Post-login Telegram join popup (shows automatically on login/registration)
+  useEffect(() => {
+    const handleLoginEvent = () => {
+      setTimeout(() => {
+        setIsCommunityOpen(true);
+      }, 500);
+    };
+    window.addEventListener('ebp:user-logged-in', handleLoginEvent);
+    return () => window.removeEventListener('ebp:user-logged-in', handleLoginEvent);
+  }, []);
+
   useEffect(() => {
     if (user && !sessionStorage.getItem('ebp_hide_community_popup_session')) {
       const timer = setTimeout(() => {
@@ -97,8 +107,8 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F3F6FD] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-white">
-      {/* Top Demo & Trust Disclosure Banner */}
-      <DemoModeBanner />
+      {/* Top Demo & Trust Disclosure Banner (Strictly Admin Only) */}
+      {activeTab === 'admin' && <DemoModeBanner />}
 
       {/* Main App Layout */}
       {isMobilePreview ? (

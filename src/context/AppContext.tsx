@@ -16,7 +16,7 @@ import {
   SavedUpi,
   SavedUsdtAddress
 } from '../types';
-import { storage } from '../services/storage';
+import { storage, defaultWallet } from '../services/storage';
 import { telegramService } from '../services/telegram';
 
 export type ActiveTab = 'home' | 'deposit' | 'withdraw' | 'team' | 'me' | 'history' | 'admin';
@@ -186,21 +186,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast('error', 'Please provide an email or mobile number.');
       return false;
     }
-    const existing = storage.getUser();
-    setUser(existing);
-    addToast('success', `Welcome back, ${existing.name}!`);
+    const loggedUser: User = {
+      id: `usr-${Date.now()}`,
+      name: emailOrPhone.includes('@') ? emailOrPhone.split('@')[0] : 'Member',
+      email: emailOrPhone.includes('@') ? emailOrPhone : `${emailOrPhone.replace(/[^0-9]/g, '')}@ebp.com`,
+      phone: emailOrPhone,
+      referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
+      isGoogleAuthEnabled: false,
+      role: 'user',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+    setUser(loggedUser);
+    addToast('success', `Welcome back, ${loggedUser.name}!`);
+    window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return true;
   };
 
   const register = (name: string, email: string, phone: string, _pass: string, refCode?: string) => {
-    if (!name || !email) {
+    if (!name || !phone) {
       addToast('error', 'Please fill in all required fields.');
       return false;
     }
     const newUser: User = {
       id: `usr-${Date.now()}`,
       name,
-      email,
+      email: email || `${phone.replace(/[^0-9]/g, '')}@ebp.com`,
       phone: phone || '+91 98000 00000',
       referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
       referredBy: refCode || undefined,
@@ -210,23 +221,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setUser(newUser);
+    
+    // Starting amount: strictly ₹50 Sign-in Bonus Credited directly to wallet balance
+    setWallet((prev) => ({
+      ...prev,
+      userId: newUser.id,
+      balance: 50.00,
+      quota: 0.00,
+      referralBalance: 0.00,
+      todayReceive: 0.00,
+      teamCommission: 0.00,
+      todayTeamRecharge: 0.00,
+      todayTeamMembers: 0,
+      totalTeamRecharge: 0.00,
+      totalTeamMembers: 0,
+    }));
+
     const welcomeTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: newUser.id,
       type: 'reward',
-      amount: 10.00,
+      amount: 50.00,
       currency: 'INR',
       status: 'completed',
       timestamp: new Date().toISOString(),
-      note: 'New Account Welcome Quota Bonus',
+      note: '₹50 Signup Welcome Cash Bonus',
     };
     setTransactions((prev) => [welcomeTx, ...prev]);
-    addToast('success', 'Account registered successfully!');
+    addToast('success', 'Account registered! ₹50 Welcome Bonus added to your wallet!');
+    window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return true;
   };
 
   const logout = () => {
     setUser(null);
+    setWallet(defaultWallet);
     addToast('info', 'Logged out successfully.');
   };
 

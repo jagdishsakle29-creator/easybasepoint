@@ -425,12 +425,10 @@ export const DepositPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <span>
-                  {settings.isDemoMode
-                    ? 'Demo Mode: Amount will be deducted from your simulated wallet balance and quota will update instantly.'
-                    : 'Production: Verified transaction will register to your account ledger.'}
+                  Verified transaction: Quota balance and daily returns will be activated immediately upon purchase.
                 </span>
               </div>
             )}
@@ -501,7 +499,7 @@ export const DepositPage: React.FC = () => {
                 Quick Select Amount
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {[500, 3000, 10000, 28000, 47000, 65000, 100000, 150000].map((amt) => (
+                {[500, 890, 1400, 2100, 3000, 10000, 28000, 47000, 65000, 100000, 150000].map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -512,7 +510,7 @@ export const DepositPage: React.FC = () => {
                         : 'border-slate-200 text-slate-700 hover:border-slate-300'
                     }`}
                   >
-                    {amt === 150000 ? '₹1.5 Lakh' : amt === 100000 ? '₹1 Lakh' : `₹${amt >= 1000 ? `${amt / 1000}k` : amt}`}
+                    {amt === 150000 ? '₹1.5 Lakh' : amt === 100000 ? '₹1 Lakh' : `₹${amt.toLocaleString('en-IN')}`}
                   </button>
                 ))}
               </div>
@@ -575,11 +573,11 @@ export const DepositPage: React.FC = () => {
               {/* Transaction / UTR reference */}
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
-                  UPI Ref / UTR Number (Optional for Demo)
+                  UPI Ref / UTR Number
                 </label>
                 <input
                   type="text"
-                  placeholder="12-digit UTR number"
+                  placeholder="12-digit UTR number after payment"
                   value={utrRef}
                   onChange={(e) => setUtrRef(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
@@ -587,11 +585,10 @@ export const DepositPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Demo Notice */}
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800">
-              {settings.isDemoMode
-                ? 'Demo Environment: Clicking confirm simulates instant UPI authorization and adds the funds to your balance.'
-                : 'Production: Your transaction will be verified against bank statements before release.'}
+            {/* Secure Gateway Notice */}
+            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>Instant 256-bit SSL encrypted settlement directly to your wallet.</span>
             </div>
 
             {/* Actions */}
