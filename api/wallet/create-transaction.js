@@ -1,3 +1,5 @@
+import { recordDeposit } from '../bot/ledgerHelper.js';
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M';
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || '6527377657';
 
@@ -16,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const { userId, userPhone, amount, method, utrNumber, network, proofUrl, isDemo } = body;
+    const { userId, userPhone, amount, method, utrNumber, network, proofUrl, isDemo, transactionId } = body;
 
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ ok: false, error: 'Valid amount is required' });
@@ -25,7 +27,8 @@ export default async function handler(req, res) {
     const isUsdt = method === 'USDT';
     const numAmount = Number(amount);
     const prefix = isUsdt ? 'USDT' : 'DEP';
-    const uniqueTxId = `${prefix}-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+    // Preserve client's transaction ID to prevent desync
+    const uniqueTxId = transactionId || body.id || `${prefix}-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
     const nowIso = new Date().toISOString();
 
     let bonusInr = 0;
@@ -63,37 +66,46 @@ export default async function handler(req, res) {
       createdAt: nowIso,
     };
 
-    // Send Telegram alert
+    // Save to robust cloud ledger
     try {
-      if (TELEGRAM_BOT_TOKEN && TELEGRAM_ADMIN_CHAT_ID) {
-        const text = `🔔 *NEW ${isUsdt ? 'USDT' : 'INR'} DEPOSIT SUBMITTED*\n\n` +
-          `🆔 *Deposit ID:* \`#${uniqueTxId}\`\n` +
-          `👤 *User:* \`${userPhone || userId || 'Player'}\`\n` +
-          `💰 *Amount:* ₹${totalInr.toFixed(2)}\n` +
-          `🔖 *UTR / Hash:* \`${depositRecord.utrNumber}\``;
+      await recordDeposit(depositRecord);
+    } catch (err) {
+      console.error('[CREATE_TX] Error recording deposit:', err.message);
+    }
 
-        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: TELEGRAM_ADMIN_CHAT_ID,
-            text,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${uniqueTxId}&total=${totalInr.toFixed(2)}` },
-                  { text: `✅ Approve ₹${totalInr.toFixed(2)}`, callback_data: `approve_dep:${uniqueTxId}:${totalInr.toFixed(2)}` },
-                ],
-                [
-                  { text: '❌ Reject', callback_data: `reject_dep:${uniqueTxId}` },
+    // Only send Telegram alert if not already sent by client
+    if (body.sendTelegram !== false && !body.skipTelegram) {
+      try {
+        if (TELEGRAM_BOT_TOKEN && TELEGRAM_ADMIN_CHAT_ID) {
+          const text = `🔔 *NEW ${isUsdt ? 'USDT' : 'INR'} DEPOSIT SUBMITTED*\n\n` +
+            `🆔 *Deposit ID:* \`${uniqueTxId}\`\n` +
+            `👤 *User:* \`${userPhone || userId || 'Player'}\`\n` +
+            `💰 *Amount:* ₹${totalInr.toFixed(2)}\n` +
+            `🔖 *UTR / Hash:* \`${depositRecord.utrNumber}\``;
+
+          fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_ADMIN_CHAT_ID,
+              text,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${uniqueTxId}&total=${totalInr.toFixed(2)}` },
+                    { text: `✅ Approve ₹${totalInr.toFixed(2)}`, callback_data: `approve_dep:${uniqueTxId}:${totalInr.toFixed(2)}` },
+                  ],
+                  [
+                    { text: '❌ Reject', callback_data: `reject_dep:${uniqueTxId}` },
+                  ]
                 ]
-              ]
-            }
-          }),
-        }).catch(() => {});
-      }
-    } catch {}
+              }
+            }),
+          }).catch(() => {});
+        }
+      } catch {}
+    }
 
     return res.status(200).json({
       ok: true,

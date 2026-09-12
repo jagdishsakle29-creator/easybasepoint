@@ -37,6 +37,7 @@ export const AdminPanel: React.FC = () => {
     user, 
     approveDeposit,
     rejectDeposit,
+    refreshDeposits,
     approveWithdrawal, 
     rejectWithdrawal, 
     addQuotaPackage, 
@@ -49,6 +50,7 @@ export const AdminPanel: React.FC = () => {
     addToast
   } = useApp();
 
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [activeAdminTab, setActiveAdminTab] = useState<
     'overview' | 'usdt' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
   >('overview');
@@ -238,12 +240,31 @@ export const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setActiveTab('home')}
-          className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition"
-        >
-          Exit to App
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setIsSyncingCloud(true);
+              try {
+                await refreshDeposits();
+                addToast('success', '⚡ Cloud deposits synced successfully!');
+              } finally {
+                setIsSyncingCloud(false);
+              }
+            }}
+            disabled={isSyncingCloud}
+            className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-3 py-1.5 rounded-xl transition shadow-sm"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+            <span>{isSyncingCloud ? 'Syncing...' : 'Sync Cloud'}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('home')}
+            className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition"
+          >
+            Exit to App
+          </button>
+        </div>
       </div>
 
       {/* Admin Navigation Pills */}

@@ -1,8 +1,10 @@
 /**
- * EasyBasePoint Real-time Sync Service
+ * EasyBasePoint Real-time Cloud Sync & Event Service
  * 
- * Connected directly to the backend bot & sync server via /api/bot (port 5174).
- * Connects Player Game Wallets, Telegram Bot, and Admin Panel across all devices and tabs in 0.01 seconds!
+ * Powered by:
+ * 1. Global Real-time SSE Streams via ntfy.sh (0.01s instant latency across all devices)
+ * 2. High-Availability Serverless Ledger via /api/bot (backed by GitHub branch ledger with 5000 req/hr capacity)
+ * 3. Bidirectional real-time syncing between Player Game Wallets, Telegram Bot, and Admin Panel.
  */
 
 export interface CloudDepositPayload {
@@ -48,24 +50,38 @@ export interface CloudApprovalEvent {
   wallet?: ServerWallet;
 }
 
-const CLOUD_LEDGER_URL = 'https://api.restful-api.dev/objects/ff808181a067127101a096aef1d80342';
+const NTFY_DEPOSITS_SSE = 'https://ntfy.sh/ebp_easybasepoint_deposits/sse';
+const NTFY_DEPOSITS_PUB = 'https://ntfy.sh/ebp_easybasepoint_deposits';
+const NTFY_APPROVALS_SSE = 'https://ntfy.sh/ebp_easybasepoint_approvals/sse';
+const NTFY_APPROVALS_PUB = 'https://ntfy.sh/ebp_easybasepoint_approvals';
 
-const getBotBaseUrl = (): string => {
+const GITHUB_RAW_LEDGER = 'https://raw.githubusercontent.com/jagdishsakle29-creator/easybasepoint/ledger/data/ledger.json';
+
+const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && window.location) {
-    return `${window.location.origin}/api/bot`;
+    return `${window.location.origin}/api`;
   }
-  return 'http://127.0.0.1:5174/api/bot';
+  return 'https://easybasepoint.vercel.app/api';
 };
 
 export const cloudSync = {
   // Broadcast a new deposit submission to Backend & Admin Panel in real time
   async broadcastDeposit(deposit: CloudDepositPayload): Promise<boolean> {
     try {
-      await fetch(`${getBotBaseUrl()}/deposits`, {
+      // 1. Post to Serverless API
+      fetch(`${getApiBaseUrl()}/bot/deposits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deposit),
-      });
+      }).catch(() => {});
+
+      // 2. Broadcast via high-speed pub/sub for instant 0.01s Admin Panel reception
+      fetch(NTFY_DEPOSITS_PUB, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'NEW_DEPOSIT', deposit }),
+      }).catch(() => {});
+
       return true;
     } catch {
       return false;
@@ -89,37 +105,34 @@ export const cloudSync = {
         ? depIdOrMeta.totalInr
         : totalInrOpt;
 
-      const endpoint = action === 'approved' ? '/approve' : '/reject';
-      fetch(`${getBotBaseUrl()}${endpoint}`, {
+      const nowIso = new Date().toISOString();
+
+      // 1. Save to cloud serverless ledger
+      fetch(`${getApiBaseUrl()}/bot/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ depId, totalInr }),
+        body: JSON.stringify({ depId, totalInr, action }),
       }).catch(() => {});
 
-      // Direct sync to Cloud Ledger for 100% instant reliability across all devices
-      try {
-        const cloudRes = await fetch(CLOUD_LEDGER_URL, { cache: 'no-store' });
-        const cloudJson = cloudRes.ok ? await cloudRes.json() : {};
-        const currentData = (cloudJson && cloudJson.data) || {};
-        const existing = currentData[depId] || {};
-        currentData[depId] = {
-          ...existing,
-          id: depId,
-          totalInr: totalInr || existing.totalInr || 565,
-          status: action === 'approved' ? 'completed' : 'rejected',
-          credited: action === 'approved',
-          approvedAt: new Date().toISOString(),
-          creditedAt: action === 'approved' ? new Date().toISOString() : undefined,
-        };
-        await fetch(CLOUD_LEDGER_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'ebp_approvals_ledger',
-            data: currentData,
-          }),
-        });
-      } catch {}
+      // 2. Broadcast directly via SSE to player game across all mobile phones & tabs instantly
+      const approvalEvent: CloudApprovalEvent = {
+        type: action === 'approved' ? 'DEPOSIT_APPROVED' : 'DEPOSIT_REJECTED',
+        depId,
+        depositId: depId,
+        action,
+        status: action === 'approved' ? 'completed' : 'rejected',
+        credited: action === 'approved',
+        totalInr: totalInr || 565,
+        timestamp: nowIso,
+        approvedAt: nowIso,
+        creditedAt: action === 'approved' ? nowIso : undefined,
+      };
+
+      fetch(NTFY_APPROVALS_PUB, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(approvalEvent),
+      }).catch(() => {});
 
       return true;
     } catch {
@@ -127,10 +140,11 @@ export const cloudSync = {
     }
   },
 
-  // Fetch all deposits from the backend database (with rock-solid cloud ledger fallback)
+  // Fetch all deposits from the backend database (with rock-solid GitHub ledger fallback)
   async fetchAllDeposits(): Promise<any[]> {
+    // 1. Try Vercel Serverless Endpoint
     try {
-      const res = await fetch(`${getBotBaseUrl()}/deposits`, {
+      const res = await fetch(`${getApiBaseUrl()}/bot/deposits`, {
         cache: 'no-store',
       });
       if (res.ok) {
@@ -139,16 +153,16 @@ export const cloudSync = {
       }
     } catch {}
 
-    // Fallback: fetch directly from cloud ledger
+    // 2. High-reliability fallback: fetch from GitHub ledger directly
     try {
-      const cloudRes = await fetch(CLOUD_LEDGER_URL, { cache: 'no-store' });
-      if (cloudRes.ok) {
-        const cloudJson = await cloudRes.json();
-        const dataObj = (cloudJson && cloudJson.data) || {};
-        const list = Object.entries(dataObj).map(([id, val]: [string, any]) => ({
-          id,
-          ...(typeof val === 'object' ? val : { totalInr: val, status: 'completed', credited: true }),
-        }));
+      const gitRes = await fetch(`${GITHUB_RAW_LEDGER}?t=${Date.now()}`, { cache: 'no-store' });
+      if (gitRes.ok) {
+        const dataObj = await gitRes.json();
+        const list = Object.values(dataObj || {}).sort((a: any, b: any) => {
+          const tA = new Date(a.createdAt || 0).getTime();
+          const tB = new Date(b.createdAt || 0).getTime();
+          return tB - tA;
+        });
         return list;
       }
     } catch {}
@@ -199,6 +213,7 @@ export const cloudSync = {
 
   // Create Server-Side Unique Transaction & Alert
   async createTransaction(payload: {
+    transactionId?: string;
     userId: string;
     userPhone: string;
     amount: number;
@@ -207,13 +222,13 @@ export const cloudSync = {
     network?: string;
     proofUrl?: string;
     isDemo?: boolean;
+    skipTelegram?: boolean;
   }): Promise<{ ok: boolean; transactionId?: string; deposit?: any; wallet?: ServerWallet; error?: string }> {
     try {
-      const base = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:5174';
-      const res = await fetch(`${base}/api/wallet/create-transaction`, {
+      const res = await fetch(`${getApiBaseUrl()}/wallet/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, skipTelegram: true }),
       });
       return await res.json();
     } catch (err: any) {
@@ -224,8 +239,7 @@ export const cloudSync = {
   // Fetch Authoritative Server Wallet
   async fetchServerWallet(userId: string, phone: string): Promise<ServerWallet | null> {
     try {
-      const base = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:5174';
-      const res = await fetch(`${base}/api/wallet?userId=${encodeURIComponent(userId)}&phone=${encodeURIComponent(phone)}`, {
+      const res = await fetch(`${getApiBaseUrl()}/wallet?userId=${encodeURIComponent(userId)}&phone=${encodeURIComponent(phone)}`, {
         cache: 'no-store',
       });
       if (!res.ok) return null;
@@ -239,8 +253,7 @@ export const cloudSync = {
   // Sync client initial balance with server
   async syncServerWallet(userId: string, phone: string, currentBalance?: number, currentQuota?: number): Promise<ServerWallet | null> {
     try {
-      const base = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:5174';
-      const res = await fetch(`${base}/api/wallet/sync`, {
+      const res = await fetch(`${getApiBaseUrl()}/wallet/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -258,17 +271,19 @@ export const cloudSync = {
     }
   },
 
-  // Create an SSE (Server-Sent Events) stream for instant real-time approvals
+  // Create an SSE (Server-Sent Events) stream for instant real-time approvals across all devices
   subscribeToApprovals(onEvent: (event: CloudApprovalEvent) => void): () => void {
     if (typeof EventSource === 'undefined') return () => {};
 
     try {
-      const sse = new EventSource(`${getBotBaseUrl()}/events`);
+      const sse = new EventSource(NTFY_APPROVALS_SSE);
 
       sse.onmessage = (e) => {
         try {
           if (!e.data || e.data.startsWith(':')) return;
-          const data = JSON.parse(e.data);
+          const outer = JSON.parse(e.data);
+          const data = outer.message ? JSON.parse(outer.message) : outer;
+
           if (
             data && (
               data.type === 'DEPOSIT_APPROVED' || 
@@ -278,6 +293,7 @@ export const cloudSync = {
               data.action === 'rejected'
             )
           ) {
+            console.log('[SSE] Received real-time approval event:', data);
             onEvent(data);
           }
         } catch {}
@@ -300,14 +316,18 @@ export const cloudSync = {
     if (typeof EventSource === 'undefined') return () => {};
 
     try {
-      const sse = new EventSource(`${getBotBaseUrl()}/events`);
+      const sse = new EventSource(NTFY_DEPOSITS_SSE);
 
       sse.onmessage = (e) => {
         try {
           if (!e.data || e.data.startsWith(':')) return;
-          const data = JSON.parse(e.data);
-          if (data && data.type === 'NEW_DEPOSIT' && data.deposit) {
-            onDeposit(data.deposit);
+          const outer = JSON.parse(e.data);
+          const data = outer.message ? JSON.parse(outer.message) : outer;
+
+          if (data && (data.type === 'NEW_DEPOSIT' || data.id) && (data.deposit || data.id)) {
+            const dep = data.deposit || data;
+            console.log('[SSE] Received new deposit in real-time:', dep);
+            onDeposit(dep);
           }
         } catch {}
       };

@@ -44,14 +44,16 @@
     "key": "default_player",
     "userId": "player",
     "phone": "",
-    "balance": 3955,
-    "quota": 1500,
-    "todayReceive": 3955,
-    "totalDeposited": 3955,
+    "balance": 5085,
+    "quota": 2500,
+    "todayReceive": 5085,
+    "totalDeposited": 5085,
     "creditedDepositIds": [
       "DEP-157271",
-      "DEP-423777"
+      "DEP-423777",
+      "DEP-631722",
+      "DEP-534999"
     ],
-    "updatedAt": "2026-09-12T17:30:57.818Z"
+    "updatedAt": "2026-09-12T17:51:15.678Z"
   }
 }

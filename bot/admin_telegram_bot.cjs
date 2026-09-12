@@ -321,34 +321,16 @@ async function executeDepositApproval(depId, fallbackTotalInr) {
 
   console.log(`[APPROVAL] ✅ Approved & Credited deposit ${depId} (₹${totalInr})! New Server Balance: ₹${wallet.balance}. Broadcasted to clients.`);
 
-  // Sync to Cloud Ledger so all web clients/players receive the credit in real time!
+  // Broadcast to global ntfy stream so player receives instant credit across all devices!
   try {
-    const cloudRes = await fetch('https://api.restful-api.dev/objects/ff808181a067127101a096aef1d80342');
-    const cloudJson = cloudRes.ok ? await cloudRes.json() : {};
-    const currentData = (cloudJson && cloudJson.data) || {};
-    currentData[depId] = {
-      id: depId,
-      totalInr,
-      amount: dep.amount || 500,
-      method: dep.method || 'INR',
-      userId: dep.userId || '',
-      userPhone: dep.userPhone || '',
-      status: 'completed',
-      credited: true,
-      creditedAt: nowIso,
-      approvedAt: nowIso,
-    };
-    await fetch('https://api.restful-api.dev/objects/ff808181a067127101a096aef1d80342', {
-      method: 'PUT',
+    await fetch('https://ntfy.sh/ebp_easybasepoint_approvals', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'ebp_approvals_ledger',
-        data: currentData,
-      }),
+      body: JSON.stringify(approvalPayload),
     });
-    console.log(`[CLOUD_SYNC] ✅ Synchronized approval for #${depId} to global cloud ledger!`);
+    console.log(`[NTFY_SYNC] ✅ Broadcasted approval #${depId} to global approvals stream!`);
   } catch (err) {
-    console.error(`[CLOUD_SYNC] ⚠️ Cloud sync warning:`, err.message);
+    console.error(`[NTFY_SYNC] ⚠️ Sync error:`, err.message);
   }
 
   // Also notify live Vercel endpoint

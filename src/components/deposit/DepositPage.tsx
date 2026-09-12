@@ -34,6 +34,7 @@ export const DepositPage: React.FC = () => {
     deposits,
     buyQuota, 
     submitInrDeposit, 
+    refreshDeposits,
     addToast,
     setActiveTab 
   } = useApp();
@@ -77,12 +78,14 @@ export const DepositPage: React.FC = () => {
       });
   }, [packages, selectedLevel, sortOrder, minFilter, maxFilter]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
+    try {
+      await refreshDeposits();
+      addToast('info', 'Synced with cloud ledger & updated.');
+    } finally {
       setIsRefreshing(false);
-      addToast('info', 'Packages list refreshed.');
-    }, 500);
+    }
   };
 
   const handleSelectPackage = (pkg: QuotaPackage) => {

@@ -76,6 +76,7 @@ interface AppContextType {
   deleteUsdt: (id: string) => void;
   
   // Admin Operations
+  refreshDeposits: () => Promise<void>;
   approveDeposit: (id: string, fallbackTotalInr?: number) => void;
   rejectDeposit: (id: string, reason?: string) => void;
   approveWithdrawal: (id: string) => void;
@@ -378,7 +379,133 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     reconcileWallet();
   }, [reconcileWallet, user]);
 
-  // Instant Real-Time Cloud Sync (SSE Stream + 2s Polling Fallback)
+  // Reusable Cloud Sync Function
+  const syncWithBackend = useCallback(async () => {
+    const backendDeps = await cloudSync.fetchAllDeposits();
+    const currentU = storage.getUser();
+    const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
+    const currentW = storage.getWallet();
+    const creditedList = Array.isArray(currentW.creditedDepositIds) ? currentW.creditedDepositIds : [];
+    const allDeps = storage.getDeposits();
+
+    // Check authoritative server wallet first
+    if (currentU) {
+      const serverW = await cloudSync.fetchServerWallet(currentU.id, currentU.phone);
+      if (serverW && Number(serverW.balance) > 0) {
+        if (serverW.balance !== currentW.balance || (serverW.creditedDepositIds && serverW.creditedDepositIds.length > creditedList.length)) {
+          const mergedW: Wallet = {
+            ...currentW,
+            balance: parseFloat(Number(serverW.balance).toFixed(2)),
+            quota: parseFloat(Number(serverW.quota).toFixed(2)),
+            todayReceive: parseFloat(Number(serverW.todayReceive || currentW.todayReceive).toFixed(2)),
+            creditedDepositIds: serverW.creditedDepositIds || creditedList,
+          };
+          storage.setWallet(mergedW);
+          setWallet(mergedW);
+          window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+        }
+      } else if (Number(currentW.balance) > 0) {
+        // Seed server wallet so existing funds are permanently mirrored on backend
+        cloudSync.syncServerWallet(currentU.id, currentU.phone, currentW.balance, currentW.quota);
+      }
+    }
+
+    // 1. Process all completed deposits from backend
+    if (backendDeps && backendDeps.length > 0) {
+      backendDeps.forEach((bd: any) => {
+        const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
+        if (isCompleted) {
+          const matched = allDeps.find((d) => d.id === bd.id);
+          const bdPhone = (bd.userPhone || '').replace(/[^0-9]/g, '');
+
+          const isUserMatch =
+            Boolean(matched) ||
+            (currentU && bd.userId && bd.userId === currentU.id) ||
+            (cleanUserPhone.length >= 10 && bdPhone.length >= 10 && bdPhone.endsWith(cleanUserPhone.slice(-10)));
+
+          if (isUserMatch || (!bd.userId && !bdPhone)) {
+            if (!creditedList.includes(bd.id)) {
+              const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
+              const defaultBal = isUsdt ? 5995 : 565;
+              const defaultQuota = isUsdt ? 5500 : 500;
+              const amountToAdd = Number(bd.totalInr) || (matched ? matched.totalInr : defaultBal);
+              const quotaToAdd = Number(bd.amount) || (matched ? matched.amount : defaultQuota);
+              console.log(`[SYNC] Crediting uncredited deposit from backend ${bd.id}: +₹${amountToAdd}`);
+              creditWalletForDeposit(bd.id, amountToAdd, quotaToAdd, bd);
+            }
+          }
+        }
+      });
+    }
+
+    // 2. Also reconcile any locally completed deposits that haven't been credited yet
+    allDeps.forEach((ld) => {
+      const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited';
+      if (isCompleted && !creditedList.includes(ld.id)) {
+        const ldPhone = (ld.userPhone || '').replace(/[^0-9]/g, '');
+        const isUserMatch =
+          !currentU ||
+          (ld.userId && ld.userId === currentU.id) ||
+          (cleanUserPhone.length >= 10 && ldPhone.length >= 10 && ldPhone.endsWith(cleanUserPhone.slice(-10)));
+
+        if (isUserMatch) {
+          const isUsdt = ld.method === 'USDT' || ld.id.startsWith('USDT');
+          const defaultBal = isUsdt ? 5995 : 565;
+          const defaultQuota = isUsdt ? 5500 : 500;
+          const amountToAdd = Number(ld.totalInr) || defaultBal;
+          const quotaToAdd = Number(ld.amount) || defaultQuota;
+          console.log(`[SYNC] Reconciling uncredited local deposit ${ld.id}: +₹${amountToAdd}`);
+          creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld);
+        }
+      }
+    });
+
+    // Merge deposits into React state & storage
+    if (backendDeps && backendDeps.length > 0) {
+      setDeposits((prev) => {
+        const map = new Map();
+        prev.forEach((d) => map.set(d.id, d));
+        backendDeps.forEach((bd: any) => {
+          const existingDep = map.get(bd.id);
+          const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
+          const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
+          if (!existingDep) {
+            map.set(bd.id, {
+              id: bd.id,
+              userId: bd.userId || 'player',
+              userPhone: bd.userPhone || '',
+              amount: bd.amount,
+              method: isUsdt ? 'USDT' : 'INR',
+              calculatedInr: bd.calculatedInr || bd.amount,
+              bonusInr: bd.bonusInr || 0,
+              activityRewardInr: bd.activityRewardInr || 0,
+              totalInr: bd.totalInr || bd.amount,
+              status: isCompleted ? 'completed' : (bd.status || 'pending'),
+              credited: isCompleted,
+              createdAt: bd.createdAt || new Date().toISOString(),
+              utrNumber: bd.utrNumber || '',
+              proofUrl: bd.proofUrl || bd.utrNumber || '',
+            });
+          } else if (isCompleted && existingDep.status !== 'completed') {
+            map.set(bd.id, {
+              ...existingDep,
+              status: 'completed',
+              credited: true,
+              creditedAt: bd.creditedAt || existingDep.creditedAt || new Date().toISOString(),
+              approvedAt: bd.approvedAt || existingDep.approvedAt || new Date().toISOString(),
+            });
+          }
+        });
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        storage.setDeposits(merged);
+        return merged;
+      });
+    }
+  }, [creditWalletForDeposit]);
+
+  // Instant Real-Time Cloud Sync (SSE Stream + 2.5s Polling Fallback)
   useEffect(() => {
     const applyApprovalEvent = (event: { 
       type?: string;
@@ -508,132 +635,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Connect SSE stream (instant 0.01s latency)
     const unsubscribeSSE = cloudSync.subscribeToApprovals(applyApprovalEvent);
 
-    // Sync with backend deposits and credit any uncredited completed deposits
-    const syncWithBackend = async () => {
-      const backendDeps = await cloudSync.fetchAllDeposits();
-      const currentU = storage.getUser();
-      const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
-      const currentW = storage.getWallet();
-      const creditedList = Array.isArray(currentW.creditedDepositIds) ? currentW.creditedDepositIds : [];
-      const allDeps = storage.getDeposits();
-
-      // Check authoritative server wallet first
-      if (currentU) {
-        const serverW = await cloudSync.fetchServerWallet(currentU.id, currentU.phone);
-        if (serverW && Number(serverW.balance) > 0) {
-          if (serverW.balance !== currentW.balance || (serverW.creditedDepositIds && serverW.creditedDepositIds.length > creditedList.length)) {
-            const mergedW: Wallet = {
-              ...currentW,
-              balance: parseFloat(Number(serverW.balance).toFixed(2)),
-              quota: parseFloat(Number(serverW.quota).toFixed(2)),
-              todayReceive: parseFloat(Number(serverW.todayReceive || currentW.todayReceive).toFixed(2)),
-              creditedDepositIds: serverW.creditedDepositIds || creditedList,
-            };
-            storage.setWallet(mergedW);
-            setWallet(mergedW);
-            window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
-          }
-        } else if (Number(currentW.balance) > 0) {
-          // Seed server wallet so existing funds are permanently mirrored on backend
-          cloudSync.syncServerWallet(currentU.id, currentU.phone, currentW.balance, currentW.quota);
-        }
-      }
-
-      // 1. Process all completed deposits from backend
-      if (backendDeps && backendDeps.length > 0) {
-        backendDeps.forEach((bd: any) => {
-          const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
-          if (isCompleted) {
-            const matched = allDeps.find((d) => d.id === bd.id);
-            const bdPhone = (bd.userPhone || '').replace(/[^0-9]/g, '');
-
-            const isUserMatch =
-              Boolean(matched) ||
-              (currentU && bd.userId && bd.userId === currentU.id) ||
-              (cleanUserPhone.length >= 10 && bdPhone.length >= 10 && bdPhone.endsWith(cleanUserPhone.slice(-10)));
-
-            if (isUserMatch || (!bd.userId && !bdPhone)) {
-              if (!creditedList.includes(bd.id)) {
-                const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
-                const defaultBal = isUsdt ? 5995 : 565;
-                const defaultQuota = isUsdt ? 5500 : 500;
-                const amountToAdd = Number(bd.totalInr) || (matched ? matched.totalInr : defaultBal);
-                const quotaToAdd = Number(bd.amount) || (matched ? matched.amount : defaultQuota);
-                console.log(`[SYNC] Crediting uncredited deposit from backend ${bd.id}: +₹${amountToAdd}`);
-                creditWalletForDeposit(bd.id, amountToAdd, quotaToAdd, bd);
-              }
-            }
-          }
-        });
-      }
-
-      // 2. Also reconcile any locally completed deposits that haven't been credited yet
-      allDeps.forEach((ld) => {
-        const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited';
-        if (isCompleted && !creditedList.includes(ld.id)) {
-          const ldPhone = (ld.userPhone || '').replace(/[^0-9]/g, '');
-          const isUserMatch =
-            !currentU ||
-            (ld.userId && ld.userId === currentU.id) ||
-            (cleanUserPhone.length >= 10 && ldPhone.length >= 10 && ldPhone.endsWith(cleanUserPhone.slice(-10)));
-
-          if (isUserMatch) {
-            const isUsdt = ld.method === 'USDT' || ld.id.startsWith('USDT');
-            const defaultBal = isUsdt ? 5995 : 565;
-            const defaultQuota = isUsdt ? 5500 : 500;
-            const amountToAdd = Number(ld.totalInr) || defaultBal;
-            const quotaToAdd = Number(ld.amount) || defaultQuota;
-            console.log(`[SYNC] Reconciling uncredited local deposit ${ld.id}: +₹${amountToAdd}`);
-            creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld);
-          }
-        }
-      });
-
-      // Merge deposits into React state & storage
-      if (backendDeps && backendDeps.length > 0) {
-        setDeposits((prev) => {
-          const map = new Map();
-          prev.forEach((d) => map.set(d.id, d));
-          backendDeps.forEach((bd: any) => {
-            const existingDep = map.get(bd.id);
-            const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
-            const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
-            if (!existingDep) {
-              map.set(bd.id, {
-                id: bd.id,
-                userId: bd.userId || 'player',
-                userPhone: bd.userPhone || '',
-                amount: bd.amount,
-                method: isUsdt ? 'USDT' : 'INR',
-                calculatedInr: bd.calculatedInr || bd.amount,
-                bonusInr: bd.bonusInr || 0,
-                activityRewardInr: bd.activityRewardInr || 0,
-                totalInr: bd.totalInr || bd.amount,
-                status: isCompleted ? 'completed' : (bd.status || 'pending'),
-                credited: isCompleted,
-                createdAt: bd.createdAt || new Date().toISOString(),
-                utrNumber: bd.utrNumber || '',
-                proofUrl: bd.proofUrl || bd.utrNumber || '',
-              });
-            } else if (isCompleted && existingDep.status !== 'completed') {
-              map.set(bd.id, {
-                ...existingDep,
-                status: 'completed',
-                credited: true,
-                creditedAt: bd.creditedAt || existingDep.creditedAt || new Date().toISOString(),
-                approvedAt: bd.approvedAt || existingDep.approvedAt || new Date().toISOString(),
-              });
-            }
-          });
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          storage.setDeposits(merged);
-          return merged;
-        });
-      }
-    };
-
     syncWithBackend();
     const intervalId = setInterval(syncWithBackend, 2500);
 
@@ -651,7 +652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('focus', handleVisibility);
       unsubscribeSSE();
     };
-  }, [creditWalletForDeposit]);
+  }, [creditWalletForDeposit, syncWithBackend]);
 
   // Listen for incoming deposits from players across all devices in real-time
   useEffect(() => {
@@ -1068,25 +1069,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     cloudSync.createTransaction({
+      transactionId: newDeposit.id,
       userId: activeUser.id,
       userPhone: activeUser.phone,
       amount,
       method: 'INR',
       utrNumber: refNumber,
       isDemo: settings.isDemoMode,
-    }).then((res) => {
-      if (res && res.ok && res.transactionId && res.transactionId !== newDeposit.id) {
-        setDeposits((prev) => {
-          const updated = prev.map((d) => d.id === newDeposit.id ? { ...d, id: res.transactionId! } : d);
-          storage.setDeposits(updated);
-          return updated;
-        });
-        setTransactions((prev) => {
-          const updated = prev.map((t) => t.referenceId === newDeposit.id ? { ...t, referenceId: res.transactionId! } : t);
-          storage.setTransactions(updated);
-          return updated;
-        });
-      }
+      skipTelegram: true,
     });
 
     telegramService.sendDepositAlert(newDeposit, activeUser.name, activeUser.phone, settings);
@@ -1173,6 +1163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     cloudSync.createTransaction({
+      transactionId: newDeposit.id,
       userId: user.id,
       userPhone: user.phone,
       amount: usdtAmount,
@@ -1180,19 +1171,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       utrNumber: txHash || 'TRC20-TRANSFER',
       network: 'TRC20',
       isDemo: settings.isDemoMode,
-    }).then((res) => {
-      if (res && res.ok && res.transactionId && res.transactionId !== newDeposit.id) {
-        setDeposits((prev) => {
-          const updated = prev.map((d) => d.id === newDeposit.id ? { ...d, id: res.transactionId! } : d);
-          storage.setDeposits(updated);
-          return updated;
-        });
-        setTransactions((prev) => {
-          const updated = prev.map((t) => t.referenceId === newDeposit.id ? { ...t, referenceId: res.transactionId! } : t);
-          storage.setTransactions(updated);
-          return updated;
-        });
-      }
+      skipTelegram: true,
     });
 
     // Send Telegram Alert to Admin Bot
@@ -1593,6 +1572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteUpi,
         addUsdt,
         deleteUsdt,
+        refreshDeposits: syncWithBackend,
         approveDeposit,
         rejectDeposit,
         approveWithdrawal,
