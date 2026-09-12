@@ -66,5 +66,20 @@
     "creditedAt": "2026-09-12T20:51:13.049Z",
     "updatedAt": "2026-09-12T20:51:13.049Z",
     "createdAt": "2026-09-12T20:51:13.049Z"
+  },
+  "TEST_DEP_1789246291503_VALID": {
+    "id": "TEST_DEP_1789246291503_VALID",
+    "amount": 2100,
+    "totalInr": 2100,
+    "utrNumber": "998877665544",
+    "userId": "user_test_1",
+    "userPhone": "9876543210",
+    "remark": "cousin",
+    "paymentScreenshot": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...mock_receipt_image",
+    "status": "pending_verification",
+    "method": "INR",
+    "proofUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...mock_receipt_image",
+    "credited": false,
+    "createdAt": "2026-09-12T20:51:31.504Z"
   }
 }
