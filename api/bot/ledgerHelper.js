@@ -113,6 +113,13 @@ export async function recordDeposit(deposit) {
   const id = deposit.id || deposit.depId;
   if (!id) return;
 
+  const screenshot = deposit.paymentScreenshot || deposit.proofUrl || '';
+  const isDemo = Boolean(deposit.isDemo);
+
+  if (!isDemo && !screenshot) {
+    throw new Error('Payment screenshot is required to complete payment verification.');
+  }
+
   data[id] = {
     ...deposit,
     id,
@@ -121,8 +128,12 @@ export async function recordDeposit(deposit) {
     method: deposit.method || 'INR',
     userId: deposit.userId || '',
     userPhone: deposit.userPhone || '',
-    status: deposit.status || 'pending',
-    credited: deposit.credited === true,
+    utrNumber: deposit.utrNumber || '',
+    remark: deposit.remark || 'cousin',
+    proofUrl: screenshot,
+    paymentScreenshot: screenshot,
+    status: isDemo ? 'completed' : (deposit.status || 'pending_verification'),
+    credited: isDemo ? true : false,
     createdAt: deposit.createdAt || new Date().toISOString(),
   };
 
@@ -137,12 +148,21 @@ export async function markApproval(depId, totalInr, action = 'approved') {
   const isApproved = action === 'approved';
   const nowIso = new Date().toISOString();
 
+  // Enforce security rule: cannot approve a deposit if payment screenshot is missing (unless demo)
+  if (isApproved && !existing.isDemo && !existing.paymentScreenshot && !existing.proofUrl) {
+    throw new Error('Payment cannot be approved: payment screenshot is mandatory and missing.');
+  }
+
+  const finalStatus = isApproved ? 'approved' : 'rejected';
+
   data[depId] = {
     ...existing,
     id: depId,
     totalInr: totalInr ? Number(totalInr) : (existing.totalInr || 565),
     amount: existing.amount || 500,
-    status: isApproved ? 'completed' : 'rejected',
+    remark: existing.remark || 'cousin',
+    paymentScreenshot: existing.paymentScreenshot || existing.proofUrl || '',
+    status: finalStatus,
     credited: isApproved,
     approvedAt: nowIso,
     creditedAt: isApproved ? nowIso : undefined,
@@ -156,7 +176,7 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     depId,
     depositId: depId,
     action: isApproved ? 'approved' : 'rejected',
-    status: isApproved ? 'completed' : 'rejected',
+    status: finalStatus,
     credited: isApproved,
     totalInr: data[depId].totalInr,
     userId: existing.userId,

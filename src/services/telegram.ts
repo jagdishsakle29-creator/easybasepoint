@@ -64,7 +64,9 @@ export const telegramService = {
         `🎁 *13% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
         `📈 *Total Receivable:* *₹${deposit.totalInr.toFixed(2)} INR*\n` +
         `💳 *Method:* ${deposit.method} ${isUsdt ? '(TRON Network)' : '(UPI Transfer)'}\n` +
-        `🔢 *Ref / UTR / TxID:* \`${deposit.proofUrl || deposit.utrNumber || 'Pending'}\`\n` +
+        `🔢 *Ref / UTR / TxID:* \`${deposit.utrNumber || 'Pending'}\`\n` +
+        `📝 *Paytm Remark:* \`${deposit.remark || 'cousin'}\`\n` +
+        `📸 *Payment Screenshot:* \`${deposit.paymentScreenshot ? 'ATTACHED & VERIFIED' : 'NOT UPLOADED'}\`\n` +
         `⏱ *Time:* ${new Date(deposit.createdAt).toLocaleTimeString()}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payment:_`;

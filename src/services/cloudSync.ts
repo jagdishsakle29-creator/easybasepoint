@@ -18,6 +18,10 @@ export interface CloudDepositPayload {
   createdAt: string;
   status?: string;
   credited?: boolean;
+  proofUrl?: string;
+  paymentScreenshot?: string;
+  remark?: string;
+  isDemo?: boolean;
 }
 
 export interface ServerWallet {
@@ -221,6 +225,8 @@ export const cloudSync = {
     utrNumber: string;
     network?: string;
     proofUrl?: string;
+    paymentScreenshot?: string;
+    remark?: string;
     isDemo?: boolean;
     skipTelegram?: boolean;
   }): Promise<{ ok: boolean; transactionId?: string; deposit?: any; wallet?: ServerWallet; error?: string }> {

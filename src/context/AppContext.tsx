@@ -59,7 +59,7 @@ interface AppContextType {
   
   // Transactions & Flows
   buyQuota: (pkgOrId: QuotaPackage | string, idempotencyKey?: string) => { success: boolean; message: string; transaction?: Transaction };
-  submitInrDeposit: (amount: number, refNumber: string) => { success: boolean; message: string };
+  submitInrDeposit: (amount: number, refNumber: string, screenshotUrl?: string, remark?: string) => { success: boolean; message: string };
   submitUsdtDeposit: (usdtAmount: number, network: string, txHash: string) => { success: boolean; message: string };
   submitWithdrawal: (
     amount: number, 
@@ -480,16 +480,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               bonusInr: bd.bonusInr || 0,
               activityRewardInr: bd.activityRewardInr || 0,
               totalInr: bd.totalInr || bd.amount,
-              status: isCompleted ? 'completed' : (bd.status || 'pending'),
+              status: isCompleted ? 'approved' : (bd.status || 'pending_verification'),
               credited: isCompleted,
               createdAt: bd.createdAt || new Date().toISOString(),
               utrNumber: bd.utrNumber || '',
-              proofUrl: bd.proofUrl || bd.utrNumber || '',
+              proofUrl: bd.paymentScreenshot || bd.proofUrl || bd.utrNumber || '',
+              paymentScreenshot: bd.paymentScreenshot || bd.proofUrl || '',
+              remark: bd.remark || 'cousin',
             });
-          } else if (isCompleted && existingDep.status !== 'completed') {
+          } else if (isCompleted && existingDep.status !== 'completed' && existingDep.status !== 'approved') {
             map.set(bd.id, {
               ...existingDep,
-              status: 'completed',
+              status: 'approved',
               credited: true,
               creditedAt: bd.creditedAt || existingDep.creditedAt || new Date().toISOString(),
               approvedAt: bd.approvedAt || existingDep.approvedAt || new Date().toISOString(),
@@ -670,10 +672,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           bonusInr: (incoming.amount * settings.inrRewardPercent) / 100,
           activityRewardInr: 0,
           totalInr: incoming.totalInr,
-          status: 'pending',
+          status: (incoming.status as any) || 'pending_verification',
           createdAt: incoming.createdAt,
           utrNumber: incoming.utrNumber,
-          proofUrl: incoming.utrNumber,
+          proofUrl: incoming.paymentScreenshot || incoming.proofUrl || incoming.utrNumber,
+          paymentScreenshot: incoming.paymentScreenshot || incoming.proofUrl || '',
+          remark: incoming.remark || 'cousin',
         };
         const updated = [newDep, ...prev];
         storage.setDeposits(updated);
@@ -1007,12 +1011,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Submitting INR Deposit
-  const submitInrDeposit = (amount: number, refNumber: string): { success: boolean; message: string } => {
+  const submitInrDeposit = (
+    amount: number, 
+    refNumber: string, 
+    screenshotUrl?: string, 
+    remark?: string
+  ): { success: boolean; message: string } => {
     if (!user) {
       addToast('error', 'Please log in to your account first.');
       return { success: false, message: 'Authentication required' };
     }
     if (amount <= 0) return { success: false, message: 'Invalid amount' };
+
+    // MANDATORY SCREENSHOT VALIDATION (Unless demo mode)
+    if (!settings.isDemoMode && (!screenshotUrl || screenshotUrl.trim().length === 0)) {
+      addToast('error', 'Payment screenshot is required to complete payment verification.');
+      return { success: false, message: 'Payment screenshot is required to complete payment verification.' };
+    }
+
+    const cleanUtr = (refNumber || '').trim();
+    if (!cleanUtr || cleanUtr.length !== 12) {
+      addToast('error', '⚠️ 12-digit numeric UTR is mandatory.');
+      return { success: false, message: 'Valid 12-digit UTR required' };
+    }
 
     const activeUser: User = user;
 
@@ -1036,21 +1057,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const standardBonus = (amount * settings.inrRewardPercent) / 100;
     const totalBonus = standardBonus + extraFreeBonus;
     const total = amount + totalBonus;
+    const finalRemark = remark || 'cousin';
 
     const newDeposit: DepositOrder = {
       id: `DEP-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: activeUser.id,
       userPhone: activeUser.phone,
-      utrNumber: refNumber,
+      utrNumber: cleanUtr,
       amount,
       method: 'INR',
       calculatedInr: amount,
       bonusInr: standardBonus,
       activityRewardInr: extraFreeBonus,
       totalInr: total,
-      status: settings.isDemoMode ? 'completed' : 'pending',
+      status: settings.isDemoMode ? 'completed' : 'pending_verification',
       createdAt: new Date().toISOString(),
-      proofUrl: refNumber,
+      proofUrl: screenshotUrl || cleanUtr,
+      paymentScreenshot: screenshotUrl || '',
+      remark: finalRemark,
     };
 
     const updatedDeposits = [newDeposit, ...deposits];
@@ -1063,9 +1087,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userPhone: activeUser.phone,
       amount,
       totalInr: total,
-      utrNumber: refNumber,
+      utrNumber: cleanUtr,
       method: 'INR',
       createdAt: newDeposit.createdAt,
+      status: newDeposit.status,
+      proofUrl: newDeposit.proofUrl,
+      paymentScreenshot: newDeposit.paymentScreenshot,
+      remark: finalRemark,
+      isDemo: settings.isDemoMode,
     });
 
     cloudSync.createTransaction({
@@ -1074,7 +1103,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userPhone: activeUser.phone,
       amount,
       method: 'INR',
-      utrNumber: refNumber,
+      utrNumber: cleanUtr,
+      proofUrl: screenshotUrl || '',
+      paymentScreenshot: screenshotUrl || '',
+      remark: finalRemark,
       isDemo: settings.isDemoMode,
       skipTelegram: true,
     });
@@ -1090,7 +1122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currency: 'INR',
       status: settings.isDemoMode ? 'completed' : 'pending',
       timestamp: new Date().toISOString(),
-      note: `INR Deposit (₹${amount} + ₹${standardBonus.toFixed(2)} regular + ₹${extraFreeBonus} tier bonus | UTR: ${refNumber})`,
+      note: `INR Deposit (₹${amount} | UTR: ${cleanUtr} | Remark: ${finalRemark})`,
       referenceId: newDeposit.id,
     };
     const updatedTx = [newTx, ...transactions];
@@ -1109,7 +1141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
     } else {
-      addToast('info', `Deposit of ₹${amount} submitted! Balance will be credited within 5-7 minutes after verification.`);
+      addToast('success', `Payment submitted for verification! Balance will be credited within 5-7 minutes.`);
     }
 
     return { success: true, message: 'Deposit recorded' };
@@ -1276,8 +1308,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
     const nowIso = new Date().toISOString();
 
-    // If deposit is not found locally (e.g. cross-device approval via Telegram link),
-    // synthesize a valid deposit record so the approval goes through and credits immediately!
+    // Enforce screenshot verification rule
+    if (deposit && !deposit.paymentScreenshot && !deposit.proofUrl && !settings.isDemoMode) {
+      addToast('error', '⚠️ Cannot approve deposit: Payment screenshot is mandatory and missing.');
+      return;
+    }
+
     if (!deposit) {
       const isUsdt = id.startsWith('USDT');
       const amount = isUsdt ? 50 : 500;
@@ -1291,25 +1327,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bonusInr: totalInr - (isUsdt ? amount * 110 : amount),
         activityRewardInr: 0,
         totalInr,
-        status: 'credited',
+        status: 'approved',
         credited: true,
         creditedAt: nowIso,
         approvedAt: nowIso,
         createdAt: nowIso,
+        remark: 'cousin',
       };
     } else {
       deposit = {
         ...deposit,
-        status: 'credited',
+        status: 'approved',
         credited: true,
         creditedAt: nowIso,
         approvedAt: nowIso,
       };
     }
 
-    // 1. Mark deposit as credited in state and storage
+    // 1. Mark deposit as approved in state and storage
     const updatedDeposits = (allDeps.some((d) => d.id === id) ? allDeps : [deposit, ...allDeps]).map((d) =>
-      d.id === id ? { ...d, status: 'credited' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
+      d.id === id ? { ...d, status: 'approved' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
     );
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);

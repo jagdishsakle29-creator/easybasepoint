@@ -48,6 +48,14 @@ export default async function handler(req, res) {
       totalInr = numAmount + bonusInr + activityRewardInr;
     }
 
+    const screenshot = body.paymentScreenshot || proofUrl || '';
+    if (!isDemo && !screenshot) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Payment screenshot is required to complete payment verification.'
+      });
+    }
+
     const depositRecord = {
       id: uniqueTxId,
       userId: userId || 'player',
@@ -60,8 +68,10 @@ export default async function handler(req, res) {
       totalInr: parseFloat(totalInr.toFixed(2)),
       utrNumber: utrNumber || (isUsdt ? 'TRC20-TRANSFER' : 'PENDING'),
       network: isUsdt ? (network || 'TRC20') : undefined,
-      proofUrl: proofUrl || utrNumber || '',
-      status: isDemo ? 'completed' : 'pending',
+      proofUrl: screenshot,
+      paymentScreenshot: screenshot,
+      remark: body.remark || 'cousin',
+      status: isDemo ? 'completed' : 'pending_verification',
       credited: isDemo ? true : false,
       createdAt: nowIso,
     };
@@ -71,6 +81,7 @@ export default async function handler(req, res) {
       await recordDeposit(depositRecord);
     } catch (err) {
       console.error('[CREATE_TX] Error recording deposit:', err.message);
+      return res.status(400).json({ ok: false, error: err.message });
     }
 
     // Only send Telegram alert if not already sent by client

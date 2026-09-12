@@ -20,7 +20,9 @@ import {
   QrCode,
   Clock,
   Send,
-  XCircle
+  XCircle,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
@@ -62,6 +64,13 @@ export const DepositPage: React.FC = () => {
   const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
   const [depositStatusFilter, setDepositStatusFilter] = useState<'all' | 'successful' | 'pending' | 'cancelled'>('all');
 
+  // Mandatory Payment Screenshot State
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotUrl, setScreenshotUrl] = useState<string>('');
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
+
   // Filtered packages
   const filteredPackages = useMemo(() => {
     return packages
@@ -91,8 +100,85 @@ export const DepositPage: React.FC = () => {
   const handleSelectPackage = (pkg: QuotaPackage) => {
     setTopUpAmount(pkg.price);
     setSelectedPkg(null);
+    setScreenshotFile(null);
+    setScreenshotUrl('');
+    setScreenshotError(null);
     setIsTopUpModalOpen(true);
-    addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR to activate.`);
+    addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR with remark "cousin".`);
+  };
+
+  const processScreenshotFile = (file: File) => {
+    setScreenshotError(null);
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      const err = 'Unsupported file type. Please upload JPG, PNG, or WebP.';
+      setScreenshotError(err);
+      addToast('error', err);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      const err = 'File size exceeds 5MB limit. Please upload a smaller screenshot.';
+      setScreenshotError(err);
+      addToast('error', err);
+      return;
+    }
+
+    setIsUploadingScreenshot(true);
+    setUploadProgress(25);
+
+    const reader = new FileReader();
+    reader.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        const percent = Math.min(90, Math.round((ev.loaded / ev.total) * 90));
+        setUploadProgress(percent);
+      }
+    };
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setScreenshotUrl(dataUrl);
+        } else {
+          setScreenshotUrl(reader.result as string);
+        }
+        setScreenshotFile(file);
+        setUploadProgress(100);
+        setIsUploadingScreenshot(false);
+        addToast('success', '✓ Payment screenshot uploaded successfully!');
+      };
+      img.onerror = () => {
+        setScreenshotUrl(reader.result as string);
+        setScreenshotFile(file);
+        setUploadProgress(100);
+        setIsUploadingScreenshot(false);
+        addToast('success', '✓ Payment screenshot uploaded successfully!');
+      };
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => {
+      setIsUploadingScreenshot(false);
+      setScreenshotError('Failed to read image file. Please try again.');
+      addToast('error', 'Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleConfirmTopUp = () => {
@@ -105,14 +191,21 @@ export const DepositPage: React.FC = () => {
       addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit for approval.');
       return;
     }
+    if (!screenshotUrl) {
+      addToast('error', 'Payment screenshot is required to complete payment verification.');
+      return;
+    }
     setIsProcessingTopUp(true);
     setTimeout(() => {
-      submitInrDeposit(topUpAmount, cleanUtr);
+      const res = submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl, 'cousin');
       setIsProcessingTopUp(false);
-      setIsTopUpModalOpen(false);
-      setUtrRef('');
-      addToast('success', 'Deposit submitted! Balance will be credited within 5-7 minutes after verification.');
-    }, 800);
+      if (res && res.success) {
+        setIsTopUpModalOpen(false);
+        setUtrRef('');
+        setScreenshotFile(null);
+        setScreenshotUrl('');
+      }
+    }, 600);
   };
 
   const isMobilePhone = () => {
@@ -132,35 +225,36 @@ export const DepositPage: React.FC = () => {
     const amount = topUpAmount || 500;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const remark = 'cousin';
 
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
 
     if (app === 'phonepe') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
 
     if (app === 'paytm') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
 
     if (app === 'gpay') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        return `tez://upi/pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=Deposit`;
+        return `tez://upi/pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
       }
       return standardUpi;
     }
@@ -887,6 +981,28 @@ export const DepositPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Payment Remark Box */}
+                  <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-300 font-bold">Remark:</span>
+                      <span className="font-mono font-black text-amber-300 px-2.5 py-0.5 bg-black/40 rounded border border-amber-400/40 select-all">
+                        cousin
+                      </span>
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">(Auto-filled in Paytm/UPI)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText('cousin');
+                        addToast('success', 'Copied remark "cousin" to clipboard!');
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Remark</span>
+                    </button>
+                  </div>
+
                   {/* 1-Tap Direct UPI App Launcher (PhonePe, Paytm, Google Pay, BHIM) */}
                   <div className="space-y-2 p-3 bg-white/5 rounded-2xl border border-white/10">
                     <div className="flex items-center justify-between">
@@ -918,7 +1034,7 @@ export const DepositPage: React.FC = () => {
                     </div>
 
                     <p className="text-[11px] text-slate-300">
-                      Tap any app below to open directly with ₹{topUpAmount} pre-filled, or copy UPI ID above to pay manually:
+                      Tap any app below to open directly with ₹{topUpAmount} pre-filled and remark <strong>"cousin"</strong>:
                     </p>
 
                     <div className="grid grid-cols-2 gap-2.5">
@@ -1060,17 +1176,139 @@ export const DepositPage: React.FC = () => {
                     />
                   </div>
 
-                  {/* Warning if < 12 digits */}
-                  {!isUtrReady && (
+                  {/* UTR Acceptance / Validation Badge */}
+                  {isUtrReady ? (
+                    <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <span>✓ UTR Verified: {utrRef}</span>
+                    </div>
+                  ) : (
                     <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fadeIn">
                       <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
                       <span>
                         {utrRef.length === 0
-                          ? '⚠️ 12-digit numeric UTR is mandatory! Enter 12 digits from receipt to submit.'
+                          ? '⚠️ 12-digit numeric UTR is mandatory! Enter 12 digits from receipt to proceed.'
                           : `⚠️ Please enter ${12 - utrRef.length} more digits (strictly 12 digits required).`}
                       </span>
                     </div>
                   )}
+
+                  {/* =======================================================
+                      MANDATORY PAYMENT SCREENSHOT SECTION
+                     ======================================================= */}
+                  <div className="space-y-2 p-3 bg-white/5 rounded-2xl border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-[#FF6B00]" />
+                        <span>Payment Screenshot *</span>
+                      </label>
+                      {screenshotUrl ? (
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          ✓ Payment screenshot uploaded
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          Compulsory *
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-slate-300">
+                      {isUtrReady 
+                        ? 'Please upload your payment screenshot to complete verification.' 
+                        : 'Upload the screenshot of your successful payment. Required for verification.'}
+                    </p>
+
+                    {/* Screenshot Preview or Upload Dropzone */}
+                    {screenshotUrl ? (
+                      <div className="p-3 bg-black/40 rounded-xl border border-emerald-500/40 space-y-2">
+                        <div className="relative group rounded-lg overflow-hidden border border-white/10 max-h-48 flex items-center justify-center bg-black/60">
+                          <img
+                            src={screenshotUrl}
+                            alt="Payment Screenshot Receipt"
+                            className="max-h-48 w-auto object-contain rounded-lg shadow"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="text-[11px] text-emerald-300 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Screenshot Verified</span>
+                          </div>
+                          <label className="px-3 py-1 bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold rounded-lg cursor-pointer transition flex items-center gap-1">
+                            <Upload className="w-3 h-3" />
+                            <span>Replace Screenshot</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/jpg"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) processScreenshotFile(file);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition ${
+                          isUtrReady 
+                            ? 'border-amber-400/60 bg-amber-500/10 hover:bg-amber-500/15 hover:border-amber-400' 
+                            : 'border-white/20 bg-white/5 hover:bg-white/10'
+                        }`}>
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 flex items-center justify-center text-white shadow">
+                            {isUploadingScreenshot ? (
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Upload className="w-5 h-5" />
+                            )}
+                          </div>
+                          <div className="text-center">
+                            <span className="text-xs font-black text-amber-300 block">
+                              {isUploadingScreenshot ? 'Uploading Screenshot...' : 'Upload Payment Screenshot'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Accepts JPG, JPEG, PNG, or WebP (Max 5MB)
+                            </span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            className="hidden"
+                            disabled={isUploadingScreenshot}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) processScreenshotFile(file);
+                            }}
+                          />
+                        </label>
+
+                        {/* Upload Progress Bar */}
+                        {isUploadingScreenshot && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-300 font-bold">
+                              <span>Uploading & Optimizing...</span>
+                              <span>{uploadProgress}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-[#FF6B00] to-emerald-400 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {screenshotError && (
+                          <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-400/40 text-rose-200 text-xs font-bold flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0" />
+                            <span>{screenshotError}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* SLA Guarantee Notice */}
                   <div className="p-3 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
@@ -1080,7 +1318,7 @@ export const DepositPage: React.FC = () => {
                         Payment will be verified and balance will be credited within 5-7 minutes.
                       </p>
                       <p className="text-[10px] text-emerald-200/80 mt-0.5">
-                        An instant confirmation celebration popup will appear once approved by admin.
+                        Admin will review UTR and screenshot before approving.
                       </p>
                     </div>
                   </div>
@@ -1096,10 +1334,10 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isProcessingTopUp || !isUtrReady}
+                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot}
                       onClick={handleConfirmTopUp}
                       className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                        isUtrReady
+                        isUtrReady && screenshotUrl
                           ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
                           : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                       }`}
@@ -1107,10 +1345,12 @@ export const DepositPage: React.FC = () => {
                       <Send className="w-4 h-4" />
                       <span>
                         {isProcessingTopUp 
-                          ? 'Submitting to Admin...' 
+                          ? 'Submitting for Verification...' 
                           : !isUtrReady 
-                          ? 'Enter 12-Digit UTR to Submit' 
-                          : `Submit UTR & Deposit ₹${topUpAmount}`}
+                          ? 'Enter 12-Digit UTR to Continue' 
+                          : !screenshotUrl 
+                          ? 'Upload Payment Screenshot *' 
+                          : `Submit for Verification (₹${topUpAmount})`}
                       </span>
                     </button>
                   </div>

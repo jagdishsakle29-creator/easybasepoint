@@ -31,6 +31,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[API_APPROVE] Error processing approval:', err.message);
-    return res.status(500).json({ ok: false, error: err.message });
+    return res.status(400).json({ ok: false, error: err.message });
   }
 }

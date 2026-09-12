@@ -61,7 +61,7 @@ export interface Transaction {
   metadata?: Record<string, any>;
 }
 
-export type DepositStatus = 'pending' | 'approved' | 'credited' | 'completed' | 'rejected' | 'failed';
+export type DepositStatus = 'pending' | 'pending_verification' | 'approved' | 'credited' | 'completed' | 'rejected' | 'failed';
 
 export interface DepositOrder {
   id: string;
@@ -82,6 +82,8 @@ export interface DepositOrder {
   approvedAt?: string;
   createdAt: string;
   proofUrl?: string;
+  paymentScreenshot?: string;
+  remark?: string;
   txHash?: string;
 }
 

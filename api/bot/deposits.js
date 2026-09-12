@@ -27,16 +27,21 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const depId = body.id || body.depId;
-      if (!depId) {
-        return res.status(400).json({ ok: false, error: 'Deposit id required' });
+      const depId = body.id || body.depId || `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      body.id = depId;
+
+      if (!body.isDemo && !body.paymentScreenshot && !body.proofUrl) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Payment screenshot is required to complete payment verification.',
+        });
       }
 
       const recorded = await recordDeposit(body);
       return res.status(200).json({ ok: true, deposit: recorded });
     } catch (err) {
       console.error('[API_DEPOSITS] Error recording deposit:', err.message);
-      return res.status(500).json({ ok: false, error: err.message });
+      return res.status(400).json({ ok: false, error: err.message });
     }
   }
 
