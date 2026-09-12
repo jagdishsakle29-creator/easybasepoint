@@ -43,6 +43,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
 
+  // Form error display state
+  const [formError, setFormError] = useState('');
+
   // WhatsApp OTP verification states
   const [otpCode, setOtpCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
@@ -75,10 +78,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate confirmation code and open WhatsApp via Official Gateway Desk
+  // Generate confirmation code and open WhatsApp via user requested official number: +9779716459259
   const handleSendWhatsAppOtp = () => {
     const cleanDigits = phone.replace(/[^0-9]/g, '');
     if (!cleanDigits || cleanDigits.length !== 10) {
+      setFormError('Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
       addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
       return;
     }
@@ -87,89 +91,102 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setGeneratedOtp(code);
     setIsOtpSent(true);
     setOtpTimer(60);
+    setFormError('');
 
     const waMsg = encodeURIComponent(
       `EasyBasePoint Account Opening Verification Code: ${code}\nUser Mobile: ${cleanDigits}\nPlease confirm my registration for ₹50 Welcome Bonus!`
     );
-    // Official gateway phone number from EasyBasePoint (opens official verification desk, NOT user's own number):
-    const officialGatewayPhone = '917987786392';
+    // User requested WhatsApp gateway number: +9779716459259
+    const officialGatewayPhone = '9779716459259';
     const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
 
     window.open(waUrl, '_blank', 'noopener,noreferrer');
-    addToast('success', `WhatsApp Confirmation Code ${code} sent via Official Verification Desk!`);
+    addToast('success', `WhatsApp Confirmation Code ${code} sent via +9779716459259!`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (mode === 'register' && (!age || Number(age) < 18)) {
-      addToast('error', '⚠️ Age selection is mandatory! You must select your age and be 18+ to register.');
-      return;
-    }
+    setFormError('');
 
     if (mode === 'login') {
       const targetCred = loginCredential.trim();
       if (!targetCred) {
+        setFormError('Kripya apna registered mobile number ya email enter karein.');
         addToast('error', 'Please enter your registered email or mobile number.');
         return;
       }
       if (!password) {
+        setFormError('Kripya apna account password enter karein.');
         addToast('error', 'Please enter your password.');
         return;
       }
 
       const res = login(targetCred, password);
       if (res.success) {
+        setFormError('');
         onClose();
       } else if (res.notFound) {
-        // Account does not exist -> Redirect to Register tab as requested!
-        if (targetCred.includes('@')) {
-          setEmail(targetCred);
-        } else {
-          setPhone(targetCred.replace(/[^0-9]/g, '').slice(0, 10));
-        }
-        setMode('register');
+        setFormError('❌ Account not found! Ye mobile number ya email registered nahi hai. Kripya pehle Sign Up (Register) karein.');
+        addToast('error', 'Account not found! Kripya pehle Sign Up karein.');
+      } else if (res.wrongPassword) {
+        setFormError('❌ Galat password! Aapne galat password daala hai. Kripya sahi password enter karein ya Forgot Password par click karein.');
+        addToast('error', '❌ Galat password! Password check karke dobara enter karein.');
+      } else {
+        setFormError(res.message || 'Login failed. Details verify karein.');
       }
     } else if (mode === 'register') {
+      if (!age || Number(age) < 18) {
+        setFormError('⚠️ Age selection is mandatory! You must select your age and be 18+ to register.');
+        addToast('error', '⚠️ Age selection is mandatory! You must select your age and be 18+ to register.');
+        return;
+      }
       if (!name.trim()) {
+        setFormError('Kripya apna full name enter karein.');
         addToast('error', 'Please enter your full name.');
         return;
       }
       const cleanEmail = email.trim().toLowerCase();
       if (!cleanEmail || !cleanEmail.endsWith('@gmail.com') || cleanEmail.length <= 10) {
+        setFormError('Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
         addToast('error', 'Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
         return;
       }
       const cleanDigits = phone.replace(/[^0-9]/g, '');
       if (cleanDigits.length !== 10) {
+        setFormError('Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
         addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
         return;
       }
       if (!isOtpSent) {
+        setFormError('Kripya pehle "Send Code" par click karke WhatsApp verification code generate karein.');
         addToast('error', 'Please click "Send Code" to verify your WhatsApp number.');
         return;
       }
       if (otpCode.trim() !== generatedOtp.trim()) {
         setOtpError('Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
+        setFormError('❌ Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
         addToast('error', '❌ Code wrong dala aapne! Kripya WhatsApp par aaya sahi 4-digit code enter karein.');
         return;
       }
       if (password !== confirmPassword) {
+        setFormError('Passwords match nahi ho rahe hain. Kripya same password re-enter karein.');
         addToast('error', 'Passwords do not match.');
         return;
       }
       if (password.length < 6) {
+        setFormError('Password kam se kam 6 characters ka hona chahiye.');
         addToast('error', 'Password must be at least 6 characters.');
         return;
       }
 
       const res = register(name.trim(), cleanEmail, cleanDigits, password, referralCode);
       if (res.success) {
+        setFormError('');
         onClose();
       } else if (res.alreadyExists) {
-        // Account already exists -> Switch to Login tab!
-        setLoginCredential(cleanDigits);
-        setMode('login');
+        setFormError('⚠️ Account already registered! Ye mobile number ya email pehle se registered hai. Kripya Sign In tab par click karke login karein.');
+      } else {
+        setFormError(res.message || 'Registration failed.');
       }
     } else {
       addToast('info', 'Password reset instructions sent to your WhatsApp number.');
@@ -183,7 +200,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Top vibrant glowing accent gradient */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-rose-500 rounded-t-3xl" />
 
-        {/* Header with Colorful Brand Logo */}
+        {/* Header with Colorful Brand Logo & ALWAYS VISIBLE Cross (X) Button */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10 pt-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 p-0.5 shadow-lg shadow-orange-500/30 flex items-center justify-center">
@@ -205,14 +222,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
-          {!isForced && (
-            <button 
-              onClick={onClose} 
-              className="p-2 text-slate-400 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          {/* Cross (X) close button always present so user can go back anytime! */}
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-2 text-slate-300 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 cursor-pointer shadow-md"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Colorful Bonus Callout Banner */}

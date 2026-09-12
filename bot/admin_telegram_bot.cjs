@@ -79,9 +79,31 @@ async function handleCallbackQuery(query) {
 
   if (data === 'approve_dep_demo' || data.startsWith('approve_dep:')) {
     const depId = data === 'approve_dep_demo' ? 'DEMO-809214' : data.replace('approve_dep:', '');
+    
+    // Sync approval to Cloud Store for instant game wallet crediting!
+    try {
+      const getRes = await fetch('https://api.restful-api.dev/objects/ff808181a067127101a095461303011c');
+      const getJson = await getRes.json();
+      const approved = getJson.data?.approvedDeposits || [];
+      if (!approved.includes(depId)) {
+        approved.push(depId);
+        await fetch('https://api.restful-api.dev/objects/ff808181a067127101a095461303011c', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'ebp_approvals',
+            data: { approvedDeposits: approved, lastUpdated: new Date().toISOString() },
+          }),
+        });
+        console.log(`[SYNC] ✅ Successfully synced approved deposit ${depId} to Game Cloud!`);
+      }
+    } catch (e) {
+      console.error(`[SYNC] Error syncing ${depId}:`, e.message);
+    }
+
     await apiCall('answerCallbackQuery', {
       callback_query_id: query.id,
-      text: `✅ Payment Approved! User wallet has been credited.`,
+      text: `✅ Payment Approved! User wallet has been credited in game.`,
       show_alert: true,
     });
 
@@ -89,7 +111,7 @@ async function handleCallbackQuery(query) {
     await apiCall('editMessageText', {
       chat_id: query.message.chat.id,
       message_id: query.message.message_id,
-      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n✅ *STATUS: PAYMENT APPROVED BY ADMIN*\n💰 *Action:* User Wallet Credited\n⏱ *Time:* ${new Date().toLocaleTimeString()}`,
+      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n✅ *STATUS: PAYMENT APPROVED BY ADMIN*\n💰 *Action:* User Game Wallet Credited Immediately\n⏱ *Time:* ${new Date().toLocaleTimeString()}`,
       parse_mode: 'Markdown',
     });
   } else if (data === 'reject_dep_demo' || data.startsWith('reject_dep:')) {

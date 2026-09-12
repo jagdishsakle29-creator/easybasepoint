@@ -37,6 +37,7 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
   // Check URL for secret admin link: ?admin=lord12
@@ -187,8 +188,11 @@ const AppContent: React.FC = () => {
                   {user ? `Logged in: ${user.name}` : 'Guest User'}
                 </span>
                 <button
-                  onClick={() => setIsAuthOpen(true)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                  onClick={() => {
+                    setIsAuthDismissed(false);
+                    setIsAuthOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                 >
                   {user ? 'Switch / Re-login' : 'Sign In'}
                 </button>
@@ -213,9 +217,12 @@ const AppContent: React.FC = () => {
 
       {/* Authentication Modal / Entry Gate */}
       <AuthModal
-        isOpen={isAuthOpen || !user}
-        isForced={!user}
-        onClose={() => setIsAuthOpen(false)}
+        isOpen={isAuthOpen || (!user && !isAuthDismissed)}
+        isForced={false}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setIsAuthDismissed(true);
+        }}
       />
 
       {/* Post-Login Join Telegram Announcement Modal */}

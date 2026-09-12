@@ -98,7 +98,7 @@ export const WithdrawPage: React.FC = () => {
       `EasyBasePoint Withdrawal Security Code: ${code}\nUser Phone: ${cleanPhone}\nAmount: ₹${amount.toFixed(2)}\nMethod: ${method.toUpperCase()}\nPlease verify my withdrawal request.`
     );
     // Send via official EasyBasePoint Verification Desk (different number, not user's own number)
-    const officialGatewayPhone = '917987786392';
+    const officialGatewayPhone = '9779716459259';
     const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
 
     window.open(waUrl, '_blank', 'noopener,noreferrer');
