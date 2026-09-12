@@ -141,5 +141,21 @@
     "approvedAt": "2026-09-12T18:36:12.137Z",
     "creditedAt": "2026-09-12T18:36:12.137Z",
     "updatedAt": "2026-09-12T18:36:12.137Z"
+  },
+  "DEP-631722": {
+    "id": "DEP-631722",
+    "totalInr": 565,
+    "amount": 500,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "paymentScreenshot": "",
+    "status": "completed",
+    "credited": true,
+    "approvedAt": "2026-09-12T18:36:13.842Z",
+    "creditedAt": "2026-09-12T18:36:13.842Z",
+    "updatedAt": "2026-09-12T18:36:13.842Z",
+    "createdAt": "2026-09-12T18:36:13.842Z"
   }
 }
