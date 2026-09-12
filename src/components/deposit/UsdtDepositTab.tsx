@@ -43,7 +43,7 @@ export const UsdtDepositTab: React.FC = () => {
   const totalInr = calculatedInr + estimatedBonusInr + activityRewardInr;
 
   const demoAddress = selectedNetwork === 'TRC20' 
-    ? (settings.adminUsdtTrc20 || 'TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE') 
+    ? (settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW') 
     : (settings.adminUsdtBep20 || '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5');
 
   const handleCopy = (text: string) => {

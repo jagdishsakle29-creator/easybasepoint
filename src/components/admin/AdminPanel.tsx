@@ -77,7 +77,7 @@ export const AdminPanel: React.FC = () => {
   const [adminBankAccount, setAdminBankAccount] = useState(settings.adminBankAccount || '50200088991234');
   const [adminBankIfsc, setAdminBankIfsc] = useState(settings.adminBankIfsc || 'HDFC0001234');
   const [adminBankHolder, setAdminBankHolder] = useState(settings.adminBankHolder || 'EasyBasePoint Global Pvt Ltd');
-  const [adminUsdtTrc20, setAdminUsdtTrc20] = useState(settings.adminUsdtTrc20 || 'TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE');
+  const [adminUsdtTrc20, setAdminUsdtTrc20] = useState(settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW');
   const [adminUsdtBep20, setAdminUsdtBep20] = useState(settings.adminUsdtBep20 || '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5');
   const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
   const [adminTelegramChatId, setAdminTelegramChatId] = useState(settings.adminTelegramChatId || '');
@@ -705,31 +705,47 @@ export const AdminPanel: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">
-                  TRC20 Wallet Address (Tron)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    TRC20 Wallet Address (TRON)
+                  </label>
+                  <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    Starts with 'T'
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
                   value={adminUsdtTrc20}
-                  onChange={(e) => setAdminUsdtTrc20(e.target.value)}
-                  placeholder="TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE"
+                  onChange={(e) => setAdminUsdtTrc20(e.target.value.trim())}
+                  placeholder="TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW"
                   className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  🟢 TRON Network (e.g. <strong className="text-slate-700">TTsZk5w...</strong>)
+                </p>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">
-                  BEP20 Wallet Address (Binance Smart Chain)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    BEP20 Wallet Address (Binance Smart Chain)
+                  </label>
+                  <span className="text-[9px] font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                    Starts with '0x'
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
                   value={adminUsdtBep20}
-                  onChange={(e) => setAdminUsdtBep20(e.target.value)}
+                  onChange={(e) => setAdminUsdtBep20(e.target.value.trim())}
                   placeholder="0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5"
                   className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  🟡 Binance Smart Chain Network (e.g. <strong className="text-slate-700">0x71C8...</strong>)
+                </p>
               </div>
             </div>
           </div>

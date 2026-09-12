@@ -294,7 +294,7 @@ export const defaultSettings: RewardSettings = {
   adminBankAccount: '7855',
   adminBankIfsc: 'BKID0007855',
   adminBankHolder: 'EasyBasePoint Primary',
-  adminUsdtTrc20: 'TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE',
+  adminUsdtTrc20: 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW',
   adminUsdtBep20: '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5',
   telegramChannelUrl: 'https://t.me/easybasepoint',
   adminSecretKey: 'lord12',
@@ -383,6 +383,10 @@ export const storage = {
       }
       if (!parsed.minWithdrawal || parsed.minWithdrawal < 450) {
         parsed.minWithdrawal = 450.00;
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      if (!parsed.adminUsdtTrc20 || parsed.adminUsdtTrc20 === 'TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE') {
+        parsed.adminUsdtTrc20 = 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       return { ...defaultSettings, ...parsed };
