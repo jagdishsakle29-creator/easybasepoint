@@ -157,5 +157,21 @@
     "creditedAt": "2026-09-12T18:36:13.842Z",
     "updatedAt": "2026-09-12T18:36:13.842Z",
     "createdAt": "2026-09-12T18:36:13.842Z"
+  },
+  "DEP-534999": {
+    "id": "DEP-534999",
+    "totalInr": 565,
+    "amount": 500,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "paymentScreenshot": "",
+    "status": "completed",
+    "credited": true,
+    "approvedAt": "2026-09-12T18:36:15.866Z",
+    "creditedAt": "2026-09-12T18:36:15.866Z",
+    "updatedAt": "2026-09-12T18:36:15.866Z",
+    "createdAt": "2026-09-12T18:36:15.866Z"
   }
 }
