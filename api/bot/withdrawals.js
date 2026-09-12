@@ -12,13 +12,25 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const { data } = await fetchLedgerFromGitHub();
-      const list = Object.values(data || {})
-        .filter((item) => item.type === 'withdrawal' || (item.id && item.id.startsWith('WDR-')))
-        .sort((a, b) => {
-          const tA = new Date(a.createdAt || 0).getTime();
-          const tB = new Date(b.createdAt || 0).getTime();
-          return tB - tA;
+      let list = Object.values(data || {})
+        .filter((item) => item.type === 'withdrawal' || (item.id && item.id.startsWith('WDR-')));
+
+      const { userId, phone } = req.query || {};
+      if (userId || phone) {
+        const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+        list = list.filter((item) => {
+          if (userId && item.userId === userId) return true;
+          const itemPhone = (item.userPhone || '').replace(/[^0-9]/g, '');
+          if (cleanPhone.length >= 10 && itemPhone.length >= 10 && itemPhone.endsWith(cleanPhone.slice(-10))) return true;
+          return false;
         });
+      }
+
+      list.sort((a, b) => {
+        const tA = new Date(a.createdAt || 0).getTime();
+        const tB = new Date(b.createdAt || 0).getTime();
+        return tB - tA;
+      });
       return res.status(200).json(list);
     } catch (err) {
       console.error('[API_WITHDRAWALS] Error listing withdrawals:', err.message);

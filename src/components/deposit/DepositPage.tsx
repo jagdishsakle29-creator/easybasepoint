@@ -30,6 +30,7 @@ import { UsdtDepositTab } from './UsdtDepositTab';
 
 export const DepositPage: React.FC = () => {
   const { 
+    user,
     packages, 
     wallet, 
     settings, 
@@ -764,7 +765,19 @@ export const DepositPage: React.FC = () => {
 
           {/* Recent Deposit Orders Section with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
           {(() => {
+            if (!user) return null;
             const TWENTY_MINS_MS = 20 * 60 * 1000;
+            const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+
+            const isOwner = (d: typeof deposits[0]) => {
+              if (d.userId && d.userId === user.id) return true;
+              const depPhone = (d.userPhone || '').replace(/[^0-9]/g, '');
+              if (cleanPhone.length >= 10 && depPhone.length >= 10 && depPhone.endsWith(cleanPhone.slice(-10))) {
+                return true;
+              }
+              return false;
+            };
+
             const isDepSuccessful = (d: typeof deposits[0]) =>
               d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
             const isDepPending = (d: typeof deposits[0]) =>
@@ -772,8 +785,9 @@ export const DepositPage: React.FC = () => {
             const isDepCancelled = (d: typeof deposits[0]) =>
               d.status === 'rejected' || d.status === 'failed' || (d.status as string) === 'cancelled';
 
-            // Filter out pending verification orders older than 20 minutes
+            // Filter ONLY current user's deposits AND filter out pending verification orders older than 20 minutes
             const activeDeposits = deposits.filter((d) => {
+              if (!isOwner(d)) return false;
               if (isDepPending(d)) {
                 const time = new Date(d.createdAt).getTime();
                 if (!isNaN(time) && Date.now() - time > TWENTY_MINS_MS) {

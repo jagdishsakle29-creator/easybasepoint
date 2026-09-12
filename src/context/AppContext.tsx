@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   User, 
   Wallet, 
@@ -99,7 +99,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [user, setUser] = useState<User | null>(() => storage.getUser());
   const [wallet, setWallet] = useState<Wallet>(() => storage.getWallet());
   const [packages, setPackages] = useState<QuotaPackage[]>(() => storage.getPackages());
-  const [transactions, setTransactions] = useState<Transaction[]>(() => storage.getTransactions());
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const u = storage.getUser();
+    if (!u) return [];
+    const acc = storage.findAccount(u.phone || u.id);
+    if (acc?.transactions && Array.isArray(acc.transactions) && acc.transactions.length > 0) {
+      return acc.transactions;
+    }
+    return storage.getUserTransactions(u.id, u.phone);
+  });
   const [deposits, setDeposits] = useState<DepositOrder[]>(() => storage.getDeposits());
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(() => storage.getWithdrawals());
   const [team, setTeam] = useState<TeamMember[]>(() => storage.getTeam());
@@ -118,7 +126,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { if (user) storage.setUser(user); }, [user]);
   useEffect(() => { storage.setWallet(wallet); }, [wallet]);
   useEffect(() => { storage.setPackages(packages); }, [packages]);
-  useEffect(() => { storage.setTransactions(transactions); }, [transactions]);
+  // Sync state changes to storage with account isolation
+  useEffect(() => {
+    if (user) {
+      const accounts = storage.getAccounts();
+      const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+      const accIndex = accounts.findIndex((a) => 
+        a.user.id === user.id || 
+        (cleanPhone.length >= 10 && a.user.phone.replace(/[^0-9]/g, '').endsWith(cleanPhone.slice(-10)))
+      );
+      if (accIndex >= 0) {
+        accounts[accIndex].transactions = transactions;
+        storage.saveAccount(accounts[accIndex]);
+      }
+      const globalTx = storage.getTransactions();
+      const map = new Map<string, Transaction>();
+      globalTx.forEach((t) => map.set(t.id, t));
+      transactions.forEach((t) => map.set(t.id, t));
+      storage.setTransactions(Array.from(map.values()));
+    }
+  }, [transactions, user]);
   useEffect(() => { storage.setDeposits(deposits); }, [deposits]);
   useEffect(() => { storage.setWithdrawals(withdrawals); }, [withdrawals]);
   useEffect(() => { storage.setTeam(team); }, [team]);
@@ -777,6 +804,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           creditWalletForDeposit(depId, amountToAdd, quotaToAdd, matched);
         }
       } else if (event.action === 'rejected' || event.type === 'DEPOSIT_REJECTED') {
+        const currentU = storage.getUser();
+        if (!currentU) return;
+        const allCurrentDeps = storage.getDeposits();
+        const matched = allCurrentDeps.find((d) => d.id === depId);
+        const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
+        const eventPhone = (event.userPhone || (matched ? matched.userPhone : '') || '').replace(/[^0-9]/g, '');
+        const isUserMatch = 
+          (event.userId && event.userId === currentU.id) ||
+          (matched && matched.userId && matched.userId === currentU.id) ||
+          (cleanUserPhone.length === 10 && eventPhone.length === 10 && eventPhone === cleanUserPhone);
+
+        if (!isUserMatch) {
+          return;
+        }
+
         setDeposits((prev) => {
           const updated = prev.map((d) => d.id === depId ? { ...d, status: 'rejected' as const, credited: false } : d);
           storage.setDeposits(updated);
@@ -952,6 +994,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     storage.setUser(userWithPin);
     storage.setWallet(updatedWallet);
 
+    // Load account-specific transactions strictly for this user
+    let userTx: Transaction[] = [];
+    if (existingAccount.transactions && Array.isArray(existingAccount.transactions)) {
+      userTx = existingAccount.transactions;
+    } else {
+      userTx = storage.getUserTransactions(userWithPin.id, userWithPin.phone);
+    }
+    setTransactions(userTx);
+
     addToast('success', `Welcome back, ${userWithPin.name}!`);
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     setTimeout(() => reconcileWallet(), 50);
@@ -1009,19 +1060,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalTeamMembers: 0,
     };
 
-    // Save registered account to local persistence
-    storage.saveAccount({
-      user: newUser,
-      password: pass.trim(),
-      transactionPin: cleanPin,
-      wallet: initialWallet,
-    });
-
-    setUser(newUser);
-    setWallet(initialWallet);
-    storage.setUser(newUser);
-    storage.setWallet(initialWallet);
-
     const welcomeTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: newUser.id,
@@ -1032,7 +1070,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString(),
       note: '₹50 Signup Welcome Cash Bonus',
     };
-    setTransactions((prev) => [welcomeTx, ...prev]);
+
+    // Save registered account to local persistence with its isolated transaction history
+    storage.saveAccount({
+      user: newUser,
+      password: pass.trim(),
+      transactionPin: cleanPin,
+      wallet: initialWallet,
+      transactions: [welcomeTx],
+    });
+
+    setUser(newUser);
+    setWallet(initialWallet);
+    storage.setUser(newUser);
+    storage.setWallet(initialWallet);
+
+    // Initial state strictly has only the welcome bonus transaction
+    setTransactions([welcomeTx]);
     addToast('success', 'Account registered! ₹50 Welcome Bonus credited to your wallet!');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return { success: true, message: 'Registration successful' };
@@ -1041,6 +1095,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setUser(null);
     setWallet(defaultWallet);
+    setTransactions([]);
+    storage.setUser(null);
+    storage.setWallet(defaultWallet);
     addToast('info', 'Logged out successfully.');
   };
 
@@ -1769,13 +1826,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('success', 'Support ticket created. Our team will review shortly.');
   };
 
+  // Active user's transactions: strictly isolated to the logged-in user
+  const activeUserTransactions = useMemo(() => {
+    if (!user) return [];
+    if (user.role === 'admin') return transactions;
+    const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+    return transactions.filter((t) => {
+      if (t.userId && t.userId === user.id) return true;
+      const tPhone = (t.metadata?.phone || (t as any).userPhone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10 && tPhone.length >= 10 && tPhone.endsWith(cleanPhone.slice(-10))) return true;
+      if (t.referenceId) {
+        const matchingDep = deposits.find((d) => d.id === t.referenceId);
+        if (matchingDep) {
+          if (matchingDep.userId === user.id) return true;
+          const depPhone = (matchingDep.userPhone || '').replace(/[^0-9]/g, '');
+          if (cleanPhone.length >= 10 && depPhone.length >= 10 && depPhone.endsWith(cleanPhone.slice(-10))) return true;
+        }
+        const matchingWith = withdrawals.find((w) => w.id === t.referenceId);
+        if (matchingWith) {
+          if (matchingWith.userId === user.id) return true;
+          const withPhone = (matchingWith.userPhone || '').replace(/[^0-9]/g, '');
+          if (cleanPhone.length >= 10 && withPhone.length >= 10 && withPhone.endsWith(cleanPhone.slice(-10))) return true;
+        }
+      }
+      return false;
+    });
+  }, [transactions, user, deposits, withdrawals]);
+
   return (
     <AppContext.Provider
       value={{
         user,
         wallet,
         packages,
-        transactions,
+        transactions: activeUserTransactions,
         deposits,
         withdrawals,
         team,

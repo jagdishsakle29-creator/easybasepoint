@@ -792,7 +792,19 @@ export const WithdrawPage: React.FC = () => {
 
       {/* Recent Withdrawal Requests with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
       {(() => {
+        if (!user) return null;
         const TWENTY_MINS_MS = 20 * 60 * 1000;
+        const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+
+        const isOwner = (w: typeof withdrawals[0]) => {
+          if (w.userId && w.userId === user.id) return true;
+          const withPhone = (w.userPhone || '').replace(/[^0-9]/g, '');
+          if (cleanPhone.length >= 10 && withPhone.length >= 10 && withPhone.endsWith(cleanPhone.slice(-10))) {
+            return true;
+          }
+          return false;
+        };
+
         const isWithPending = (w: typeof withdrawals[0]) => w.status === 'pending' || w.status === 'processing';
         const isWithExpired = (w: typeof withdrawals[0]) => {
           if (!isWithPending(w)) return false;
@@ -800,7 +812,7 @@ export const WithdrawPage: React.FC = () => {
           return !isNaN(time) && (Date.now() - time > TWENTY_MINS_MS);
         };
 
-        const activeWithdrawals = withdrawals.filter((w) => !isWithExpired(w));
+        const activeWithdrawals = withdrawals.filter((w) => isOwner(w) && !isWithExpired(w));
         if (activeWithdrawals.length === 0) return null;
 
         const sortedWiths = [...activeWithdrawals].sort(

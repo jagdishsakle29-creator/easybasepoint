@@ -37,6 +37,7 @@ export interface RegisteredAccount {
   password?: string;
   transactionPin?: string;
   wallet: Wallet;
+  transactions?: Transaction[];
 }
 
 export const defaultUser: User | null = null;
@@ -378,6 +379,18 @@ export const storage = {
   setTransactions(transactions: Transaction[]): void {
     const sorted = [...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(sorted));
+  },
+
+  getUserTransactions(userId: string, userPhone?: string): Transaction[] {
+    if (!userId && !userPhone) return [];
+    const all = this.getTransactions();
+    const cleanPhone = (userPhone || '').replace(/[^0-9]/g, '');
+    return all.filter((t) => {
+      if (userId && t.userId === userId) return true;
+      const tPhone = (t.metadata?.phone || (t as any).userPhone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10 && tPhone.length >= 10 && tPhone.endsWith(cleanPhone.slice(-10))) return true;
+      return false;
+    });
   },
 
   getDeposits(): DepositOrder[] {

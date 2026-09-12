@@ -23,7 +23,7 @@ import { Transaction, TransactionType, TransactionStatus } from '../../types';
 export type StatusCategory = 'all' | 'successful' | 'pending' | 'cancelled';
 
 export const HistoryPage: React.FC = () => {
-  const { transactions, deposits, withdrawals } = useApp();
+  const { user, transactions, deposits, withdrawals } = useApp();
   const [activeTab, setActiveTab] = useState<'all' | TransactionType>('all');
   const [statusFilter, setStatusFilter] = useState<StatusCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,8 +43,10 @@ export const HistoryPage: React.FC = () => {
     return 'pending';
   };
 
-  // Combine transactions, deposits, and withdrawals so everything is guaranteed to appear with real-time status
+  // Combine transactions, deposits, and withdrawals strictly belonging to the logged-in user
   const combinedItems = useMemo(() => {
+    if (!user) return [];
+
     const TWENTY_MINUTES_MS = 20 * 60 * 1000;
     const isPendingExpired = (status: string, timeStr?: string) => {
       const cat = getStatusCategory(status);
@@ -53,16 +55,44 @@ export const HistoryPage: React.FC = () => {
       return !isNaN(t) && Date.now() - t > TWENTY_MINUTES_MS;
     };
 
+    const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+
+    const isUserOwner = (item: { userId?: string; userPhone?: string; metadata?: any }) => {
+      if (!user) return false;
+      if (item.userId && item.userId === user.id) return true;
+      const itemPhone = (item.userPhone || item.metadata?.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10 && itemPhone.length >= 10 && itemPhone.endsWith(cleanPhone.slice(-10))) {
+        return true;
+      }
+      return false;
+    };
+
+    // Strictly scope deposits and withdrawals to the active user
+    const myDeposits = deposits.filter((d) => isUserOwner(d));
+    const myWithdrawals = withdrawals.filter((w) => isUserOwner(w));
+    const myDepIds = new Set(myDeposits.map((d) => d.id));
+    const myWithIds = new Set(myWithdrawals.map((w) => w.id));
+
+    const isTxOwner = (t: Transaction) => {
+      if (isUserOwner(t)) return true;
+      if (t.referenceId && (myDepIds.has(t.referenceId) || myWithIds.has(t.referenceId))) {
+        return true;
+      }
+      return false;
+    };
+
     const items: Transaction[] = [];
 
     transactions.forEach((t) => {
+      if (!isTxOwner(t)) return;
+
       let currentStatus: TransactionStatus = t.status;
       let currentAmount = t.amount;
       let currentNote = t.note;
 
       if (t.referenceId) {
         // Check deposit match
-        const matchingDep = deposits.find((d) => d.id === t.referenceId);
+        const matchingDep = myDeposits.find((d) => d.id === t.referenceId);
         if (matchingDep) {
           const isUsdt = matchingDep.method === 'USDT' || matchingDep.id.startsWith('USDT');
           const isCompleted = matchingDep.status === 'completed' || matchingDep.status === 'credited' || matchingDep.status === 'approved' || matchingDep.credited === true;
@@ -73,7 +103,7 @@ export const HistoryPage: React.FC = () => {
             : (matchingDep.status === 'rejected' ? (isUsdt ? 'USDT Deposit Rejected' : 'INR Deposit Rejected') : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`));
         } else {
           // Check withdrawal match
-          const matchingWith = withdrawals.find((w) => w.id === t.referenceId);
+          const matchingWith = myWithdrawals.find((w) => w.id === t.referenceId);
           if (matchingWith) {
             currentStatus = matchingWith.status as TransactionStatus;
             currentAmount = matchingWith.amount;
@@ -97,8 +127,8 @@ export const HistoryPage: React.FC = () => {
 
     const existingRefIds = new Set(items.map((t) => t.referenceId || t.id));
 
-    // Ensure all active deposits are included
-    deposits.forEach((dep) => {
+    // Ensure all active deposits of this user are included
+    myDeposits.forEach((dep) => {
       if (!existingRefIds.has(dep.id)) {
         const isUsdt = dep.method === 'USDT' || dep.id.startsWith('USDT');
         const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
@@ -123,8 +153,8 @@ export const HistoryPage: React.FC = () => {
       }
     });
 
-    // Ensure all active withdrawals are included
-    withdrawals.forEach((w) => {
+    // Ensure all active withdrawals of this user are included
+    myWithdrawals.forEach((w) => {
       if (!existingRefIds.has(w.id)) {
         const withStatus = w.status as TransactionStatus;
 
@@ -149,7 +179,7 @@ export const HistoryPage: React.FC = () => {
 
     // Strict chronological sort: Newest on TOP, Oldest at the BOTTOM
     return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [transactions, deposits, withdrawals]);
+  }, [user, transactions, deposits, withdrawals]);
 
   // Filter by primary Type tab first
   const typeFiltered = useMemo(() => {
