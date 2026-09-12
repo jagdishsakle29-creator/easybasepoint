@@ -13,8 +13,11 @@
     "userId": "u-99",
     "method": "INR",
     "userPhone": "",
-    "status": "pending",
-    "credited": false,
-    "createdAt": "2026-09-12T18:01:28.816Z"
+    "status": "completed",
+    "credited": true,
+    "createdAt": "2026-09-12T18:01:28.816Z",
+    "approvedAt": "2026-09-12T18:01:28.823Z",
+    "creditedAt": "2026-09-12T18:01:28.823Z",
+    "updatedAt": "2026-09-12T18:01:28.823Z"
   }
 }
