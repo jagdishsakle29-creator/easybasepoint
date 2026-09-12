@@ -12,7 +12,8 @@ import {
   Info, 
   CreditCard,
   MessageCircle,
-  Send
+  Send,
+  Mail
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
@@ -55,24 +56,13 @@ export const WithdrawPage: React.FC = () => {
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
   const [maskedContact, setMaskedContact] = useState('');
+  const [userEmail, setUserEmail] = useState(() => (user?.email && !user.email.endsWith('@ebp.com')) ? user.email : '');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 0% Withdrawal Fee (Zero Deductions as requested)
   const feeAmount = 0.00;
   const netAmount = amount;
-
-  // Contact identifier helper (extract clean 10-digit mobile or email)
-  const getCleanContact = () => {
-    const rawPhone = (user?.phone || '').replace(/[^0-9]/g, '');
-    if (rawPhone.length >= 10) {
-      return rawPhone.slice(-10);
-    }
-    if (user?.email && user.email.includes('@')) {
-      return user.email.trim();
-    }
-    return rawPhone;
-  };
 
   // OTP Countdown timer
   useEffect(() => {
@@ -106,9 +96,10 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
 
-    const cleanContact = getCleanContact();
-    if (!cleanContact || (cleanContact.length !== 10 && !cleanContact.includes('@'))) {
-      const err = 'Valid 10-digit registered mobile number or email is required to request OTP.';
+    const targetEmail = userEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!targetEmail || !emailRegex.test(targetEmail)) {
+      const err = 'Please enter a valid Gmail / Email address to receive your OTP.';
       setOtpError(err);
       addToast('error', err);
       return;
@@ -117,12 +108,12 @@ export const WithdrawPage: React.FC = () => {
     setIsSendingOtp(true);
     setOtpError('');
     try {
-      const res = await otpService.requestOtp(cleanContact);
+      const res = await otpService.requestOtp(targetEmail, 'email');
       if (res.success || res.ok) {
         setIsOtpSent(true);
         setOtpTimer(res.cooldownSeconds || 60);
-        setMaskedContact(res.maskedContact || '');
-        addToast('success', res.message || 'Verification OTP sent successfully!');
+        setMaskedContact(res.maskedContact || targetEmail);
+        addToast('success', res.message || `Verification OTP sent to ${targetEmail}!`);
       } else {
         const errorMsg = res.message || 'Failed to send verification code. Please try again.';
         setOtpError(errorMsg);
@@ -186,13 +177,13 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
 
-    const cleanContact = getCleanContact();
+    const targetEmail = userEmail.trim().toLowerCase();
     setIsSubmitting(true);
     setOtpError('');
 
     (async () => {
       try {
-        const verifyRes = await otpService.verifyOtp(cleanContact, waOtp.trim());
+        const verifyRes = await otpService.verifyOtp(targetEmail, waOtp.trim());
         if (!verifyRes.success && !verifyRes.ok) {
           setIsSubmitting(false);
           const errMsg = verifyRes.message || 'Invalid verification code.';
@@ -573,33 +564,60 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
-        {/* Company Security OTP Verification Box */}
-        <div className="p-4 bg-orange-50/90 rounded-2xl border border-orange-200 shadow-sm space-y-2.5">
+        {/* Company Security Email OTP Verification Box */}
+        <div className="p-4 bg-orange-50/90 rounded-2xl border border-orange-200 shadow-sm space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
               <span>Company Security Verification</span>
             </span>
-            <button
-              type="button"
-              disabled={otpTimer > 0 || isSendingOtp || amount < settings.minWithdrawal || amount > wallet.balance}
-              onClick={handleSendVerificationCode}
-              className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>
-                {isSendingOtp
-                  ? 'Sending OTP...'
-                  : otpTimer > 0
-                    ? `OTP Sent (${otpTimer}s)`
-                    : isOtpSent
-                      ? 'Resend OTP'
-                      : 'Request OTP'}
-              </span>
-            </button>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
+              100% Free Email OTP
+            </span>
           </div>
 
           <div>
+            <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+              <Mail className="w-3.5 h-3.5 text-[#FF6B00]" />
+              <span>Your Registered Gmail / Email ID</span>
+            </label>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="email"
+                required
+                value={userEmail}
+                onChange={(e) => {
+                  setUserEmail(e.target.value.trim());
+                  setOtpError('');
+                }}
+                placeholder="Enter your Gmail / Email (e.g. name@gmail.com)"
+                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+              />
+              <button
+                type="button"
+                disabled={otpTimer > 0 || isSendingOtp || amount < settings.minWithdrawal || amount > wallet.balance}
+                onClick={handleSendVerificationCode}
+                className="px-3.5 py-2.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {isSendingOtp
+                    ? 'Sending OTP...'
+                    : otpTimer > 0
+                      ? `Sent (${otpTimer}s)`
+                      : isOtpSent
+                        ? 'Resend OTP'
+                        : 'Get Email OTP'}
+                </span>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Verification code will be delivered instantly to this email inbox.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600">Enter Received 6-Digit OTP</label>
             <input
               type="text"
               required
@@ -611,7 +629,7 @@ export const WithdrawPage: React.FC = () => {
                 setOtpError('');
               }}
               placeholder="Enter 6-digit company OTP"
-              className={`w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 ${
+              className={`w-full mt-1 px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 ${
                 otpError 
                   ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950' 
                   : 'border-slate-200 focus:ring-[#FF6B00]'
@@ -630,7 +648,7 @@ export const WithdrawPage: React.FC = () => {
             <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
               <span className="flex items-center gap-1 font-semibold text-emerald-700">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                OTP sent to {maskedContact ? `+91 ${maskedContact}` : 'your registered contact'}
+                OTP sent to {maskedContact || userEmail}
               </span>
               <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
                 <Clock className="w-3 h-3 text-slate-400" />

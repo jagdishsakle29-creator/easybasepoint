@@ -302,6 +302,9 @@ export const defaultSettings: RewardSettings = {
   adminSecretKey: 'lord12',
   telegramBotToken: '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M',
   adminTelegramChatId: '6527377657',
+  emailApiKey: '',
+  emailProvider: 'BREVO',
+  fromEmail: 'security@easybasepoint.com',
 };
 
 export const defaultTransactions: Transaction[] = [];

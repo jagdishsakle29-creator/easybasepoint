@@ -963,7 +963,9 @@ const server = http.createServer((req, res) => {
           success: true,
           ok: true,
           status: 'SENT',
-          message: `Verification OTP sent successfully to ${maskIdentifier(cleanIdentifier)}`,
+          message: isEmail 
+            ? `Verification OTP sent to ${maskIdentifier(cleanIdentifier)}` 
+            : `Verification OTP sent successfully to ${maskIdentifier(cleanIdentifier)}`,
           expiresIn: 300,
           cooldownSeconds: 60,
           maskedContact: maskIdentifier(cleanIdentifier),

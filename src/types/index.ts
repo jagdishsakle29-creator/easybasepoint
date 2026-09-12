@@ -167,6 +167,9 @@ export interface RewardSettings {
   adminSecretKey: string;
   telegramBotToken?: string;
   adminTelegramChatId?: string;
+  emailApiKey?: string;
+  emailProvider?: 'BREVO' | 'RESEND';
+  fromEmail?: string;
 }
 
 export interface SupportTicket {
