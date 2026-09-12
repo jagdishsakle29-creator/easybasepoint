@@ -402,24 +402,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribeDeposits;
   }, [settings.inrRewardPercent]);
 
-  // Watch for completed/approved deposits to notify user with popup
-  const [notifiedDepositIds, setNotifiedDepositIds] = useState<Set<string>>(() => new Set());
+  // Mark any pre-existing completed deposits as credited on mount so they NEVER replay or notify on refresh
   useEffect(() => {
-    deposits.forEach((dep) => {
-      if (dep.status === 'completed' && !notifiedDepositIds.has(dep.id)) {
-        setNotifiedDepositIds((prev) => new Set(prev).add(dep.id));
-        // If this belongs to user or user is active
-        if (!user || dep.userId === user.id || (user.phone && dep.userPhone && user.phone.endsWith(dep.userPhone.slice(-10)))) {
-          addToast('success', `🎉 Payment Approved! ₹${dep.totalInr.toFixed(2)} added to your game wallet!`);
-        }
-      } else if (dep.status === 'rejected' && !notifiedDepositIds.has(dep.id)) {
-        setNotifiedDepositIds((prev) => new Set(prev).add(dep.id));
-        if (!user || dep.userId === user.id || (user.phone && dep.userPhone && user.phone.endsWith(dep.userPhone.slice(-10)))) {
-          addToast('error', `❌ Payment of ₹${dep.totalInr.toFixed(2)} was rejected by admin.`);
-        }
+    const existing = storage.getDeposits();
+    existing.forEach((d) => {
+      if (d.status === 'completed' || d.credited) {
+        storage.markDepositCredited(d.id);
       }
     });
-  }, [deposits, user]);
+  }, []);
 
   const addToast = (type: Toast['type'], message: string) => {
     setToasts((prev) => {

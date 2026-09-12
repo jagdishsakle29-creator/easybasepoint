@@ -597,9 +597,10 @@ export const DepositPage: React.FC = () => {
                   {/* Buy Button */}
                   <button
                     onClick={() => handleSelectPackage(pkg)}
-                    className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-sm rounded-xl shadow-orange-glow transition-all active:scale-95 touch-press flex-shrink-0"
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#FF6B00] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-xl shadow-orange-glow transition-all active:scale-95 touch-press flex-shrink-0 flex items-center gap-1"
                   >
-                    Select
+                    <span>Deposit & Buy</span>
+                    <span>➔</span>
                   </button>
                 </div>
               ))
@@ -767,46 +768,60 @@ export const DepositPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Modal Buttons */}
-                <div className="flex gap-2 pt-2">
+                {/* Action Buttons */}
+                <div className="space-y-2.5 pt-2">
+                  {/* Primary Option: Pay & Deposit fresh money via UPI / QR */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const price = selectedPkg.price;
+                      handleCloseBuyModal();
+                      setTopUpAmount(price);
+                      setIsTopUpModalOpen(true);
+                    }}
+                    className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>⚡ Pay & Deposit ₹{selectedPkg.price.toLocaleString('en-IN')} via UPI / QR</span>
+                  </button>
+
+                  {/* Secondary Option: Deduct from existing wallet balance (only if user has enough funds) */}
+                  {wallet.balance >= selectedPkg.price ? (
+                    <div className="p-3 bg-slate-100 rounded-2xl border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                        <span>Or Pay from In-Game Wallet:</span>
+                        <strong className="text-slate-900 font-outfit font-black">₹{wallet.balance.toFixed(2)} Available</strong>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={purchaseStatus === 'PROCESSING'}
+                        onClick={handleConfirmBuy}
+                        className="w-full py-2.5 border-2 border-slate-300 hover:bg-slate-200/80 text-slate-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        {purchaseStatus === 'PROCESSING' ? (
+                          <>
+                            <RotateCw className="w-4 h-4 animate-spin text-[#FF6B00]" />
+                            <span>Deducting from Balance...</span>
+                          </>
+                        ) : (
+                          <span>💳 Deduct ₹{selectedPkg.price.toLocaleString('en-IN')} from Wallet Balance</span>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-center text-slate-500">
+                      Wallet balance (₹{wallet.balance.toFixed(2)}) is insufficient. Click the orange button above to pay via UPI / QR.
+                    </p>
+                  )}
+
                   <button
                     type="button"
                     disabled={purchaseStatus === 'PROCESSING'}
                     onClick={handleCloseBuyModal}
-                    className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-2xl transition disabled:opacity-40"
+                    className="w-full py-2.5 text-slate-400 hover:text-slate-600 font-bold text-xs rounded-xl transition disabled:opacity-40"
                   >
                     Cancel
                   </button>
-
-                  {wallet.balance < selectedPkg.price ? (
-                    <button
-                      type="button"
-                      disabled={purchaseStatus === 'PROCESSING'}
-                      onClick={() => {
-                        handleCloseBuyModal();
-                        setIsTopUpModalOpen(true);
-                      }}
-                      className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition"
-                    >
-                      Top Up Balance
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={purchaseStatus === 'PROCESSING'}
-                      onClick={handleConfirmBuy}
-                      className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {purchaseStatus === 'PROCESSING' ? (
-                        <>
-                          <RotateCw className="w-4 h-4 animate-spin" />
-                          <span>Processing Purchase...</span>
-                        </>
-                      ) : (
-                        <span>Confirm & Buy</span>
-                      )}
-                    </button>
-                  )}
                 </div>
               </>
             )}
