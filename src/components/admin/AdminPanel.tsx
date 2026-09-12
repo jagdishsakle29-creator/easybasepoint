@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   Package, 
   ArrowUpFromLine, 
+  ArrowDownToLine,
   Users, 
   Settings as SettingsIcon, 
   ScrollText, 
@@ -28,10 +29,13 @@ import { telegramService } from '../../services/telegram';
 export const AdminPanel: React.FC = () => {
   const { 
     packages, 
+    deposits,
     withdrawals, 
     settings, 
     auditLogs, 
     user, 
+    approveDeposit,
+    rejectDeposit,
     approveWithdrawal, 
     rejectWithdrawal, 
     addQuotaPackage, 
@@ -45,7 +49,7 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'packages' | 'withdrawals' | 'gateways' | 'users' | 'settings' | 'logs'
+    'overview' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
   >('overview');
 
   // Package Form State
@@ -80,6 +84,7 @@ export const AdminPanel: React.FC = () => {
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/easybasepoint');
   const [isTestingTg, setIsTestingTg] = useState(false);
 
+  const pendingDeposits = deposits.filter((d) => d.status === 'pending');
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
 
   const handleSavePackage = (e: React.FormEvent) => {
@@ -197,8 +202,9 @@ export const AdminPanel: React.FC = () => {
       <div className="flex items-center gap-1.5 bg-[#0B1528] p-1.5 rounded-2xl overflow-x-auto no-scrollbar border border-orange-500/20 shadow-md">
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-          { id: 'packages', label: 'Packages', icon: Package },
+          { id: 'deposits', label: 'Deposits', icon: ArrowDownToLine, badge: pendingDeposits.length },
           { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, badge: pendingWithdrawals.length },
+          { id: 'packages', label: 'Packages', icon: Package },
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
           { id: 'users', label: 'Users', icon: Users },
           { id: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -376,6 +382,107 @@ export const AdminPanel: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* =======================================================
+          TAB: DEPOSIT REQUESTS APPROVAL
+         ======================================================= */}
+      {activeAdminTab === 'deposits' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+              Deposit Approvals ({deposits.length} Total, {pendingDeposits.length} Pending)
+            </h3>
+            {pendingDeposits.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
+                {pendingDeposits.length} Requires Approval
+              </span>
+            )}
+          </div>
+
+          {deposits.length === 0 ? (
+            <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
+              No deposit requests submitted yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {deposits.map((dep) => (
+                <div
+                  key={dep.id}
+                  className={`glass-card rounded-2xl p-4 border transition-all ${
+                    dep.status === 'pending'
+                      ? 'border-amber-400/60 bg-gradient-to-br from-white to-amber-50/40 shadow-md'
+                      : 'border-slate-200/80'
+                  } space-y-3`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-extrabold text-slate-900 font-outfit text-base">
+                        ₹{dep.totalInr.toLocaleString('en-IN')} via {dep.method.toUpperCase()}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Base: ₹{dep.amount.toLocaleString('en-IN')} {dep.bonusInr > 0 ? `+ Bonus: ₹${dep.bonusInr}` : ''}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
+                        dep.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : dep.status === 'rejected'
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-amber-100 text-amber-800 animate-pulse'
+                      }`}
+                    >
+                      {dep.status}
+                    </span>
+                  </div>
+
+                  {/* UTR & Transaction Details */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1 text-slate-700 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans">User Phone:</span>
+                      <span className="font-bold text-slate-900">{dep.userPhone}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans">12-Digit UTR:</span>
+                      <span className="font-black text-[#FF6B00] bg-orange-50 px-2 py-0.5 rounded tracking-wider text-[13px]">
+                        {dep.utrNumber}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans">Submitted At:</span>
+                      <span className="text-slate-500 text-[11px] font-sans">
+                        {new Date(dep.createdAt).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons if Pending */}
+                  {dep.status === 'pending' && (
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => approveDeposit(dep.id)}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98]"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Approve & Credit ₹{dep.totalInr}</span>
+                      </button>
+
+                      <button
+                        onClick={() => rejectDeposit(dep.id, 'Invalid UTR or payment not received')}
+                        className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

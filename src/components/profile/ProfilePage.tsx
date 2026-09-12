@@ -158,8 +158,19 @@ export const ProfilePage: React.FC = () => {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({ name, phone, email });
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.length !== 10) {
+      addToast('error', 'Mobile number strictly 10 digits ka hona chahiye.');
+      return;
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail.endsWith('@gmail.com') || cleanEmail.length <= 10) {
+      addToast('error', 'Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
+      return;
+    }
+    updateProfile({ name: name.trim(), phone: cleanPhone, email: cleanEmail });
     setActiveModal(null);
+    addToast('success', 'Profile updated successfully!');
   };
 
   const handleSaveTelegram = (e: React.FormEvent) => {
@@ -392,21 +403,24 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Phone Number</label>
+                <label className="text-[11px] font-semibold text-slate-500">Phone Number (10 Digits)</label>
                 <input
-                  type="text"
+                  type="tel"
+                  maxLength={10}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                  placeholder="10-digit mobile number"
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Email Address</label>
+                <label className="text-[11px] font-semibold text-slate-500">Email Address (@gmail.com)</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="yourname@gmail.com"
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>

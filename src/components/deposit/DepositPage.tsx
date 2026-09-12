@@ -152,19 +152,19 @@ export const DepositPage: React.FC = () => {
         /* INR Mode */
         <div className="space-y-4">
           {/* =======================================================
-              OFFICIAL INSTANT UPI & QR DEPOSIT GATEWAY
+              COMPACT FAST AMOUNT SELECTOR (NO SCROLLING NEEDED)
              ======================================================= */}
           <div className="rounded-3xl p-5 bg-gradient-to-br from-[#0B1528] via-[#121F38] to-[#1E3052] text-white border-2 border-orange-500/40 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-[#FF6B00] flex items-center justify-center text-white shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-amber-500 flex items-center justify-center text-white shadow-md">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-black font-outfit text-white tracking-wide">
-                    Official UPI & QR Payment Gateway
+                    Instant INR Deposit
                   </h3>
-                  <p className="text-[11px] text-slate-300">Scan QR or copy UPI ID to add funds instantly</p>
+                  <p className="text-[11px] text-slate-300">Fast UPI & PhonePe Scanner • 5-7 Mins Settlement</p>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black uppercase">
@@ -172,200 +172,98 @@ export const DepositPage: React.FC = () => {
               </span>
             </div>
 
-            {/* QR Code & Official UPI Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-              {/* QR Code Container */}
-              <div className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
-                <img 
-                  src="/deposit_qr.jpg" 
-                  alt="EasyBasePoint UPI QR Code" 
-                  className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200"
-                />
-                <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
-                  <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                  <span>Scan with GPay, PhonePe, Paytm, BHIM</span>
-                </div>
+            {/* Daily Free Cash Bonus Tier Buttons */}
+            <div className="p-3 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 rounded-2xl border border-amber-400/40 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-black text-amber-200 uppercase flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>Daily Free Cash Bonus Tiers</span>
+                </span>
+                <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">
+                  Free Amount
+                </span>
               </div>
 
-              {/* UPI ID & Quick Amount Selector */}
-              <div className="space-y-3">
-                <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-                      OFFICIAL PLATFORM UPI ID
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                        addToast('success', 'UPI ID copied to clipboard!');
-                      }}
-                      className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
-                    >
-                      <Copy className="w-3 h-3" />
-                      <span>Copy UPI</span>
-                    </button>
-                  </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setTopUpAmount(5000)}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                    topUpAmount === 5000
+                      ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black scale-[1.02]'
+                      : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="text-xs font-black">₹5,000</div>
+                  <div className="text-[10px] font-black text-emerald-300">+₹100 Free</div>
+                </button>
 
-                  <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                    {settings.adminUpiId || 'basepnt@ybl'}
-                  </div>
-                  <div className="text-[10px] text-slate-300">
-                    Verified Payee: <strong>{settings.adminUpiName || 'EasyBasePoint Enterprise Solutions'}</strong>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTopUpAmount(20000)}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                    topUpAmount === 20000
+                      ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black scale-[1.02]'
+                      : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="text-xs font-black">₹20,000</div>
+                  <div className="text-[10px] font-black text-emerald-300">+₹1,000 Free</div>
+                </button>
 
-                {/* Amount Selection & Tiered Free Bonus */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                      Select or Enter Amount
-                    </label>
-                    <span className="text-[10px] font-extrabold text-amber-300">
-                      🎁 Extra Free Bonus Active
-                    </span>
-                  </div>
-
-                  {/* 3 Prominent Free Bonus Tier Buttons */}
-                  <div className="p-2.5 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 rounded-2xl border border-amber-400/40 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-black text-amber-200 uppercase flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-                        <span>Daily Free Cash Bonus Tiers</span>
-                      </span>
-                      <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">
-                        Free Gift
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setTopUpAmount(5000)}
-                        className={`p-2 rounded-xl border transition cursor-pointer ${
-                          topUpAmount === 5000
-                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
-                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="text-xs font-black">₹5,000</div>
-                        <div className="text-[10px] font-black text-emerald-300">+₹100 Free</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTopUpAmount(20000)}
-                        className={`p-2 rounded-xl border transition cursor-pointer ${
-                          topUpAmount === 20000
-                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
-                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="text-xs font-black">₹20,000</div>
-                        <div className="text-[10px] font-black text-emerald-300">+₹1,000 Free</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTopUpAmount(50000)}
-                        className={`p-2 rounded-xl border transition cursor-pointer ${
-                          topUpAmount === 50000
-                            ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black'
-                            : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="text-xs font-black">₹50,000</div>
-                        <div className="text-[10px] font-black text-emerald-300">+₹5,000 Free</div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Standard Quick Buttons */}
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[500, 890, 1400, 2100, 3000, 5000, 20000, 50000].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setTopUpAmount(amt)}
-                        className={`py-1.5 rounded-xl border text-[11px] font-bold font-outfit transition cursor-pointer ${
-                          topUpAmount === amt
-                            ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-xs font-black'
-                            : 'border-white/20 bg-white/5 text-slate-200 hover:bg-white/10'
-                        }`}
-                      >
-                        ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
-                    <input
-                      type="number"
-                      min={100}
-                      step={50}
-                      value={topUpAmount || ''}
-                      onChange={(e) => setTopUpAmount(Number(e.target.value))}
-                      placeholder="Enter custom amount"
-                      className="w-full pl-7 pr-3 py-2.5 bg-white/10 text-white font-bold font-outfit rounded-xl border border-white/20 text-xs focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-                    />
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTopUpAmount(50000)}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                    topUpAmount === 50000
+                      ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-white shadow-md font-black scale-[1.02]'
+                      : 'bg-black/30 border-white/10 text-slate-200 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="text-xs font-black">₹50,000</div>
+                  <div className="text-[10px] font-black text-emerald-300">+₹5,000 Free</div>
+                </button>
               </div>
             </div>
 
-            {/* 12-Digit UTR Number Input Field with Compulsory Lock */}
-            <div className="space-y-1 pt-1">
-              <div className="flex justify-between items-center">
-                <label className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
-                  <span>Enter 12-Digit UPI Ref / UTR Number</span>
-                  <span className="text-rose-400">* (Mandatory)</span>
-                </label>
-                <span className="text-[10px] font-mono font-bold text-slate-300">
-                  {utrRef.trim().length}/12 Digits
-                </span>
+            {/* Quick Amounts Grid */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                Select Quick Amount
+              </label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {[500, 890, 1400, 2100, 3000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setTopUpAmount(amt)}
+                    className={`py-2 rounded-xl border text-xs font-bold font-outfit transition cursor-pointer ${
+                      topUpAmount === amt
+                        ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-md font-black scale-[1.03]'
+                        : 'border-white/20 bg-white/5 text-slate-200 hover:bg-white/10'
+                    }`}
+                  >
+                    ₹{amt}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Custom Amount Input */}
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
               <input
-                type="text"
-                required
-                maxLength={12}
-                value={utrRef}
-                onChange={(e) => setUtrRef(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
-                placeholder="Enter 12-digit UTR from your UPI payment app"
-                className={`w-full px-4 py-3 bg-white text-slate-900 font-mono font-black text-xs tracking-wider rounded-xl border-2 focus:outline-none transition ${
-                  utrRef.trim().length === 12
-                    ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-400'
-                    : 'border-orange-400 focus:ring-2 focus:ring-[#FF6B00]'
-                }`}
+                type="number"
+                min={100}
+                step={50}
+                value={topUpAmount || ''}
+                onChange={(e) => setTopUpAmount(Number(e.target.value))}
+                placeholder="Or enter custom amount (Min ₹100)"
+                className="w-full pl-8 pr-3 py-3 bg-white/10 text-white font-bold font-outfit rounded-2xl border border-white/20 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
               />
             </div>
 
-            {/* UTR Warning Banner if not 12 digits */}
-            {utrRef.trim().length !== 12 && (
-              <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
-                <span>
-                  {utrRef.trim().length === 0
-                    ? '⚠️ UTR number dalega tabhi payment approval ke liye bheja jayega, warna submit nahi hoga.'
-                    : `⚠️ UTR incomplete hai! ${12 - utrRef.trim().length} digits aur dalein (12-digit UTR required).`}
-                </span>
-              </div>
-            )}
-
-            {/* Exact Required Guarantee Notice in Hindi */}
-            <div className="p-3.5 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2.5 text-xs shadow-inner">
-              <Clock className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black text-sm text-emerald-300 font-outfit">
-                  Payment check karke 5-7 minutes me aapke account me balance add ho jayega.
-                </p>
-                <p className="text-[11px] text-emerald-200/90 mt-0.5">
-                  Instant banking settlement SLA • Automated 256-bit UTR ledger reconciliation.
-                </p>
-              </div>
-            </div>
-
-            {/* Submit UTR Button - Locked until 12-digit UTR is entered */}
+            {/* Bonus Preview & Proceed to Pay CTA */}
             {(() => {
               let extraTier = 0;
               if (topUpAmount >= 50000) extraTier = 5000;
@@ -374,28 +272,30 @@ export const DepositPage: React.FC = () => {
               const regBonus = (topUpAmount * settings.inrRewardPercent) / 100;
               const totalBns = regBonus + extraTier;
               const totalRec = topUpAmount + totalBns;
-              const isUtrReady = utrRef.trim().length === 12;
 
               return (
-                <button
-                  type="button"
-                  disabled={isProcessingTopUp || !topUpAmount || topUpAmount <= 0 || !isUtrReady}
-                  onClick={handleConfirmTopUp}
-                  className={`w-full py-4 text-white font-black text-sm rounded-2xl shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 ${
-                    isUtrReady
-                      ? 'bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-[#FFA24D] hover:from-[#E55F00] hover:to-[#FF6B00] cursor-pointer ring-2 ring-amber-300/40'
-                      : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  <Send className="w-4 h-4" />
-                  <span>
-                    {isProcessingTopUp 
-                      ? 'Verifying UTR with Banking Server...' 
-                      : !isUtrReady
-                      ? '⚠️ Enter 12-Digit UTR to Submit for Approval'
-                      : `Submit UTR & Deposit ₹${topUpAmount} (+₹${totalBns.toFixed(0)} Bonus = ₹${totalRec.toFixed(0)})`}
-                  </span>
-                </button>
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between text-xs px-1 text-slate-300">
+                    <span>You Deposit: <strong className="text-white">₹{topUpAmount || 0}</strong></span>
+                    <span>Free Bonus: <strong className="text-emerald-400 font-black">+₹{totalBns.toFixed(0)}</strong></span>
+                    <span>Total Wallet: <strong className="text-amber-300 font-black">₹{totalRec.toFixed(0)}</strong></span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!topUpAmount || topUpAmount <= 0) {
+                        addToast('error', 'Please enter a valid deposit amount.');
+                        return;
+                      }
+                      setIsTopUpModalOpen(true);
+                    }}
+                    className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Proceed to Pay ₹{topUpAmount} ➔</span>
+                  </button>
+                </div>
               );
             })()}
           </div>
@@ -714,152 +614,183 @@ export const DepositPage: React.FC = () => {
       )}
 
       {/* =======================================================
-          INR DIRECT TOP-UP MODAL
+          DEDICATED PAYMENT GATEWAY MODAL (OPENS CLEANLY, CLOSES ON SUBMIT)
          ======================================================= */}
       {isTopUpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-orange-100 text-[#FF6B00] flex items-center justify-center">
-                  <CreditCard className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-[0_0_50px_rgba(255,107,0,0.3)] border-2 border-orange-500/40 space-y-4 max-h-[95vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 flex items-center justify-center text-white shadow-md">
+                  <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 font-outfit">Top Up INR Balance</h3>
-                  <p className="text-[11px] text-slate-400">Direct UPI / Netbanking Gateway</p>
+                  <h3 className="font-outfit font-black text-base text-white">
+                    Official Payment Gateway
+                  </h3>
+                  <p className="text-[11px] text-slate-300">Scan QR & enter 12-digit numeric UTR to credit balance</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsTopUpModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1.5 rounded-xl bg-white/10 text-slate-300 hover:text-white hover:bg-white/20 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Quick Amounts */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Quick Select Amount
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[500, 890, 1400, 2100, 3000, 10000, 28000, 47000, 65000, 100000, 150000].map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => setTopUpAmount(amt)}
-                    className={`py-2 rounded-xl border text-xs font-black font-outfit transition ${
-                      topUpAmount === amt
-                        ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00] shadow-xs'
-                        : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    {amt === 150000 ? '₹1.5 Lakh' : amt === 100000 ? '₹1 Lakh' : `₹${amt.toLocaleString('en-IN')}`}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Order Summary Pill */}
+            {(() => {
+              let extraTier = 0;
+              if (topUpAmount >= 50000) extraTier = 5000;
+              else if (topUpAmount >= 20000) extraTier = 1000;
+              else if (topUpAmount >= 5000) extraTier = 100;
+              const regBonus = (topUpAmount * settings.inrRewardPercent) / 100;
+              const totalBns = regBonus + extraTier;
+              const totalRec = topUpAmount + totalBns;
+              const isUtrReady = utrRef.trim().length === 12;
 
-            {/* Input Amount */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Amount (INR)
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">₹</span>
-                <input
-                  type="number"
-                  min={100}
-                  step={50}
-                  value={topUpAmount || ''}
-                  onChange={(e) => setTopUpAmount(Number(e.target.value))}
-                  placeholder="Enter amount"
-                  className="w-full pl-8 pr-4 py-3 bg-white rounded-2xl border border-slate-200 font-bold font-outfit text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
+              return (
+                <div className="space-y-4">
+                  <div className="p-3 bg-white/10 rounded-2xl border border-white/15 flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Pay Amount</div>
+                      <div className="text-lg font-black font-outfit text-amber-300">₹{topUpAmount}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Free Bonus</div>
+                      <div className="text-lg font-black font-outfit text-emerald-400">+₹{totalBns.toFixed(0)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Total Credit</div>
+                      <div className="text-lg font-black font-outfit text-white">₹{totalRec.toFixed(0)}</div>
+                    </div>
+                  </div>
 
-            {/* Bonus Preview */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-between text-xs">
-              <span className="text-slate-500">Deposit Reward Bonus ({settings.inrRewardPercent}%):</span>
-              <span className="font-bold text-emerald-600">
-                +₹{((topUpAmount * settings.inrRewardPercent) / 100).toFixed(2)}
-              </span>
-            </div>
+                  {/* QR Code and Official UPI */}
+                  <div className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
+                    <img 
+                      src="/deposit_qr.jpg" 
+                      alt="Official PhonePe QR" 
+                      className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200"
+                    />
+                    <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
+                      <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
+                      <span>Scan with PhonePe, GPay, Paytm, BHIM UPI</span>
+                    </div>
+                  </div>
 
-            {/* Platform Receiving Details Configured by Admin */}
-            <div className="p-3.5 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-blue-950 flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Send to Official Platform UPI</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                    addToast('success', 'UPI ID copied to clipboard!');
-                  }}
-                  className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  <Copy className="w-3 h-3" />
-                  <span>Copy UPI</span>
-                </button>
-              </div>
+                  {/* Official UPI ID Box */}
+                  <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                        OFFICIAL PLATFORM UPI ID
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
+                          addToast('success', 'UPI ID copied to clipboard!');
+                        }}
+                        className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Copy UPI</span>
+                      </button>
+                    </div>
+                    <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
+                      {settings.adminUpiId || 'basepnt@ybl'}
+                    </div>
+                    <div className="text-[10px] text-slate-300">
+                      Verified Payee: <strong>{settings.adminUpiName || 'EasyBasePoint Enterprise Solutions'}</strong>
+                    </div>
+                  </div>
 
-              <div className="p-2 bg-white rounded-xl border border-blue-200/60 font-mono text-slate-800 text-xs select-all">
-                {settings.adminUpiId || 'basepnt@ybl'}
-                <div className="font-sans text-[10px] text-slate-400 mt-0.5">
-                  Name: {settings.adminUpiName || 'EasyBasePoint Enterprise'}
+                  {/* 12-Digit Numeric UTR Input */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                        <span>Enter 12-Digit Bank UTR / Ref *</span>
+                      </label>
+                      <span className="text-xs font-mono font-black text-slate-300">
+                        {utrRef.length}/12 Digits
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      required
+                      maxLength={12}
+                      value={utrRef}
+                      onChange={(e) => setUtrRef(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+                      placeholder="Enter 12-digit numeric UTR from payment receipt"
+                      className={`w-full px-4 py-3 bg-white text-slate-900 font-mono font-black text-sm tracking-wider rounded-xl border-2 focus:outline-none transition ${
+                        isUtrReady
+                          ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                          : 'border-orange-400 focus:ring-2 focus:ring-[#FF6B00]'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Warning if < 12 digits */}
+                  {!isUtrReady && (
+                    <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                      <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                      <span>
+                        {utrRef.length === 0
+                          ? '⚠️ 12-digit numeric UTR dalna compulsory hai! UTR dale bina payment submit nahi hoga.'
+                          : `⚠️ UTR me ${12 - utrRef.length} digits aur dalein (strictly 12 numbers required).`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* SLA Guarantee Notice in Hindi */}
+                  <div className="p-3 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
+                    <Clock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-black text-xs text-emerald-300 font-outfit">
+                        Payment check karke 5-7 minutes me aapke account me balance add ho jayega.
+                      </p>
+                      <p className="text-[10px] text-emerald-200/80 mt-0.5">
+                        Admin review confirmation popup will appear once approved by admin.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsTopUpModalOpen(false)}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-slate-300 rounded-2xl text-xs font-bold transition cursor-pointer"
+                    >
+                      Cancel / Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isProcessingTopUp || !isUtrReady}
+                      onClick={handleConfirmTopUp}
+                      className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
+                        isUtrReady
+                          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
+                          : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>
+                        {isProcessingTopUp 
+                          ? 'Submitting to Admin...' 
+                          : !isUtrReady 
+                          ? 'Enter 12-Digit UTR to Submit' 
+                          : `Submit UTR & Deposit ₹${topUpAmount}`}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Transaction / UTR reference */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">
-                    12-Digit UPI UTR Number * (Required)
-                  </label>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {utrRef.trim().length}/12 Digits
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  required
-                  maxLength={12}
-                  placeholder="Paste 12-digit UTR number"
-                  value={utrRef}
-                  onChange={(e) => setUtrRef(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
-
-            {/* Secure Gateway Notice */}
-            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span>Payment check karke 5-7 minutes me account me balance add ho jayega.</span>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsTopUpModalOpen(false)}
-                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-2xl transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isProcessingTopUp || utrRef.trim().length !== 12}
-                onClick={handleConfirmTopUp}
-                className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isProcessingTopUp ? 'Connecting Gateway...' : utrRef.trim().length !== 12 ? 'Enter 12-Digit UTR' : 'Confirm Deposit'}
-              </button>
-            </div>
+              );
+            })()}
           </div>
         </div>
       )}

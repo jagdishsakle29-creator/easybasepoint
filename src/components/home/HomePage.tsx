@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wallet as WalletIcon, 
   Plus, 
@@ -7,83 +7,134 @@ import {
   DollarSign, 
   Users, 
   ArrowRight, 
-  Sparkles,
-  ChevronRight,
-  ShieldCheck
+  Sparkles, 
+  ChevronRight, 
+  ShieldCheck,
+  Zap,
+  Clock,
+  Coins
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export const HomePage: React.FC = () => {
   const { wallet, settings, setActiveTab } = useApp();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auto-swipe banner every 4 seconds as requested!
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 3);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const banners = [
+    {
+      id: 0,
+      badge: '🔥 DAILY 13% - 14% INCOME',
+      badgeColor: 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white',
+      title: 'Earn Up to 14% Daily Quota Profit',
+      desc: 'Choose Low, Medium, or High Risk Quotas & multiply your cash daily. 0% withdrawal fees!',
+      cta: 'PLAY NOW',
+      action: () => setActiveTab('deposit'),
+      bgClass: 'from-[#0B1528] via-[#121F38] to-[#1E3052]',
+      image: '/game_banner.jpg'
+    },
+    {
+      id: 1,
+      badge: '🎁 ₹50 WELCOME BONUS + 20% REFERRAL',
+      badgeColor: 'bg-white/20 text-white backdrop-blur-md',
+      title: 'Invite Friends & Earn 20% Lifetime',
+      desc: 'Claim instant ₹50 welcome bonus! Share your link and get 20% direct L1 commission on every recharge.',
+      cta: 'INVITE NOW',
+      action: () => setActiveTab('team'),
+      bgClass: 'from-[#FF6B00] via-[#FF8526] to-[#FFA24D]',
+      image: null
+    },
+    {
+      id: 2,
+      badge: '⚡ 5 - 7 MIN EXPRESS DEPOSITS',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40',
+      title: 'Daily Extra Bonus: Up to ₹5,000 Free',
+      desc: 'Add ₹5,000 get +₹100 Free • Add ₹20,000 get +₹1,000 Free • Add ₹50,000 get +₹5,000 Free cash bonus!',
+      cta: 'ADD FUNDS',
+      action: () => setActiveTab('deposit'),
+      bgClass: 'from-[#091522] via-[#0D243B] to-[#0E3D34]',
+      image: null
+    }
+  ];
 
   return (
     <div className="space-y-3 pb-20 animate-fadeIn">
-      {/* EasyBasePoint Quota Arena Game Banner */}
-      <div 
-        onClick={() => setActiveTab('deposit')}
-        className="relative overflow-hidden rounded-3xl border border-orange-500/30 shadow-lg cursor-pointer group transition-transform duration-300 hover:scale-[1.01]"
-      >
-        <img 
-          src="/game_banner.jpg" 
-          alt="EasyBasePoint Quota Arena" 
-          className="w-full h-40 sm:h-48 object-cover rounded-3xl"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1528] via-black/30 to-transparent flex flex-col justify-end p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-full bg-[#FF6B00] text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
-                  Quota Arena
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">
-                  Up to 14% Returns
-                </span>
+      {/* 4-Second Auto-Swiping Hero Banner Carousel */}
+      <div className="relative overflow-hidden rounded-3xl border border-orange-500/30 shadow-xl select-none group">
+        <div 
+          className="flex transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        >
+          {banners.map((b) => (
+            <div
+              key={b.id}
+              onClick={b.action}
+              className={`min-w-full relative h-48 sm:h-52 p-5 flex flex-col justify-between cursor-pointer bg-gradient-to-r ${b.bgClass}`}
+            >
+              {b.image && (
+                <img 
+                  src={b.image} 
+                  alt={b.title} 
+                  className="absolute inset-0 w-full h-full object-cover opacity-35 mix-blend-overlay pointer-events-none"
+                />
+              )}
+              {/* Decorative Blur Circles */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-orange-500/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative z-10 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm ${b.badgeColor}`}>
+                    {b.badge}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-300" />
+                    <span>Auto 4s</span>
+                  </span>
+                </div>
+
+                <h2 className="text-lg sm:text-xl font-black font-outfit text-white tracking-tight leading-snug drop-shadow-md">
+                  {b.title}
+                </h2>
+
+                <p className="text-xs text-white/85 font-normal max-w-sm line-clamp-2 leading-relaxed">
+                  {b.desc}
+                </p>
               </div>
-              <h3 className="text-base sm:text-lg font-black text-white font-outfit mt-1 drop-shadow-md">
-                Select Your Risk & Maximize Quota
-              </h3>
+
+              <div className="relative z-10 flex items-center justify-between pt-2">
+                {/* Dots indicator */}
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  {banners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        currentSlide === idx 
+                          ? 'w-6 bg-[#FF6B00]' 
+                          : 'w-2 bg-white/40 hover:bg-white/70'
+                      }`}
+                      aria-label={`Slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <button 
+                  onClick={b.action}
+                  className="px-4 py-2 bg-gradient-to-r from-[#FF6B00] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black font-outfit text-xs rounded-xl shadow-orange-glow transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <span>{b.cta}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <button className="px-3.5 py-1.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-black font-outfit text-xs rounded-xl shadow-orange-glow transition flex items-center gap-1">
-              <span>PLAY NOW</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 20% Lifetime Referral Promotional Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#FF6B00] via-[#FF8526] to-[#FFA24D] text-white p-3.5 sm:p-4 shadow-orange-glow">
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/15 rounded-full blur-xl pointer-events-none" />
-
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          <div className="space-y-1 flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider">
-                <Sparkles className="w-3 h-3 text-amber-200" />
-                <span>20% Lifetime Referral Bonus</span>
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-100 bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-400/30">
-                <ShieldCheck className="w-3 h-3 text-emerald-300" />
-                Real Commission • Instant Payout
-              </span>
-            </div>
-
-            <h2 className="text-sm sm:text-base font-black font-outfit leading-tight tracking-tight truncate sm:whitespace-normal">
-              INVITE YOUR FRIENDS & EARN 20% LIFETIME
-            </h2>
-            <p className="text-[11px] text-white/90 leading-tight line-clamp-1 sm:line-clamp-none font-normal">
-              Share your link and earn direct <strong>20% L1 Lifetime Commission</strong> on every recharge!
-            </p>
-          </div>
-
-          {/* Compact CTA */}
-          <button
-            onClick={() => setActiveTab('team')}
-            className="flex-shrink-0 px-3.5 py-2 bg-white text-[#FF6B00] hover:bg-orange-50 font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1"
-          >
-            <span>INVITE</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          ))}
         </div>
       </div>
 

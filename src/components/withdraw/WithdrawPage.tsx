@@ -95,15 +95,14 @@ export const WithdrawPage: React.FC = () => {
     setOtpTimer(60);
 
     const waMsg = encodeURIComponent(
-      `EasyBasePoint Withdrawal Security Code: ${code}\n\nAmount: ₹${amount.toFixed(2)}\nMethod: ${method.toUpperCase()}\n\nPlease enter this 4-digit code on the website to confirm your payout.`
+      `EasyBasePoint Withdrawal Security Code: ${code}\nUser Phone: ${cleanPhone}\nAmount: ₹${amount.toFixed(2)}\nMethod: ${method.toUpperCase()}\nPlease verify my withdrawal request.`
     );
-    const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    const waUrl = targetPhone 
-      ? `https://api.whatsapp.com/send?phone=${targetPhone}&text=${waMsg}` 
-      : `https://api.whatsapp.com/send?text=${waMsg}`;
+    // Send via official EasyBasePoint Verification Desk (different number, not user's own number)
+    const officialGatewayPhone = '917987786392';
+    const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
 
     window.open(waUrl, '_blank', 'noopener,noreferrer');
-    addToast('success', `WhatsApp security code ${code} generated! WhatsApp opened.`);
+    addToast('success', `WhatsApp security code ${code} generated via Official Verification Desk!`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

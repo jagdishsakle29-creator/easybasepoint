@@ -75,11 +75,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate confirmation code and open WhatsApp
+  // Generate confirmation code and open WhatsApp via Official Gateway Desk
   const handleSendWhatsAppOtp = () => {
     const cleanDigits = phone.replace(/[^0-9]/g, '');
-    if (!cleanDigits || cleanDigits.length < 10) {
-      addToast('error', 'Please enter a valid 10-digit WhatsApp mobile number first.');
+    if (!cleanDigits || cleanDigits.length !== 10) {
+      addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
       return;
     }
 
@@ -89,13 +89,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setOtpTimer(60);
 
     const waMsg = encodeURIComponent(
-      `EasyBasePoint Account Opening Confirmation Code: ${code}\n\nPlease enter this code on the website to confirm your account and claim your ₹50 Instant Welcome Bonus!`
+      `EasyBasePoint Account Opening Verification Code: ${code}\nUser Mobile: ${cleanDigits}\nPlease confirm my registration for ₹50 Welcome Bonus!`
     );
-    const targetPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
-    const waUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${waMsg}`;
+    // Official gateway phone number from EasyBasePoint (opens official verification desk, NOT user's own number):
+    const officialGatewayPhone = '917987786392';
+    const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
 
     window.open(waUrl, '_blank', 'noopener,noreferrer');
-    addToast('success', `WhatsApp Confirmation Code ${code} sent to WhatsApp!`);
+    addToast('success', `WhatsApp Confirmation Code ${code} sent via Official Verification Desk!`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,7 +126,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (targetCred.includes('@')) {
           setEmail(targetCred);
         } else {
-          setPhone(targetCred);
+          setPhone(targetCred.replace(/[^0-9]/g, '').slice(0, 10));
         }
         setMode('register');
       }
@@ -134,8 +135,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         addToast('error', 'Please enter your full name.');
         return;
       }
-      if (!phone.trim() || phone.replace(/[^0-9]/g, '').length < 10) {
-        addToast('error', 'Please enter a valid 10-digit mobile number.');
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.endsWith('@gmail.com') || cleanEmail.length <= 10) {
+        addToast('error', 'Gmail address strictly @gmail.com se end honi chahiye (e.g. yourname@gmail.com).');
+        return;
+      }
+      const cleanDigits = phone.replace(/[^0-9]/g, '');
+      if (cleanDigits.length !== 10) {
+        addToast('error', 'Mobile number strictly 10 digits ka hona chahiye (10 se kam ya jyada nahi).');
         return;
       }
       if (!isOtpSent) {
@@ -156,15 +163,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      const cleanPhone = phone.trim();
-      const cleanEmail = (email && email.trim()) || `${cleanPhone.replace(/[^0-9]/g, '')}@ebp.com`;
-
-      const res = register(name.trim(), cleanEmail, cleanPhone, password, referralCode);
+      const res = register(name.trim(), cleanEmail, cleanDigits, password, referralCode);
       if (res.success) {
         onClose();
       } else if (res.alreadyExists) {
         // Account already exists -> Switch to Login tab!
-        setLoginCredential(cleanPhone);
+        setLoginCredential(cleanDigits);
         setMode('login');
       }
     } else {
@@ -356,9 +360,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="tel"
                   required
+                  maxLength={10}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="10-digit WhatsApp mobile number"
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                  placeholder="Strictly 10-digit mobile number"
                   className="w-full px-3.5 py-2.5 text-xs font-mono font-bold rounded-2xl bg-white/5 border-2 border-emerald-500/40 text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition"
                 />
               </div>

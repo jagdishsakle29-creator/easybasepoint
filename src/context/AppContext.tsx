@@ -74,6 +74,8 @@ interface AppContextType {
   deleteUsdt: (id: string) => void;
   
   // Admin Operations
+  approveDeposit: (id: string) => void;
+  rejectDeposit: (id: string, reason?: string) => void;
   approveWithdrawal: (id: string) => void;
   rejectWithdrawal: (id: string, reason: string) => void;
   addQuotaPackage: (pkg: Omit<QuotaPackage, 'id'>) => void;
@@ -363,6 +365,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newDeposit: DepositOrder = {
       id: `DEP-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: user.id,
+      userPhone: user.phone,
+      utrNumber: refNumber,
       amount,
       method: 'INR',
       calculatedInr: amount,
@@ -377,28 +381,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits((prev) => [newDeposit, ...prev]);
     telegramService.sendDepositAlert(newDeposit, user.name, user.phone, settings);
 
+    // Create Transaction record so it immediately appears in user History
+    const newTx: Transaction = {
+      id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: user.id,
+      type: 'deposit',
+      amount: total,
+      currency: 'INR',
+      status: settings.isDemoMode ? 'completed' : 'pending',
+      timestamp: new Date().toISOString(),
+      note: `INR Deposit (₹${amount} + ₹${standardBonus.toFixed(2)} regular + ₹${extraFreeBonus} tier bonus | UTR: ${refNumber})`,
+      referenceId: newDeposit.id,
+    };
+    setTransactions((prev) => [newTx, ...prev]);
+
     if (settings.isDemoMode) {
       setWallet((prev) => ({
         ...prev,
         balance: parseFloat((prev.balance + total).toFixed(2)),
         quota: parseFloat((prev.quota + amount).toFixed(2)),
       }));
-
-      const newTx: Transaction = {
-        id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-        userId: user.id,
-        type: 'deposit',
-        amount: total,
-        currency: 'INR',
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-        note: `INR Deposit (₹${amount} + ₹${standardBonus.toFixed(2)} regular + ₹${extraFreeBonus} tier bonus)`,
-        referenceId: newDeposit.id,
-      };
-      setTransactions((prev) => [newTx, ...prev]);
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
     } else {
-      addToast('info', `Deposit submitted! ${tierLabel ? `${tierLabel} will be credited.` : 'Awaiting verification.'}`);
+      addToast('info', `Deposit of ₹${amount} submitted! Check karke 5-7 minutes me balance add ho jayega.`);
     }
 
     return { success: true, message: 'Deposit recorded' };
@@ -517,6 +522,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addToast('info', `Withdrawal of ₹${amount} submitted! Status: Pending review.`);
     return { success: true, message: 'Withdrawal submitted' };
+  };
+
+  // Admin Deposit Actions
+  const approveDeposit = (id: string) => {
+    const deposit = deposits.find((d) => d.id === id);
+    if (!deposit) return;
+
+    // 1. Mark deposit as completed
+    setDeposits((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status: 'completed' } : d))
+    );
+
+    // 2. Add full amount to user's wallet balance and quota!
+    setWallet((prev) => {
+      const newBal = parseFloat((prev.balance + deposit.totalInr).toFixed(2));
+      const newQuota = parseFloat((prev.quota + deposit.amount).toFixed(2));
+      const updatedWallet = { ...prev, balance: newBal, quota: newQuota };
+      storage.setWallet(updatedWallet);
+      return updatedWallet;
+    });
+
+    // 3. Update or create transaction record in history
+    setTransactions((prev) => {
+      const exists = prev.some((t) => t.referenceId === id);
+      if (exists) {
+        return prev.map((t) =>
+          t.referenceId === id
+            ? { ...t, status: 'completed', amount: deposit.totalInr, note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)` }
+            : t
+        );
+      }
+      const newTx: Transaction = {
+        id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+        userId: deposit.userId,
+        type: 'deposit',
+        amount: deposit.totalInr,
+        currency: 'INR',
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        note: `INR Deposit Approved (+₹${(deposit.bonusInr + deposit.activityRewardInr).toFixed(0)} Bonus)`,
+        referenceId: deposit.id,
+      };
+      return [newTx, ...prev];
+    });
+
+    logAudit('APPROVE_DEPOSIT', `Approved deposit ${id}: ₹${deposit.totalInr} added to wallet`, deposit.userId);
+    addToast('success', `🎉 Payment Approved! ₹${deposit.totalInr.toFixed(2)} has been added to game wallet!`);
+  };
+
+  const rejectDeposit = (id: string, reason?: string) => {
+    const deposit = deposits.find((d) => d.id === id);
+    if (!deposit) return;
+
+    setDeposits((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status: 'rejected' } : d))
+    );
+
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.referenceId === id
+          ? { ...t, status: 'rejected', note: `Deposit Rejected (${reason || 'Invalid UTR'})` }
+          : t
+      )
+    );
+
+    logAudit('REJECT_DEPOSIT', `Rejected deposit ${id}: ${reason || 'Invalid UTR'}`, deposit.userId);
+    addToast('info', `Deposit ${id} rejected: ${reason || 'Invalid UTR'}`);
   };
 
   // Admin Actions
@@ -653,6 +725,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteUpi,
         addUsdt,
         deleteUsdt,
+        approveDeposit,
+        rejectDeposit,
         approveWithdrawal,
         rejectWithdrawal,
         addQuotaPackage,

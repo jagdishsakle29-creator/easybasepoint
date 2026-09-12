@@ -62,6 +62,8 @@ export interface Transaction {
 export interface DepositOrder {
   id: string;
   userId: string;
+  userPhone?: string;
+  utrNumber?: string;
   amount: number;
   method: 'INR' | 'USDT';
   calculatedInr: number;
