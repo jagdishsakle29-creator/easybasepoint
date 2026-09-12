@@ -183,5 +183,20 @@
     "rejectionReason": "Payout Rejected by Admin - Refunded to Game Balance",
     "rejectedAt": "2026-09-12T21:41:25.361Z",
     "updatedAt": "2026-09-12T21:41:25.361Z"
+  },
+  "WDR-773979": {
+    "id": "WDR-773979",
+    "type": "withdrawal",
+    "amount": 0,
+    "netAmount": 0,
+    "method": "bank",
+    "userId": "",
+    "userName": "",
+    "userPhone": "",
+    "accountDetails": {},
+    "status": "completed",
+    "approvedAt": "2026-09-12T21:43:56.252Z",
+    "updatedAt": "2026-09-12T21:43:56.252Z",
+    "createdAt": "2026-09-12T21:43:56.252Z"
   }
 }
