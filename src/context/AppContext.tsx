@@ -416,12 +416,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const legitimateCreditedIds = legitimateApprovedDeps.map((d) => d.id);
-    const legitimateTotalInr = legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
+    const welcomeBonus = 50.00;
+    const legitimateTotalInr = welcomeBonus + legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
     const legitimateTotalQuota = legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
-    // If the wallet balance has phantom unearned money (e.g. 11338 or any unbacked amount)
-    if (Number(currentW.balance) > legitimateTotalInr || (legitimateTotalInr === 0 && Number(currentW.balance) > 0)) {
-      console.warn(`[AUDIT] Phantom balance detected (₹${currentW.balance}). Correcting to legitimate verified balance: ₹${legitimateTotalInr.toFixed(2)}`);
+    // If the wallet balance has phantom unearned money (e.g. 11338 or any unbacked amount exceeding legitimate total)
+    if (Number(currentW.balance) > legitimateTotalInr || Number(currentW.balance) < welcomeBonus) {
+      console.warn(`[AUDIT] Correcting balance (₹${currentW.balance}) to legitimate verified balance: ₹${legitimateTotalInr.toFixed(2)}`);
       const correctedW: Wallet = {
         ...currentW,
         userId: currentU.id,
@@ -457,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentU) {
       const serverW = await cloudSync.fetchServerWallet(currentU.id, currentU.phone);
       if (serverW) {
-        // Only accept server wallet balance if backed by legitimate verified deposits
+        // Only accept server wallet balance if backed by legitimate verified deposits (+ strictly ₹50 welcome bonus)
         const legitimateDeps = allDeps.filter((d) => {
           const isCompleted = d.credited === true || d.status === 'completed' || d.status === 'approved';
           if (!isCompleted) return false;
@@ -465,12 +466,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return (d.userId && d.userId === currentU.id) ||
             (cleanUserPhone.length === 10 && dPhone.length === 10 && dPhone === cleanUserPhone);
         });
-        const maxAllowed = legitimateDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
+        const maxAllowed = 50.00 + legitimateDeps.reduce((sum, d) => sum + Number(d.totalInr || d.amount || 0), 0);
 
-        if (Number(serverW.balance) > maxAllowed || (maxAllowed === 0 && Number(serverW.balance) > 0)) {
-          // Reset server wallet with clean 0 balance
+        if (Number(serverW.balance) > maxAllowed) {
+          // Reset server wallet with clean legitimate balance
           cloudSync.syncServerWallet(currentU.id, currentU.phone, maxAllowed, 0);
-        } else if (serverW.balance !== currentW.balance && Number(serverW.balance) <= maxAllowed) {
+        } else if (serverW.balance !== currentW.balance && Number(serverW.balance) <= maxAllowed && Number(serverW.balance) >= 50.00) {
           const mergedW: Wallet = {
             ...currentW,
             balance: parseFloat(Number(serverW.balance).toFixed(2)),
@@ -863,7 +864,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const initialWallet: Wallet = {
       userId: newUser.id,
-      balance: 0.00,
+      balance: 50.00,
       quota: 0.00,
       referralBalance: 0.00,
       todayReceive: 0.00,
@@ -887,7 +888,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     storage.setUser(newUser);
     storage.setWallet(initialWallet);
 
-    addToast('success', 'Account registered successfully! Welcome to EasyBasePoint.');
+    const welcomeTx: Transaction = {
+      id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: newUser.id,
+      type: 'reward',
+      amount: 50.00,
+      currency: 'INR',
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      note: '₹50 Signup Welcome Cash Bonus',
+    };
+    setTransactions((prev) => [welcomeTx, ...prev]);
+    addToast('success', 'Account registered! ₹50 Welcome Bonus credited to your wallet!');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return { success: true, message: 'Registration successful' };
   };
