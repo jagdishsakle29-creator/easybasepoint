@@ -13,9 +13,12 @@ import {
   ShieldCheck,
   Calendar,
   AlertCircle,
-  Send
+  Send,
+  Loader2,
+  Check
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { otpService } from '../../services/otpService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -46,12 +49,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Form error display state
   const [formError, setFormError] = useState('');
 
-  // WhatsApp OTP verification states
+  // Company Server-Side OTP Verification States
   const [otpCode, setOtpCode] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [otpStatus, setOtpStatus] = useState<'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error'>('idle');
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
+  const [maskedContact, setMaskedContact] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Prefill referral code if URL has ?ref=...
   useEffect(() => {
@@ -78,8 +82,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate confirmation code and open WhatsApp via official gateway: +9779716459259
-  const handleSendWhatsAppOtp = () => {
+  // Request Official Company Server-Side OTP
+  const handleSendCompanyOtp = async () => {
     const cleanDigits = phone.replace(/[^0-9]/g, '');
     if (!cleanDigits || cleanDigits.length !== 10) {
       setFormError('Mobile number must be exactly 10 digits.');
@@ -87,23 +91,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(code);
-    setIsOtpSent(true);
-    setOtpTimer(60);
+    setOtpStatus('sending');
+    setOtpError('');
     setFormError('');
 
-    const waMsg = encodeURIComponent(
-      `EasyBasePoint Account Opening Verification Code: ${code}\nUser Mobile: ${cleanDigits}\nPlease confirm my registration for ₹50 Welcome Bonus!`
-    );
-    const officialGatewayPhone = '9779716459259';
-    const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
-
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
-    addToast('success', `WhatsApp Confirmation Code ${code} sent via +9779716459259!`);
+    try {
+      const res = await otpService.requestOtp(cleanDigits, 'sms');
+      if (res.ok) {
+        setOtpStatus('sent');
+        setOtpTimer(res.cooldownSeconds || 60);
+        setMaskedContact(res.maskedContact || `+91 ${cleanDigits.slice(0, 2)}******${cleanDigits.slice(-2)}`);
+        addToast('success', res.message || 'Verification code sent to your registered mobile number!');
+      } else {
+        setOtpStatus('error');
+        setOtpError(res.message || 'Failed to send verification code.');
+        setFormError(res.message || 'Failed to send verification code.');
+        addToast('error', res.message || 'Failed to send verification code.');
+      }
+    } catch (err: any) {
+      setOtpStatus('error');
+      setOtpError('Failed to connect to authentication server.');
+      addToast('error', 'Network error requesting verification code.');
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -156,16 +168,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         addToast('error', 'Mobile number must be exactly 10 digits.');
         return;
       }
-      if (!isOtpSent) {
-        setFormError('Please click "Send Code" first to receive your WhatsApp verification code.');
-        addToast('error', 'Please click "Send Code" to verify your WhatsApp number.');
-        return;
-      }
-      if (otpCode.trim() !== generatedOtp.trim()) {
-        setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-        setFormError('❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-        addToast('error', '❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-        return;
+      if (otpStatus !== 'verified') {
+        if (otpStatus !== 'sent') {
+          setFormError('Please click "Send OTP" first to receive your company verification code.');
+          addToast('error', 'Please request an OTP first.');
+          return;
+        }
+
+        const cleanOtp = otpCode.trim();
+        if (!cleanOtp || cleanOtp.length !== 6) {
+          setOtpError('Please enter the complete 6-digit verification code.');
+          setFormError('Please enter the complete 6-digit verification code.');
+          addToast('error', '6-digit verification code is required.');
+          return;
+        }
+
+        setIsVerifying(true);
+        setOtpStatus('verifying');
+        const vRes = await otpService.verifyOtp(cleanDigits, cleanOtp);
+        setIsVerifying(false);
+
+        if (!vRes.ok) {
+          setOtpStatus('error');
+          setOtpError(vRes.message || 'Invalid verification code.');
+          setFormError(vRes.message || 'Invalid verification code.');
+          addToast('error', vRes.message || 'Invalid verification code.');
+          return;
+        }
+
+        setOtpStatus('verified');
+        addToast('success', 'Mobile identity verified successfully!');
       }
       if (password !== confirmPassword) {
         setFormError('Passwords do not match. Please re-enter your password.');
@@ -188,7 +220,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setFormError(res.message || 'Registration failed.');
       }
     } else {
-      addToast('info', 'Password reset instructions sent to your WhatsApp number.');
+      addToast('info', 'Password reset instructions sent to your registered contact.');
       setMode('login');
     }
   };
@@ -250,35 +282,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </span>
         </div>
 
-        {/* Bold Colorful Tab Switchers */}
-        {mode !== 'forgot' && (
-          <div className="grid grid-cols-2 p-1.5 bg-black/40 rounded-2xl border border-white/10 gap-1.5">
-            <button
-              type="button"
-              onClick={() => setMode('login')}
-              className={`py-2.5 px-3 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 ${
-                mode === 'login' 
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/30' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Sign In (Login)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('register')}
-              className={`py-2.5 px-3 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 ${
-                mode === 'register' 
-                  ? 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white shadow-lg shadow-orange-500/30 border border-amber-400/30' 
-                  : 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-              <span>Register (New Account)</span>
-            </button>
+        {/* Error Alert Display */}
+        {formError && (
+          <div className="p-3 bg-rose-950/80 rounded-2xl border-2 border-rose-500 text-rose-200 font-bold text-xs flex items-start gap-2.5 shadow-lg animate-fadeIn">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+            <span className="leading-snug">{formError}</span>
           </div>
         )}
+
+        {/* Mode Selector Tabs */}
+        <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/5 border border-white/10 text-xs font-black">
+          <button
+            type="button"
+            onClick={() => { setMode('login'); setFormError(''); }}
+            className={`py-2 rounded-xl transition ${
+              mode === 'login' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('register'); setFormError(''); }}
+            className={`py-2 rounded-xl transition ${
+              mode === 'register' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Sign Up (+₹50 Bonus)
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
           {/* ========================================================
@@ -356,26 +388,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Email Address */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-orange-300 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Email Address</span>
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-orange-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Email Address (@gmail.com)</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-semibold">Strictly @gmail.com</span>
+                </div>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. yourname@gmail.com"
+                  placeholder="yourname@gmail.com"
                   className="w-full px-3.5 py-2.5 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-orange-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 transition"
                 />
               </div>
 
               {/* Mobile Phone Number */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>WhatsApp Mobile Number</span>
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mobile Number (10 Digits) *</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-300 font-extrabold bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                    Verified OTP Required
+                  </span>
+                </div>
                 <input
                   type="tel"
                   required
@@ -416,41 +456,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </select>
               </div>
 
-              {/* WhatsApp Account Opening Confirmation Code Card */}
+              {/* Company-Controlled Server OTP Verification Card */}
               <div className="p-3.5 bg-emerald-950/40 rounded-2xl border-2 border-emerald-500/40 space-y-2.5 shadow-lg">
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                    <MessageCircle className="w-4 h-4 text-emerald-400" />
-                    <span>WhatsApp Verification Code *</span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Official OTP Verification *</span>
                   </span>
-                  <button
-                    type="button"
-                    disabled={otpTimer > 0}
-                    onClick={handleSendWhatsAppOtp}
-                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-500/30 transition disabled:opacity-50 flex items-center gap-1"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}</span>
-                  </button>
+
+                  {otpStatus === 'verified' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/30 text-emerald-300 text-[11px] font-black border border-emerald-400/40">
+                      <Check className="w-3 h-3 text-emerald-300" />
+                      Verified
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={otpTimer > 0 || otpStatus === 'sending' || phone.length !== 10}
+                      onClick={handleSendCompanyOtp}
+                      className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-500/30 transition disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    >
+                      {otpStatus === 'sending' ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3" />
+                          <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send OTP'}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 <div className="relative">
                   <input
                     type="text"
                     required
-                    maxLength={4}
+                    maxLength={6}
+                    disabled={otpStatus === 'verified'}
                     value={otpCode}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
                       setOtpCode(val);
-                      if (val.length === 4 && isOtpSent && val !== generatedOtp) {
-                        setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-                      } else {
-                        setOtpError('');
-                      }
+                      setOtpError('');
                     }}
-                    placeholder="Enter 4-digit code sent to WhatsApp"
-                    className={`w-full px-3 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border-2 bg-black/40 text-emerald-300 placeholder-emerald-700/60 focus:outline-none focus:ring-2 ${
+                    placeholder="Enter 6-digit verification code"
+                    className={`w-full px-3 py-2.5 text-base font-mono tracking-[0.25em] text-center font-black rounded-xl border-2 bg-black/40 text-emerald-300 placeholder-emerald-700/60 focus:outline-none focus:ring-2 disabled:opacity-75 ${
                       otpError
                         ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/40 text-rose-300'
                         : 'border-emerald-400/60 focus:border-emerald-400 focus:ring-emerald-500/30'
@@ -465,12 +519,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 )}
 
-                {isOtpSent && generatedOtp && (
-                  <div className="flex items-center justify-between text-[11px] text-emerald-300 pt-0.5">
-                    <span>Code sent to WhatsApp:</span>
-                    <span className="font-mono font-black bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-lg border border-emerald-400/40">
-                      {generatedOtp}
-                    </span>
+                {otpStatus === 'sent' && (
+                  <div className="text-[11px] text-emerald-300 flex items-center gap-1.5 pt-0.5">
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span>OTP sent to {maskedContact || 'your phone'}. Valid for 5 minutes.</span>
+                  </div>
+                )}
+
+                {otpStatus === 'verified' && (
+                  <div className="text-[11px] text-emerald-300 flex items-center gap-1.5 pt-0.5 font-bold">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mobile number verified by Company Gateway.</span>
                   </div>
                 )}
               </div>

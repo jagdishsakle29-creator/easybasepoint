@@ -69,6 +69,9 @@ export const telegramService = {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payment:_`;
 
+      const webBaseUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://easybasepoint.vercel.app';
+      const webApproveUrl = `${webBaseUrl}/?admin=lord12&approve_dep=${deposit.id}&total=${deposit.totalInr}`;
+
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,7 +82,7 @@ export const telegramService = {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${deposit.id}&total=${deposit.totalInr}` },
+                { text: '⚡ 1-Click Approve (Web)', url: webApproveUrl },
                 { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}:${deposit.totalInr}` },
               ],
               [

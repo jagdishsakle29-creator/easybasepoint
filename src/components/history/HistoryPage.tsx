@@ -28,13 +28,14 @@ export const HistoryPage: React.FC = () => {
         const matchingDep = deposits.find((d) => d.id === t.referenceId);
         if (matchingDep) {
           const isUsdt = matchingDep.method === 'USDT' || matchingDep.id.startsWith('USDT');
+          const isCompleted = matchingDep.status === 'completed' || matchingDep.status === 'credited' || matchingDep.status === 'approved' || matchingDep.credited === true;
           return {
             ...t,
-            status: matchingDep.status,
+            status: isCompleted ? 'completed' : matchingDep.status,
             amount: matchingDep.totalInr || t.amount,
-            note: matchingDep.status === 'completed'
+            note: isCompleted
               ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
-              : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`),
+              : (matchingDep.status === 'rejected' ? (isUsdt ? 'USDT Deposit Rejected' : 'INR Deposit Rejected') : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`)),
           };
         }
       }
@@ -46,17 +47,18 @@ export const HistoryPage: React.FC = () => {
     deposits.forEach((dep) => {
       if (!existingRefIds.has(dep.id)) {
         const isUsdt = dep.method === 'USDT' || dep.id.startsWith('USDT');
+        const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
         items.push({
           id: dep.id,
           userId: dep.userId,
           type: 'deposit',
           amount: dep.totalInr || dep.amount,
           currency: 'INR',
-          status: dep.status,
+          status: isCompleted ? 'completed' : dep.status,
           timestamp: dep.createdAt,
           note: isUsdt
-            ? `USDT Deposit (${dep.amount} USDT • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
-            : `INR Deposit (₹${dep.amount} • ${dep.status === 'completed' ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
+            ? `USDT Deposit (${dep.amount} USDT • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
+            : `INR Deposit (₹${dep.amount} • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
           referenceId: dep.id,
         });
       }
@@ -89,6 +91,8 @@ export const HistoryPage: React.FC = () => {
   const getStatusBadge = (status: TransactionStatus) => {
     switch (status) {
       case 'completed':
+      case 'credited' as any:
+      case 'approved' as any:
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />

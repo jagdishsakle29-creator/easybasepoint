@@ -25,6 +25,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
 import { telegramService } from '../../services/telegram';
+import { storage } from '../../services/storage';
 
 export const AdminPanel: React.FC = () => {
   const { 
@@ -95,6 +96,44 @@ export const AdminPanel: React.FC = () => {
   const rejectedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'rejected');
   const totalUsdtVolume = usdtDeposits.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const totalUsdtInrVolume = usdtDeposits.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
+
+  // Status Filter States
+  const [inrFilter, setInrFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
+  const [usdtFilter, setUsdtFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
+
+  // INR Deposit Metrics & Filtered List
+  const inrDeposits = deposits.filter((d) => d.method !== 'USDT' && !d.id.startsWith('USDT'));
+  const pendingInrDeposits = inrDeposits.filter((d) => d.status === 'pending');
+  const completedInrDeposits = inrDeposits.filter((d) => d.status === 'completed' || d.status === 'credited' || d.credited === true);
+  const rejectedInrDeposits = inrDeposits.filter((d) => d.status === 'rejected');
+
+  const filteredInrDeposits = inrDeposits.filter((d) => {
+    if (inrFilter === 'all') return true;
+    if (inrFilter === 'pending') return d.status === 'pending';
+    if (inrFilter === 'completed') return d.status === 'completed' || d.status === 'credited' || d.credited === true;
+    if (inrFilter === 'rejected') return d.status === 'rejected';
+    return true;
+  });
+
+  const filteredUsdtDeposits = usdtDeposits.filter((d) => {
+    if (usdtFilter === 'all') return true;
+    if (usdtFilter === 'pending') return d.status === 'pending';
+    if (usdtFilter === 'completed') return d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
+    if (usdtFilter === 'rejected') return d.status === 'rejected';
+    return true;
+  });
+
+  // Registered Users list from persistent storage
+  const registeredAccounts = React.useMemo(() => {
+    const accounts = storage.getAccounts();
+    if (user && !accounts.some((a) => a.user.id === user.id)) {
+      accounts.unshift({
+        user,
+        wallet: storage.getWallet(),
+      });
+    }
+    return accounts;
+  }, [user]);
 
   const handleSavePackage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,13 +624,34 @@ export const AdminPanel: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider font-outfit">
-                USDT Transaction Table ({usdtDeposits.length} Records)
+                USDT Transaction Table ({filteredUsdtDeposits.length} Records)
               </h4>
+              <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: `ALL (${usdtDeposits.length})` },
+                  { id: 'pending', label: `PENDING (${pendingUsdtDeposits.length})` },
+                  { id: 'completed', label: `SUCCESSFUL (${creditedUsdtDeposits.length})` },
+                  { id: 'rejected', label: `REJECTED (${rejectedUsdtDeposits.length})` },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setUsdtFilter(f.id as any)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                      usdtFilter === f.id
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {usdtDeposits.length === 0 ? (
+            {filteredUsdtDeposits.length === 0 ? (
               <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
-                No USDT deposits recorded yet.
+                No USDT deposits match this filter.
               </div>
             ) : (
               <div className="glass-card rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
@@ -614,7 +674,7 @@ export const AdminPanel: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {usdtDeposits.map((dep) => {
+                      {filteredUsdtDeposits.map((dep) => {
                         const statusBadge = () => {
                           if (dep.status === 'credited' || (dep.status === 'completed' && dep.credited !== false)) {
                             return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">CREDITED</span>;
@@ -719,22 +779,45 @@ export const AdminPanel: React.FC = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-              Deposit Approvals ({deposits.length} Total, {pendingDeposits.length} Pending)
+              INR Deposit Approvals ({inrDeposits.length} Total, {pendingInrDeposits.length} Pending)
             </h3>
-            {pendingDeposits.length > 0 && (
+            {pendingInrDeposits.length > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
-                {pendingDeposits.length} Requires Approval
+                {pendingInrDeposits.length} Requires Approval
               </span>
             )}
           </div>
 
-          {deposits.length === 0 ? (
+          {/* Status Filter Tabs: ALL, PENDING, SUCCESSFUL, REJECTED */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            {[
+              { id: 'all', label: `ALL (${inrDeposits.length})` },
+              { id: 'pending', label: `PENDING (${pendingInrDeposits.length})` },
+              { id: 'completed', label: `SUCCESSFUL (${completedInrDeposits.length})` },
+              { id: 'rejected', label: `REJECTED (${rejectedInrDeposits.length})` },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setInrFilter(f.id as any)}
+                className={`flex-1 py-1.5 px-2 text-center text-xs font-bold rounded-lg transition-all ${
+                  inrFilter === f.id
+                    ? 'bg-[#0B1528] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {filteredInrDeposits.length === 0 ? (
             <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
-              No deposit requests submitted yet.
+              No deposit requests match this filter.
             </div>
           ) : (
             <div className="space-y-3">
-              {deposits.map((dep) => (
+              {filteredInrDeposits.map((dep) => (
                 <div
                   key={dep.id}
                   className={`glass-card rounded-2xl p-4 border transition-all ${
@@ -755,14 +838,14 @@ export const AdminPanel: React.FC = () => {
 
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
-                        dep.status === 'completed'
+                        dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved'
                           ? 'bg-emerald-100 text-emerald-800'
                           : dep.status === 'rejected'
                           ? 'bg-rose-100 text-rose-800'
                           : 'bg-amber-100 text-amber-800 animate-pulse'
                       }`}
                     >
-                      {dep.status}
+                      {dep.status === 'credited' ? 'Credited' : dep.status}
                     </span>
                   </div>
 
@@ -1080,40 +1163,69 @@ export const AdminPanel: React.FC = () => {
          ======================================================= */}
       {activeAdminTab === 'users' && (
         <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-            Registered Users
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+              Registered Users ({registeredAccounts.length} Total)
+            </h3>
+          </div>
 
-          {user && (
-            <div className="glass-card rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 text-sm">{user.name}</span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      user.status === 'active'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {user.status}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">
-                  {user.email} • {user.phone} • Ref: {user.referralCode}
-                </div>
-              </div>
+          {registeredAccounts.length === 0 ? (
+            <div className="glass-card rounded-2xl p-6 text-center text-xs text-slate-400">
+              No registered users found in the system yet.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {registeredAccounts.map((acc) => (
+                <div
+                  key={acc.user.id}
+                  className="glass-card rounded-2xl p-4 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-slate-900 text-sm">{acc.user.name}</span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          acc.user.status === 'active'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {acc.user.status.toUpperCase()}
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        ID: {acc.user.id}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {acc.user.email} • {acc.user.phone} • Referral Code: <span className="font-mono font-bold text-slate-700">{acc.user.referralCode}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Registered: {new Date(acc.user.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
 
-              <button
-                onClick={() => toggleUserStatus(user.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                  user.status === 'active'
-                    ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
-                    : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                }`}
-              >
-                {user.status === 'active' ? 'Suspend' : 'Activate'}
-              </button>
+                  <div className="flex items-center gap-3 self-end sm:self-center">
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Wallet Balance</div>
+                      <div className="font-outfit font-black text-sm text-emerald-600">
+                        ₹{(Number(acc.wallet?.balance) || 0).toFixed(2)}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleUserStatus(acc.user.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        acc.user.status === 'active'
+                          ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {acc.user.status === 'active' ? 'Suspend' : 'Activate'}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

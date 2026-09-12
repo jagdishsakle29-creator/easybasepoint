@@ -619,7 +619,7 @@ export const DepositPage: React.FC = () => {
               <div className="space-y-2">
                 {deposits.slice(0, 5).map((dep) => {
                   const isPending = dep.status === 'pending';
-                  const isCompleted = dep.status === 'completed';
+                  const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
 
                   return (
                     <div

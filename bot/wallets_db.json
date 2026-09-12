@@ -1,0 +1,43 @@
+{
+  "phone_9876543210": {
+    "key": "phone_9876543210",
+    "userId": "usr-test",
+    "phone": "9876543210",
+    "balance": 565,
+    "quota": 1000,
+    "todayReceive": 565,
+    "totalDeposited": 565,
+    "creditedDepositIds": [
+      "DEP-67305178"
+    ],
+    "updatedAt": "2026-09-12T16:31:15.804Z"
+  },
+  "phone_1234567890": {
+    "key": "phone_1234567890",
+    "userId": "usr-1789229157471",
+    "phone": "1234567890",
+    "balance": 4972,
+    "quota": 4900,
+    "todayReceive": 4972,
+    "totalDeposited": 0,
+    "creditedDepositIds": [
+      "DEP-170079",
+      "DEP-116211"
+    ],
+    "updatedAt": "2026-09-12T16:32:19.284Z"
+  },
+  "phone_8103531524": {
+    "key": "phone_8103531524",
+    "userId": "player",
+    "phone": "8103531524",
+    "balance": 3503,
+    "quota": 3600,
+    "todayReceive": 3503,
+    "totalDeposited": 1130,
+    "creditedDepositIds": [
+      "DEP-297881",
+      "DEP-79948454"
+    ],
+    "updatedAt": "2026-09-12T16:33:23.207Z"
+  }
+}

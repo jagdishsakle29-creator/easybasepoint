@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
+import { otpService } from '../../services/otpService';
 
 export const WithdrawPage: React.FC = () => {
   const { 
@@ -47,10 +48,10 @@ export const WithdrawPage: React.FC = () => {
   // USDT field
   const [usdtAddress, setUsdtAddress] = useState(() => usdts[0]?.address || '');
 
-  // WhatsApp Withdrawal Confirmation Code states
+  // Company Withdrawal OTP Confirmation states
   const [waOtp, setWaOtp] = useState('');
-  const [generatedWaOtp, setGeneratedWaOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
 
@@ -74,11 +75,15 @@ export const WithdrawPage: React.FC = () => {
   }, [otpTimer]);
 
   const handlePercentageSelect = (percent: number) => {
-    const calculated = Math.floor((wallet.balance * percent) / 100);
-    setAmount(calculated);
+    if (percent === 100) {
+      setAmount(parseFloat(wallet.balance.toFixed(2)));
+    } else {
+      const calculated = Math.floor((wallet.balance * percent) / 100);
+      setAmount(calculated);
+    }
   };
 
-  const handleSendWhatsAppCode = () => {
+  const handleSendVerificationCode = async () => {
     if (amount < settings.minWithdrawal) {
       addToast('error', `Minimum withdrawal amount is ₹${settings.minWithdrawal}.`);
       return;
@@ -89,20 +94,29 @@ export const WithdrawPage: React.FC = () => {
     }
 
     const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedWaOtp(code);
-    setIsOtpSent(true);
-    setOtpTimer(60);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      addToast('error', 'Valid 10-digit registered phone number is required.');
+      return;
+    }
 
-    const waMsg = encodeURIComponent(
-      `EasyBasePoint Withdrawal Security Code: ${code}\nUser Phone: ${cleanPhone}\nAmount: ₹${amount.toFixed(2)}\nMethod: ${method.toUpperCase()}\nPlease verify my withdrawal request.`
-    );
-    // Send via official EasyBasePoint Verification Desk (different number, not user's own number)
-    const officialGatewayPhone = '9779716459259';
-    const waUrl = `https://api.whatsapp.com/send?phone=${officialGatewayPhone}&text=${waMsg}`;
-
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
-    addToast('success', `WhatsApp security code ${code} generated via Official Verification Desk!`);
+    setIsSendingOtp(true);
+    setOtpError('');
+    try {
+      const res = await otpService.requestOtp(cleanPhone);
+      if (res.success) {
+        setIsOtpSent(true);
+        setOtpTimer(res.cooldownSeconds || 60);
+        addToast('success', res.message || 'Verification OTP sent to your registered contact!');
+      } else {
+        setOtpError(res.message);
+        addToast('error', res.message);
+      }
+    } catch (err: any) {
+      setOtpError('Failed to send verification code. Please try again.');
+      addToast('error', 'Failed to request verification code.');
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -143,39 +157,56 @@ export const WithdrawPage: React.FC = () => {
       }
     }
 
-    // Require WhatsApp confirmation code
+    // Require OTP confirmation code
     if (!isOtpSent) {
-      addToast('error', 'Please click "Send Code to WhatsApp" to verify your withdrawal request.');
+      addToast('error', 'Please request a verification OTP to confirm your withdrawal.');
       return;
     }
-    if (waOtp.trim() !== generatedWaOtp.trim()) {
-      setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-      addToast('error', '❌ Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
+    if (!waOtp || waOtp.trim().length < 4) {
+      setOtpError('Please enter the verification code sent to your registered contact.');
+      addToast('error', 'Please enter the verification OTP.');
       return;
     }
 
+    const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
     setIsSubmitting(true);
-    setTimeout(() => {
-      const details = {
-        accountHolder: method === 'bank' ? accountHolder : undefined,
-        bankName: method === 'bank' ? bankName : undefined,
-        accountNumber: method === 'bank' ? accountNumber : undefined,
-        ifscCode: method === 'bank' ? ifscCode.toUpperCase() : undefined,
-        upiId: method === 'upi' ? upiId : undefined,
-        usdtAddress: method === 'usdt' ? usdtAddress : undefined,
-      };
+    setOtpError('');
 
-      const res = submitWithdrawal(amount, method, details);
-      setIsSubmitting(false);
+    (async () => {
+      try {
+        const verifyRes = await otpService.verifyOtp(cleanPhone, waOtp.trim());
+        if (!verifyRes.success) {
+          setIsSubmitting(false);
+          setOtpError(verifyRes.message);
+          addToast('error', `❌ ${verifyRes.message}`);
+          return;
+        }
 
-      if (res.success) {
-        setAmount(0);
-        setAccountNumber('');
-        setConfirmAccountNumber('');
-        setWaOtp('');
-        setIsOtpSent(false);
+        const details = {
+          accountHolder: method === 'bank' ? accountHolder : undefined,
+          bankName: method === 'bank' ? bankName : undefined,
+          accountNumber: method === 'bank' ? accountNumber : undefined,
+          ifscCode: method === 'bank' ? ifscCode.toUpperCase() : undefined,
+          upiId: method === 'upi' ? upiId : undefined,
+          usdtAddress: method === 'usdt' ? usdtAddress : undefined,
+        };
+
+        const res = submitWithdrawal(amount, method, details);
+        setIsSubmitting(false);
+
+        if (res.success) {
+          setAmount(0);
+          setAccountNumber('');
+          setConfirmAccountNumber('');
+          setWaOtp('');
+          setIsOtpSent(false);
+        }
+      } catch (err: any) {
+        setIsSubmitting(false);
+        setOtpError('Verification failed. Please try again.');
+        addToast('error', 'Verification failed.');
       }
-    }, 800);
+    })();
   };
 
   // Recent withdrawals for this user
@@ -209,7 +240,7 @@ export const WithdrawPage: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Method Selector */}
         <div className="space-y-1.5">
           <label className="text-xs font-black font-outfit text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -284,12 +315,16 @@ export const WithdrawPage: React.FC = () => {
               ₹
             </span>
             <input
-              type="number"
-              min={settings.minWithdrawal}
-              step={10}
-              value={amount || ''}
-              onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
-              placeholder={`Min ${settings.minWithdrawal}`}
+              type="text"
+              inputMode="decimal"
+              value={amount === 0 ? '' : amount}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = val.split('.');
+                const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : val;
+                setAmount(sanitized === '' ? 0 : parseFloat(sanitized) || 0);
+              }}
+              placeholder={`Min ₹${settings.minWithdrawal}`}
               className="w-full pl-9 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200 font-extrabold font-outfit text-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
             />
           </div>
@@ -519,21 +554,21 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
-        {/* WhatsApp Security Code Verification Box */}
-        <div className="p-4 bg-emerald-50/90 rounded-2xl border border-emerald-300 shadow-sm space-y-2.5">
+        {/* Company Security OTP Verification Box */}
+        <div className="p-4 bg-orange-50/90 rounded-2xl border border-orange-200 shadow-sm space-y-2.5">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-              <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>WhatsApp Security Confirmation</span>
+            <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
+              <span>Company Security Verification</span>
             </span>
             <button
               type="button"
-              disabled={otpTimer > 0 || amount < settings.minWithdrawal || amount > wallet.balance}
-              onClick={handleSendWhatsAppCode}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1"
+              disabled={otpTimer > 0 || isSendingOtp || amount < settings.minWithdrawal || amount > wallet.balance}
+              onClick={handleSendVerificationCode}
+              className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code to WhatsApp'}</span>
+              <span>{isSendingOtp ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Request OTP'}</span>
             </button>
           </div>
 
@@ -541,22 +576,18 @@ export const WithdrawPage: React.FC = () => {
             <input
               type="text"
               required
-              maxLength={4}
+              maxLength={6}
               value={waOtp}
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9]/g, '');
                 setWaOtp(val);
-                if (val.length === 4 && isOtpSent && val !== generatedWaOtp) {
-                  setOtpError('Invalid code! Please enter the correct 4-digit code received on WhatsApp.');
-                } else {
-                  setOtpError('');
-                }
+                setOtpError('');
               }}
-              placeholder="Enter 4-digit code sent to your WhatsApp"
-              className={`w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-emerald-950 ${
+              placeholder="Enter 6-digit company OTP"
+              className={`w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 ${
                 otpError 
                   ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950' 
-                  : 'border-emerald-300 focus:ring-emerald-500'
+                  : 'border-slate-200 focus:ring-[#FF6B00]'
               }`}
             />
           </div>
@@ -568,12 +599,13 @@ export const WithdrawPage: React.FC = () => {
             </div>
           )}
 
-          {isOtpSent && generatedWaOtp && (
+          {isOtpSent && (
             <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
-              <span>Security code sent! Enter code:</span>
-              <span className="font-mono font-black bg-emerald-200 px-2 py-0.5 rounded-md text-emerald-950">
-                {generatedWaOtp}
+              <span className="flex items-center gap-1 font-semibold text-emerald-700">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                OTP sent to your verified registered contact
               </span>
+              <span className="text-[11px] text-slate-500 font-medium">Valid 5 mins</span>
             </div>
           )}
         </div>

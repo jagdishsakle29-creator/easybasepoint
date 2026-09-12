@@ -13,6 +13,8 @@ import { ProfilePage } from './components/profile/ProfilePage';
 import { HistoryPage } from './components/history/HistoryPage';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/auth/AuthModal';
+import { LandingPage } from './components/landing/LandingPage';
+import { openOfficialTelegramChannel } from './config/constants';
 import { 
   Home, 
   ArrowDownToLine, 
@@ -131,15 +133,19 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Force login before showing any game/app screens (Guest browsing completely disabled)
+  // First Screen: Modern Landing Page with Company Banner & Join Telegram CTA
   if (!user && activeTab !== 'admin') {
     return (
-      <div className="min-h-screen bg-[#070D18] flex flex-col items-center justify-center p-4 font-sans selection:bg-[#FF6B00] selection:text-white relative">
+      <div className="min-h-screen bg-[#070D18] text-white font-sans selection:bg-[#FF6B00] selection:text-white relative">
         <ToastContainer />
+        <LandingPage 
+          onEnterApp={() => setIsAuthOpen(true)}
+          onOpenRegister={() => setIsAuthOpen(true)}
+        />
         <AuthModal
-          isOpen={true}
-          isForced={true}
-          onClose={() => {}}
+          isOpen={isAuthOpen}
+          isForced={false}
+          onClose={() => setIsAuthOpen(false)}
         />
       </div>
     );
@@ -215,7 +221,7 @@ const AppContent: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsCommunityOpen(true)}
+                  onClick={() => openOfficialTelegramChannel(settings.telegramChannelUrl)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold border border-blue-200/80 transition"
                   title="Official Telegram Group"
                 >

@@ -51,6 +51,7 @@ export const defaultWallet: Wallet = {
   todayTeamMembers: 0,
   totalTeamRecharge: 0.00,
   totalTeamMembers: 0,
+  creditedDepositIds: [],
 };
 
 export const defaultPackages: QuotaPackage[] = [
@@ -326,7 +327,16 @@ export const storage = {
 
   getWallet(): Wallet {
     const raw = localStorage.getItem(STORAGE_KEYS.WALLET);
-    return raw ? JSON.parse(raw) : defaultWallet;
+    if (!raw) return { ...defaultWallet, creditedDepositIds: [] };
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed.creditedDepositIds)) {
+        parsed.creditedDepositIds = [];
+      }
+      return parsed;
+    } catch {
+      return { ...defaultWallet, creditedDepositIds: [] };
+    }
   },
   setWallet(wallet: Wallet): void {
     localStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(wallet));
@@ -374,6 +384,11 @@ export const storage = {
     list.push(id);
     localStorage.setItem(STORAGE_KEYS.CREDITED_DEPOSITS, JSON.stringify(list));
     return true; // Newly credited
+  },
+  removeCreditedDeposit(id: string): void {
+    if (!id) return;
+    const list = this.getCreditedDepositIds().filter((x) => x !== id);
+    localStorage.setItem(STORAGE_KEYS.CREDITED_DEPOSITS, JSON.stringify(list));
   },
 
   getWithdrawals(): WithdrawalRequest[] {

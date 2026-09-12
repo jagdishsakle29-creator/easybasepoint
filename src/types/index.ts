@@ -25,6 +25,7 @@ export interface Wallet {
   todayTeamMembers: number;
   totalTeamRecharge: number;
   totalTeamMembers: number;
+  creditedDepositIds?: string[];
 }
 
 export type QuotaLevel = 'LOW' | 'MIDDLE' | 'HIGH';

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkles, Send } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { openOfficialTelegramChannel } from '../../config/constants';
 
 interface HeaderProps {
   onOpenHelp?: () => void;
@@ -98,16 +99,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
             )}
 
             {/* Official Telegram Channel Quick Link */}
-            <a
-              href={settings.telegramChannelUrl || 'https://t.me/easybasepoint'}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openOfficialTelegramChannel(settings.telegramChannelUrl)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition"
               title="Join @easybasepoint Official Telegram"
             >
               <Send className="w-3.5 h-3.5 fill-sky-600 text-sky-600" />
               <span className="hidden sm:inline">Telegram</span>
-            </a>
+            </button>
 
             {/* Help / Information Button */}
             <button

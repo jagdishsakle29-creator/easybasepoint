@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Sparkles, X, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { openOfficialTelegramChannel } from '../../config/constants';
 
 interface JoinCommunityModalProps {
   isOpen: boolean;
@@ -11,13 +12,11 @@ export const JoinCommunityModal: React.FC<JoinCommunityModalProps> = ({ isOpen, 
   const { settings } = useApp();
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  const telegramUrl = settings.telegramChannelUrl || 'https://t.me/easybasepoint';
-
   const handleJoin = () => {
     if (dontShowAgain) {
       localStorage.setItem('ebp_hide_community_popup', 'true');
     }
-    window.open(telegramUrl, '_blank', 'noopener,noreferrer');
+    openOfficialTelegramChannel(settings.telegramChannelUrl);
     onClose();
   };
 
