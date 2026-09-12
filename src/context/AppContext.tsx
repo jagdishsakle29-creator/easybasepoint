@@ -460,8 +460,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: msg };
     }
 
-    const fee = parseFloat(((amount * settings.withdrawalFeePercent) / 100).toFixed(2));
-    const netAmount = parseFloat((amount - fee).toFixed(2));
+    const fee = 0.00; // 0% withdrawal fee (Zero deductions)
+    const netAmount = amount;
 
     setWallet((prev) => ({
       ...prev,

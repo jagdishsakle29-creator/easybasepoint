@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowUpFromLine, 
   Building2, 
@@ -8,15 +8,18 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   Clock, 
-  ArrowRight,
-  Info,
-  CreditCard
+  ArrowRight, 
+  Info, 
+  CreditCard,
+  MessageCircle,
+  Send
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
 
 export const WithdrawPage: React.FC = () => {
   const { 
+    user,
     wallet, 
     settings, 
     submitWithdrawal, 
@@ -44,15 +47,62 @@ export const WithdrawPage: React.FC = () => {
   // USDT field
   const [usdtAddress, setUsdtAddress] = useState(() => usdts[0]?.address || '');
 
+  // WhatsApp Withdrawal Confirmation Code states
+  const [waOtp, setWaOtp] = useState('');
+  const [generatedWaOtp, setGeneratedWaOtp] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fee calculation
-  const feeAmount = parseFloat(((amount * settings.withdrawalFeePercent) / 100).toFixed(2));
-  const netAmount = Math.max(0, parseFloat((amount - feeAmount).toFixed(2)));
+  // 0% Withdrawal Fee (Zero Deductions as requested)
+  const feeAmount = 0.00;
+  const netAmount = amount;
+
+  // OTP Countdown timer
+  useEffect(() => {
+    let interval: any = null;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
 
   const handlePercentageSelect = (percent: number) => {
     const calculated = Math.floor((wallet.balance * percent) / 100);
     setAmount(calculated);
+  };
+
+  const handleSendWhatsAppCode = () => {
+    if (amount < settings.minWithdrawal) {
+      addToast('error', `Minimum withdrawal amount is ₹${settings.minWithdrawal}.`);
+      return;
+    }
+    if (amount > wallet.balance) {
+      addToast('error', `Insufficient wallet balance. Available: ₹${wallet.balance.toFixed(2)}`);
+      return;
+    }
+
+    const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedWaOtp(code);
+    setIsOtpSent(true);
+    setOtpTimer(60);
+
+    const waMsg = encodeURIComponent(
+      `EasyBasePoint Withdrawal Security Code: ${code}\n\nAmount: ₹${amount.toFixed(2)}\nMethod: ${method.toUpperCase()}\n\nPlease enter this 4-digit code on the website to confirm your payout.`
+    );
+    const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const waUrl = targetPhone 
+      ? `https://api.whatsapp.com/send?phone=${targetPhone}&text=${waMsg}` 
+      : `https://api.whatsapp.com/send?text=${waMsg}`;
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    addToast('success', `WhatsApp security code ${code} generated! WhatsApp opened.`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,6 +143,16 @@ export const WithdrawPage: React.FC = () => {
       }
     }
 
+    // Require WhatsApp confirmation code
+    if (!isOtpSent) {
+      addToast('error', 'Please click "Send Code to WhatsApp" to verify your withdrawal request.');
+      return;
+    }
+    if (waOtp.trim() !== generatedWaOtp.trim()) {
+      addToast('error', 'Invalid WhatsApp security code! Please check your code or click resend.');
+      return;
+    }
+
     setIsSubmitting(true);
     setTimeout(() => {
       const details = {
@@ -108,13 +168,11 @@ export const WithdrawPage: React.FC = () => {
       setIsSubmitting(false);
 
       if (res.success) {
-        // Reset form
         setAmount(0);
         setAccountNumber('');
         setConfirmAccountNumber('');
-        setIfscCode('');
-        setUpiId('');
-        setUsdtAddress('');
+        setWaOtp('');
+        setIsOtpSent(false);
       }
     }, 800);
   };
@@ -249,19 +307,19 @@ export const WithdrawPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Fee & Net Amount Summary */}
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5 text-xs">
-            <div className="flex justify-between text-slate-500">
+          {/* Fee & Net Amount Summary - 0% Fee Promoted */}
+          <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200/80 space-y-1.5 text-xs">
+            <div className="flex justify-between text-slate-600">
               <span>Gross Withdrawal:</span>
               <span className="font-semibold text-slate-800">₹{amount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-slate-500">
-              <span>Handling Fee ({settings.withdrawalFeePercent}%):</span>
-              <span className="font-semibold text-rose-600">-₹{feeAmount.toFixed(2)}</span>
+            <div className="flex justify-between text-slate-600">
+              <span>Platform Fee:</span>
+              <span className="font-black text-emerald-600">₹0.00 (0% Fee • Zero Deduction)</span>
             </div>
-            <div className="pt-1.5 border-t border-slate-200 flex justify-between text-sm">
-              <span className="font-bold text-slate-800">Net Receivable:</span>
-              <span className="font-black text-emerald-600 font-outfit">
+            <div className="pt-2 border-t border-emerald-200/80 flex justify-between text-sm">
+              <span className="font-bold text-slate-800">Total Net Amount to Receive:</span>
+              <span className="font-black text-emerald-700 font-outfit text-base">
                 ₹{netAmount.toFixed(2)}
               </span>
             </div>
@@ -460,11 +518,51 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
+        {/* WhatsApp Security Code Verification Box */}
+        <div className="p-4 bg-emerald-50/90 rounded-2xl border border-emerald-300 shadow-sm space-y-2.5">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              <span>WhatsApp Security Confirmation</span>
+            </span>
+            <button
+              type="button"
+              disabled={otpTimer > 0 || amount < settings.minWithdrawal || amount > wallet.balance}
+              onClick={handleSendWhatsAppCode}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code to WhatsApp'}</span>
+            </button>
+          </div>
+
+          <div>
+            <input
+              type="text"
+              required
+              maxLength={4}
+              value={waOtp}
+              onChange={(e) => setWaOtp(e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="Enter 4-digit code sent to your WhatsApp"
+              className="w-full px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border border-emerald-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-950"
+            />
+          </div>
+
+          {isOtpSent && generatedWaOtp && (
+            <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
+              <span>Security code sent! Enter code:</span>
+              <span className="font-mono font-black bg-emerald-200 px-2 py-0.5 rounded-md text-emerald-950">
+                {generatedWaOtp}
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Security & Verification Notice */}
         <div className="p-3.5 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-2.5 text-xs text-blue-900 leading-relaxed">
           <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
           <span>
-            Withdrawals are placed in <strong>Pending</strong> status until verified by administration or banking channels. Average processing time is 15-45 minutes during business hours.
+            Withdrawals are processed with <strong>0% Fee</strong>. Average settlement time is 15-45 minutes directly to your verified account.
           </span>
         </div>
 
@@ -474,7 +572,7 @@ export const WithdrawPage: React.FC = () => {
           disabled={isSubmitting || amount <= 0 || amount > wallet.balance}
           className="w-full py-4 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-extrabold text-base rounded-2xl shadow-orange-glow transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50 touch-press"
         >
-          <span>{isSubmitting ? 'Submitting Request...' : 'Submit Withdrawal'}</span>
+          <span>{isSubmitting ? 'Submitting Request...' : 'Confirm & Submit Withdrawal'}</span>
           <ArrowRight className="w-5 h-5" />
         </button>
       </form>

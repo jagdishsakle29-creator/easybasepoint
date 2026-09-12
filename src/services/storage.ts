@@ -284,7 +284,7 @@ export const defaultSettings: RewardSettings = {
   middleBonusPercent: 9.00,
   highBonusPercent: 14.00,
   minWithdrawal: 200.00,
-  withdrawalFeePercent: 5.00,
+  withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
   isDemoMode: false,
