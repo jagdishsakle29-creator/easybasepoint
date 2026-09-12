@@ -638,115 +638,33 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Bank Account Settings */}
-          <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div className="flex items-center gap-2 font-bold text-xs text-slate-700">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              <span>2. Company Bank Account (Direct IMPS / NEFT Deposits)</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Bank Name</label>
-                <input
-                  type="text"
-                  required
-                  value={adminBankName}
-                  onChange={(e) => setAdminBankName(e.target.value)}
-                  placeholder="HDFC Bank Ltd"
-                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Account Holder Name</label>
-                <input
-                  type="text"
-                  required
-                  value={adminBankHolder}
-                  onChange={(e) => setAdminBankHolder(e.target.value)}
-                  placeholder="EasyBasePoint Global Pvt Ltd"
-                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Account Number</label>
-                <input
-                  type="text"
-                  required
-                  value={adminBankAccount}
-                  onChange={(e) => setAdminBankAccount(e.target.value)}
-                  placeholder="50200088991234"
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">IFSC Code</label>
-                <input
-                  type="text"
-                  required
-                  value={adminBankIfsc}
-                  onChange={(e) => setAdminBankIfsc(e.target.value.toUpperCase())}
-                  placeholder="HDFC0001234"
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono uppercase rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Crypto USDT Receiving Addresses */}
+          {/* Crypto USDT Receiving Addresses (TRC20 Only) */}
           <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="flex items-center gap-2 font-bold text-xs text-slate-700">
               <Coins className="w-4 h-4 text-emerald-600" />
-              <span>3. Company USDT Crypto Deposit Addresses</span>
+              <span>2. Official USDT TRC20 Deposit Address</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">
-                    TRC20 Wallet Address (TRON)
-                  </label>
-                  <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    Starts with 'T'
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={adminUsdtTrc20}
-                  onChange={(e) => setAdminUsdtTrc20(e.target.value.trim())}
-                  placeholder="TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW"
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  🟢 TRON Network (e.g. <strong className="text-slate-700">TTsZk5w...</strong>)
-                </p>
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">
+                  TRC20 Wallet Address (TRON Network)
+                </label>
+                <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  Starts with 'T' • Express Network
+                </span>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">
-                    BEP20 Wallet Address (Binance Smart Chain)
-                  </label>
-                  <span className="text-[9px] font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                    Starts with '0x'
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={adminUsdtBep20}
-                  onChange={(e) => setAdminUsdtBep20(e.target.value.trim())}
-                  placeholder="0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5"
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  🟡 Binance Smart Chain Network (e.g. <strong className="text-slate-700">0x71C8...</strong>)
-                </p>
-              </div>
+              <input
+                type="text"
+                required
+                value={adminUsdtTrc20}
+                onChange={(e) => setAdminUsdtTrc20(e.target.value.trim())}
+                placeholder="TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW"
+                className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                🟢 Official TRON TRC20 Receiving Address (e.g. <strong className="text-slate-700 font-mono">TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW</strong>)
+              </p>
             </div>
           </div>
 
@@ -755,7 +673,7 @@ export const AdminPanel: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-xs text-sky-800">
                 <Send className="w-4 h-4 text-sky-600" />
-                <span>4. Telegram Payment Approval Bot & VIP Channel</span>
+                <span>3. Telegram Payment Approval Bot & VIP Channel</span>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full">
                 100% Privacy Protected

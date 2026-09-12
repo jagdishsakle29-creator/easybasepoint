@@ -18,7 +18,7 @@ export const UsdtDepositTab: React.FC = () => {
   const { settings, submitUsdtDeposit, addToast } = useApp();
   
   const [usdtAmount, setUsdtAmount] = useState<number>(50);
-  const [selectedNetwork, setSelectedNetwork] = useState<'TRC20' | 'BEP20'>('TRC20');
+  const [selectedNetwork] = useState<'TRC20'>('TRC20');
   const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [txHash, setTxHash] = useState<string>('');
@@ -259,9 +259,14 @@ export const UsdtDepositTab: React.FC = () => {
 
               {/* QR Code Container */}
               <div className="inline-block p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <div className="w-36 h-36 bg-slate-900 rounded-lg flex flex-col items-center justify-center text-white p-2">
-                  <QrCode className="w-20 h-20 text-white stroke-[1.5]" />
-                  <span className="text-[10px] font-mono mt-1 opacity-80">{selectedNetwork}</span>
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(demoAddress)}`}
+                  alt="USDT TRC20 Deposit QR"
+                  className="w-36 h-36 rounded-xl object-contain bg-white"
+                  loading="lazy"
+                />
+                <div className="mt-1.5 flex items-center justify-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 py-0.5 rounded-md">
+                  <span>TRC20 (TRON) ONLY</span>
                 </div>
               </div>
 

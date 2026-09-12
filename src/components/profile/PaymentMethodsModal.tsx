@@ -438,8 +438,7 @@ export const PaymentMethodsModal: React.FC<PaymentMethodsModalProps> = ({ isOpen
                     onChange={(e) => setUsdtNetwork(e.target.value as any)}
                     className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-1 focus:ring-[#FF6B00]"
                   >
-                    <option value="TRC20">TRC20 (Tron)</option>
-                    <option value="BEP20">BEP20 (Binance Smart Chain)</option>
+                    <option value="TRC20">TRC20 (Tron Network - Official)</option>
                   </select>
                 </div>
                 <div>
