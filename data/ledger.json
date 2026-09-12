@@ -1,18 +1,1 @@
-{
-  "DEP-TEST-12345": {
-    "id": "DEP-TEST-12345",
-    "totalInr": 565,
-    "amount": 500,
-    "method": "INR",
-    "userId": "",
-    "userPhone": "8103531524",
-    "remark": "cousin",
-    "paymentScreenshot": "VERIFIED_BY_ADMIN",
-    "status": "completed",
-    "credited": true,
-    "approvedAt": "2026-09-12T21:11:23.242Z",
-    "creditedAt": "2026-09-12T21:11:23.242Z",
-    "updatedAt": "2026-09-12T21:11:23.242Z",
-    "createdAt": "2026-09-12T21:11:23.242Z"
-  }
-}
+{}
