@@ -251,5 +251,21 @@
     "approvedAt": "2026-09-12T22:03:57.522Z",
     "creditedAt": "2026-09-12T22:03:57.522Z",
     "updatedAt": "2026-09-12T22:03:57.522Z"
+  },
+  "WDR-668970": {
+    "id": "WDR-668970",
+    "userId": "usr-1789248218300",
+    "userName": "Louiii",
+    "userPhone": "6263803359",
+    "amount": 2373,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 2373,
+    "accountDetails": {
+      "upiId": "Djalok@axl"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-12T22:04:52.066Z",
+    "type": "withdrawal"
   }
 }
