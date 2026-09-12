@@ -26,9 +26,12 @@
     "totalInr": 565,
     "userId": "test-user-1",
     "userPhone": "9876543210",
-    "status": "pending",
+    "status": "completed",
     "method": "INR",
-    "credited": false,
-    "createdAt": "2026-09-12T18:04:58.266Z"
+    "credited": true,
+    "createdAt": "2026-09-12T18:04:58.266Z",
+    "approvedAt": "2026-09-12T18:04:58.273Z",
+    "creditedAt": "2026-09-12T18:04:58.273Z",
+    "updatedAt": "2026-09-12T18:04:58.273Z"
   }
 }
