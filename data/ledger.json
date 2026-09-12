@@ -108,5 +108,21 @@
     "rejectionReason": "Payout Rejected by Admin - Refunded to Game Balance",
     "rejectedAt": "2026-09-12T21:32:09.852Z",
     "updatedAt": "2026-09-12T21:32:09.852Z"
+  },
+  "WDR-520654": {
+    "id": "WDR-520654",
+    "userId": "usr-1789235698002",
+    "userName": "manish",
+    "userPhone": "9876543211",
+    "amount": 8758,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 8758,
+    "accountDetails": {
+      "upiId": "dxcfgvhbjnmv@ybl"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-12T21:34:00.887Z",
+    "type": "withdrawal"
   }
 }
