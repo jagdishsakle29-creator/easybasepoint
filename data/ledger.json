@@ -204,5 +204,20 @@
     "status": "pending_verification",
     "credited": false,
     "createdAt": "2026-09-12T18:36:29.358Z"
+  },
+  "TEST_DEP_1789238193374_NOSCREEN": {
+    "id": "TEST_DEP_1789238193374_NOSCREEN",
+    "amount": 2100,
+    "totalInr": 2100,
+    "utrNumber": "998877665544",
+    "userId": "user_test_1",
+    "userPhone": "9876543210",
+    "remark": "cousin",
+    "method": "INR",
+    "proofUrl": "",
+    "paymentScreenshot": "",
+    "status": "pending_verification",
+    "credited": false,
+    "createdAt": "2026-09-12T18:36:33.875Z"
   }
 }
