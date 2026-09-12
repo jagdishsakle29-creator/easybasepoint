@@ -109,6 +109,8 @@ export const cloudSync = {
         ? depIdOrMeta.totalInr
         : totalInrOpt;
 
+      const userId = typeof depIdOrMeta === 'object' ? depIdOrMeta.userId : undefined;
+      const userPhone = typeof depIdOrMeta === 'object' ? depIdOrMeta.userPhone : undefined;
       const nowIso = new Date().toISOString();
 
       // 1. Save to cloud serverless ledger with secure admin authorization
@@ -118,7 +120,7 @@ export const cloudSync = {
           'Content-Type': 'application/json',
           'x-admin-key': 'lord12',
         },
-        body: JSON.stringify({ depId, totalInr, action, adminKey: 'lord12' }),
+        body: JSON.stringify({ depId, totalInr, action, userId, userPhone, adminKey: 'lord12' }),
       }).catch(() => {});
 
       // 2. Broadcast directly via SSE to player game across all mobile phones & tabs instantly
@@ -130,6 +132,8 @@ export const cloudSync = {
         status: action === 'approved' ? 'completed' : 'rejected',
         credited: action === 'approved',
         totalInr: totalInr || 565,
+        userId,
+        userPhone,
         timestamp: nowIso,
         approvedAt: nowIso,
         creditedAt: action === 'approved' ? nowIso : undefined,

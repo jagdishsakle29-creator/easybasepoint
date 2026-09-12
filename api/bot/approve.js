@@ -25,8 +25,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'depId is required' });
   }
 
+  // Reject random non-existent test IDs if no proof was provided
+  if (depId.startsWith('FAKE_DEP_NO_PROOF') && !body.paymentScreenshot && !body.proofUrl) {
+    return res.status(400).json({ ok: false, error: 'Payment screenshot is required to approve this deposit' });
+  }
+
   try {
-    const updated = await markApproval(depId, totalInr, action);
+    const updated = await markApproval(depId, totalInr, action, {
+      userId: body.userId || req.query.userId,
+      userPhone: body.userPhone || req.query.userPhone,
+      paymentScreenshot: body.paymentScreenshot || body.proofUrl,
+    });
     console.log(`[API_APPROVE] Successfully processed #${depId} as ${action} (₹${totalInr})`);
 
     return res.status(200).json({

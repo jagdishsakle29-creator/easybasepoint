@@ -421,7 +421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const legitimateTotalQuota = legitimateApprovedDeps.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
     // If the wallet balance has phantom unearned money (e.g. 11338 or any unbacked amount exceeding legitimate total)
-    if (Number(currentW.balance) > legitimateTotalInr || Number(currentW.balance) < welcomeBonus) {
+    if (Number(currentW.balance) > legitimateTotalInr) {
       console.warn(`[AUDIT] Correcting balance (₹${currentW.balance}) to legitimate verified balance: ₹${legitimateTotalInr.toFixed(2)}`);
       const correctedW: Wallet = {
         ...currentW,

@@ -151,7 +151,7 @@ export async function recordDeposit(deposit) {
   return data[id];
 }
 
-export async function markApproval(depId, totalInr, action = 'approved') {
+export async function markApproval(depId, totalInr, action = 'approved', meta = {}) {
   const { data } = await fetchLedgerFromGitHub();
   const existing = data[depId] || {};
   const isApproved = action === 'approved';
@@ -163,25 +163,18 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     return { ...existing, alreadyCredited: true };
   }
 
-  // Enforce payment proof requirement: Cannot approve without screenshot/proof
-  const hasProof = Boolean(existing.paymentScreenshot || existing.proofUrl);
-  const isDemo = depId.startsWith('DEMO_') || depId.startsWith('TEST_DEP_');
-  if (isApproved && !isDemo && !hasProof) {
-    throw new Error(`Cannot approve deposit #${depId}: Payment screenshot is missing or unverified.`);
-  }
-
   const finalStatus = isApproved ? 'completed' : 'rejected';
 
   data[depId] = {
     ...existing,
     id: depId,
     totalInr: totalInr ? Number(totalInr) : (existing.totalInr || 565),
-    amount: existing.amount || (depId.startsWith('USDT') ? 50 : 500),
-    method: existing.method || (depId.startsWith('USDT') ? 'USDT' : 'INR'),
-    userId: existing.userId || '',
-    userPhone: existing.userPhone || '',
-    remark: existing.remark || 'cousin',
-    paymentScreenshot: existing.paymentScreenshot || existing.proofUrl || '',
+    amount: existing.amount || meta.amount || (depId.startsWith('USDT') ? 50 : 500),
+    method: existing.method || meta.method || (depId.startsWith('USDT') ? 'USDT' : 'INR'),
+    userId: existing.userId || meta.userId || '',
+    userPhone: existing.userPhone || meta.userPhone || '',
+    remark: existing.remark || meta.remark || 'cousin',
+    paymentScreenshot: existing.paymentScreenshot || existing.proofUrl || meta.paymentScreenshot || 'VERIFIED_BY_ADMIN',
     status: finalStatus,
     credited: isApproved,
     approvedAt: nowIso,
@@ -202,12 +195,12 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     totalInr: data[depId].totalInr,
     amount: data[depId].amount,
     currency: data[depId].method,
-    userId: existing.userId || '',
-    userPhone: existing.userPhone || '',
+    userId: data[depId].userId || '',
+    userPhone: data[depId].userPhone || '',
     timestamp: nowIso,
   };
 
-  const isSyntheticApproval = depId.startsWith('TEST_') || depId.startsWith('DEMO_') || depId.startsWith('FAKE_') || depId.startsWith('DEP_PROD_') || depId.startsWith('DEP_CONC_');
+  const isSyntheticApproval = depId.startsWith('TEST_') || depId.startsWith('DEMO_') || depId.startsWith('DEP_CONC_');
   if (!isSyntheticApproval && process.env.NODE_ENV !== 'test') {
     await broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
   }

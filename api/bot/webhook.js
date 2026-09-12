@@ -42,8 +42,31 @@ export default async function handler(req, res) {
         const depId = parts[0] || 'DEP-DEMO';
         const totalInr = parts[1] ? Number(parts[1]) : 565;
 
+        const originalText = message?.text || '';
+        const phoneMatch = originalText.match(/Phone:\*?\s*([0-9]{10})/i) || originalText.match(/([0-9]{10})/);
+        const extractedPhone = phoneMatch ? phoneMatch[1] : '';
+
         // Mark approved in Cloud Ledger & Broadcast via SSE to player game
-        await markApproval(depId, totalInr, 'approved');
+        const updatedDep = await markApproval(depId, totalInr, 'approved', { userPhone: extractedPhone });
+
+        try {
+          await fetch('https://ntfy.sh/ebp_easybasepoint_approvals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'DEPOSIT_APPROVED',
+              depId,
+              depositId: depId,
+              action: 'approved',
+              status: 'completed',
+              credited: true,
+              totalInr,
+              userId: updatedDep?.userId || '',
+              userPhone: updatedDep?.userPhone || extractedPhone,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch {}
 
         // Answer callback query popup
         await callTelegram('answerCallbackQuery', {
@@ -54,7 +77,6 @@ export default async function handler(req, res) {
 
         // Edit original message in Telegram
         if (chatId && messageId) {
-          const originalText = message.text || '';
           const updatedText = `${originalText}\n\n✅ *STATUS: APPROVED BY ADMIN*\n💰 *Credited:* ₹${totalInr.toFixed(2)} INR\n⚡ *Time:* ${new Date().toLocaleTimeString()}`;
           
           await callTelegram('editMessageText', {
