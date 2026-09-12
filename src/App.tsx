@@ -85,26 +85,24 @@ const AppContent: React.FC = () => {
     }
   }, [settings.adminSecretKey, approveDeposit, rejectDeposit, setActiveTab, addToast]);
 
-  // Post-login Telegram join popup (shows automatically on login/registration)
+  // Show community popup only once after successful login/registration, never while signing up or if previously dismissed
   useEffect(() => {
     const handleLoginEvent = () => {
-      setTimeout(() => {
-        setIsCommunityOpen(true);
-      }, 500);
+      const isDismissed = 
+        localStorage.getItem('ebp_hide_community_popup') === 'true' ||
+        sessionStorage.getItem('ebp_hide_community_popup_session') === 'true';
+      if (!isDismissed) {
+        try {
+          sessionStorage.setItem('ebp_hide_community_popup_session', 'true');
+        } catch {}
+        setTimeout(() => {
+          setIsCommunityOpen(true);
+        }, 1500);
+      }
     };
     window.addEventListener('ebp:user-logged-in', handleLoginEvent);
     return () => window.removeEventListener('ebp:user-logged-in', handleLoginEvent);
   }, []);
-
-  useEffect(() => {
-    if (user && !sessionStorage.getItem('ebp_hide_community_popup_session')) {
-      const timer = setTimeout(() => {
-        setIsCommunityOpen(true);
-        sessionStorage.setItem('ebp_hide_community_popup_session', 'true');
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
 
   // Navigation items for normal user (Never show Admin to users unless secret key active)
   const desktopNavItems: { id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }[] = [
@@ -272,10 +270,16 @@ const AppContent: React.FC = () => {
         onClose={() => setIsAuthOpen(false)}
       />
 
-      {/* Post-Login Join Telegram Announcement Modal */}
+      {/* Post-Login Join Telegram Announcement Modal (Hidden while signing up / in) */}
       <JoinCommunityModal
-        isOpen={isCommunityOpen}
-        onClose={() => setIsCommunityOpen(false)}
+        isOpen={isCommunityOpen && !isAuthOpen}
+        onClose={() => {
+          setIsCommunityOpen(false);
+          try {
+            localStorage.setItem('ebp_hide_community_popup', 'true');
+            sessionStorage.setItem('ebp_hide_community_popup_session', 'true');
+          } catch {}
+        }}
       />
     </div>
   );

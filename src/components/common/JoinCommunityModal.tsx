@@ -13,17 +13,19 @@ export const JoinCommunityModal: React.FC<JoinCommunityModalProps> = ({ isOpen, 
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const handleJoin = () => {
-    if (dontShowAgain) {
+    try {
       localStorage.setItem('ebp_hide_community_popup', 'true');
-    }
+      sessionStorage.setItem('ebp_hide_community_popup_session', 'true');
+    } catch {}
     openOfficialTelegramChannel(settings.telegramChannelUrl);
     onClose();
   };
 
   const handleClose = () => {
-    if (dontShowAgain) {
+    try {
       localStorage.setItem('ebp_hide_community_popup', 'true');
-    }
+      sessionStorage.setItem('ebp_hide_community_popup_session', 'true');
+    } catch {}
     onClose();
   };
 

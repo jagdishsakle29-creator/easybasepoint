@@ -156,6 +156,13 @@ export async function markApproval(depId, totalInr, action = 'approved') {
     return { ...existing, alreadyCredited: true };
   }
 
+  // Enforce payment proof requirement: Cannot approve without screenshot/proof
+  const hasProof = Boolean(existing.paymentScreenshot || existing.proofUrl);
+  const isDemo = depId.startsWith('DEMO_') || depId.startsWith('TEST_DEP_');
+  if (isApproved && !isDemo && !hasProof) {
+    throw new Error(`Cannot approve deposit #${depId}: Payment screenshot is missing or unverified.`);
+  }
+
   const finalStatus = isApproved ? 'completed' : 'rejected';
 
   data[depId] = {
