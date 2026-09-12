@@ -356,18 +356,54 @@ export const storage = {
 
   getTransactions(): Transaction[] {
     const raw = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    return raw ? JSON.parse(raw) : defaultTransactions;
+    if (!raw) return defaultTransactions;
+    try {
+      const parsed: Transaction[] = JSON.parse(raw);
+      const TWENTY_MINS_MS = 20 * 60 * 1000;
+      const valid = parsed.filter((t) => {
+        const isPending = t.status === 'pending' || (t.status as string) === 'processing' || (t.status as string) === 'pending_verification';
+        if (isPending) {
+          const time = new Date(t.timestamp).getTime();
+          if (!isNaN(time) && Date.now() - time > TWENTY_MINS_MS) {
+            return false; // Auto-hide expired pending (>20m)
+          }
+        }
+        return true;
+      });
+      return valid.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch {
+      return defaultTransactions;
+    }
   },
   setTransactions(transactions: Transaction[]): void {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    const sorted = [...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(sorted));
   },
 
   getDeposits(): DepositOrder[] {
     const raw = localStorage.getItem(STORAGE_KEYS.DEPOSITS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      const parsed: DepositOrder[] = JSON.parse(raw);
+      const TWENTY_MINS_MS = 20 * 60 * 1000;
+      const valid = parsed.filter((d) => {
+        const isPending = d.status === 'pending' || d.status === 'pending_verification' || (d.status as string) === 'processing';
+        if (isPending) {
+          const t = new Date(d.createdAt).getTime();
+          if (!isNaN(t) && Date.now() - t > TWENTY_MINS_MS) {
+            return false; // Auto-hide expired pending (>20m)
+          }
+        }
+        return true;
+      });
+      return valid.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch {
+      return [];
+    }
   },
   setDeposits(deposits: DepositOrder[]): void {
-    localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(deposits));
+    const sorted = [...deposits].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(sorted));
   },
 
   getCreditedDepositIds(): string[] {
@@ -397,10 +433,28 @@ export const storage = {
 
   getWithdrawals(): WithdrawalRequest[] {
     const raw = localStorage.getItem(STORAGE_KEYS.WITHDRAWALS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      const parsed: WithdrawalRequest[] = JSON.parse(raw);
+      const TWENTY_MINS_MS = 20 * 60 * 1000;
+      const valid = parsed.filter((w) => {
+        const isPending = w.status === 'pending' || w.status === 'processing';
+        if (isPending) {
+          const t = new Date(w.createdAt).getTime();
+          if (!isNaN(t) && Date.now() - t > TWENTY_MINS_MS) {
+            return false; // Auto-hide expired pending (>20m)
+          }
+        }
+        return true;
+      });
+      return valid.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch {
+      return [];
+    }
   },
   setWithdrawals(withdrawals: WithdrawalRequest[]): void {
-    localStorage.setItem(STORAGE_KEYS.WITHDRAWALS, JSON.stringify(withdrawals));
+    const sorted = [...withdrawals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    localStorage.setItem(STORAGE_KEYS.WITHDRAWALS, JSON.stringify(sorted));
   },
 
   getTeam(): TeamMember[] {

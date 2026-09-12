@@ -18,7 +18,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { TransactionType, TransactionStatus } from '../../types';
+import { Transaction, TransactionType, TransactionStatus } from '../../types';
 
 export type StatusCategory = 'all' | 'successful' | 'pending' | 'cancelled';
 
@@ -45,81 +45,109 @@ export const HistoryPage: React.FC = () => {
 
   // Combine transactions, deposits, and withdrawals so everything is guaranteed to appear with real-time status
   const combinedItems = useMemo(() => {
-    const items = transactions.map((t) => {
+    const TWENTY_MINUTES_MS = 20 * 60 * 1000;
+    const isPendingExpired = (status: string, timeStr?: string) => {
+      const cat = getStatusCategory(status);
+      if (cat !== 'pending') return false;
+      const t = new Date(timeStr || '').getTime();
+      return !isNaN(t) && Date.now() - t > TWENTY_MINUTES_MS;
+    };
+
+    const items: Transaction[] = [];
+
+    transactions.forEach((t) => {
+      let currentStatus: TransactionStatus = t.status;
+      let currentAmount = t.amount;
+      let currentNote = t.note;
+
       if (t.referenceId) {
         // Check deposit match
         const matchingDep = deposits.find((d) => d.id === t.referenceId);
         if (matchingDep) {
           const isUsdt = matchingDep.method === 'USDT' || matchingDep.id.startsWith('USDT');
           const isCompleted = matchingDep.status === 'completed' || matchingDep.status === 'credited' || matchingDep.status === 'approved' || matchingDep.credited === true;
-          return {
-            ...t,
-            status: (isCompleted ? 'completed' : matchingDep.status) as TransactionStatus,
-            amount: matchingDep.totalInr || t.amount,
-            note: isCompleted
-              ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
-              : (matchingDep.status === 'rejected' ? (isUsdt ? 'USDT Deposit Rejected' : 'INR Deposit Rejected') : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`)),
-          };
-        }
-
-        // Check withdrawal match
-        const matchingWith = withdrawals.find((w) => w.id === t.referenceId);
-        if (matchingWith) {
-          return {
-            ...t,
-            status: matchingWith.status as TransactionStatus,
-            amount: matchingWith.amount,
-            note: matchingWith.status === 'rejected' && matchingWith.rejectionReason 
+          currentStatus = (isCompleted ? 'completed' : matchingDep.status) as TransactionStatus;
+          currentAmount = matchingDep.totalInr || t.amount;
+          currentNote = isCompleted
+            ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
+            : (matchingDep.status === 'rejected' ? (isUsdt ? 'USDT Deposit Rejected' : 'INR Deposit Rejected') : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`));
+        } else {
+          // Check withdrawal match
+          const matchingWith = withdrawals.find((w) => w.id === t.referenceId);
+          if (matchingWith) {
+            currentStatus = matchingWith.status as TransactionStatus;
+            currentAmount = matchingWith.amount;
+            currentNote = matchingWith.status === 'rejected' && matchingWith.rejectionReason 
               ? `Withdrawal via ${matchingWith.method.toUpperCase()} (Rejected: ${matchingWith.rejectionReason})` 
-              : `Withdrawal via ${matchingWith.method.toUpperCase()} (Net: ₹${matchingWith.netAmount.toFixed(2)})`,
-          };
+              : `Withdrawal via ${matchingWith.method.toUpperCase()} (Net: ₹${matchingWith.netAmount.toFixed(2)})`;
+          }
         }
       }
-      return t;
+
+      // Hide pending transaction if older than 20 minutes
+      if (!isPendingExpired(currentStatus, t.timestamp)) {
+        items.push({
+          ...t,
+          status: currentStatus,
+          amount: currentAmount,
+          note: currentNote,
+        });
+      }
     });
 
     const existingRefIds = new Set(items.map((t) => t.referenceId || t.id));
 
-    // Ensure all deposits are included
+    // Ensure all active deposits are included
     deposits.forEach((dep) => {
       if (!existingRefIds.has(dep.id)) {
         const isUsdt = dep.method === 'USDT' || dep.id.startsWith('USDT');
         const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
-        items.push({
-          id: dep.id,
-          userId: dep.userId,
-          type: 'deposit',
-          amount: dep.totalInr || dep.amount,
-          currency: 'INR',
-          status: (isCompleted ? 'completed' : dep.status) as TransactionStatus,
-          timestamp: dep.createdAt,
-          note: isUsdt
-            ? `USDT Deposit (${dep.amount} USDT • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
-            : `INR Deposit (₹${dep.amount} • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
-          referenceId: dep.id,
-        });
+        const depStatus = (isCompleted ? 'completed' : dep.status) as TransactionStatus;
+
+        // Hide pending deposit if older than 20 minutes
+        if (!isPendingExpired(depStatus, dep.createdAt)) {
+          items.push({
+            id: dep.id,
+            userId: dep.userId,
+            type: 'deposit',
+            amount: dep.totalInr || dep.amount,
+            currency: 'INR',
+            status: depStatus,
+            timestamp: dep.createdAt,
+            note: isUsdt
+              ? `USDT Deposit (${dep.amount} USDT • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
+              : `INR Deposit (₹${dep.amount} • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
+            referenceId: dep.id,
+          });
+        }
       }
     });
 
-    // Ensure all withdrawals are included
+    // Ensure all active withdrawals are included
     withdrawals.forEach((w) => {
       if (!existingRefIds.has(w.id)) {
-        items.push({
-          id: w.id,
-          userId: w.userId,
-          type: 'withdrawal',
-          amount: w.amount,
-          currency: 'INR',
-          status: w.status as TransactionStatus,
-          timestamp: w.createdAt,
-          note: w.status === 'rejected' && w.rejectionReason 
-            ? `Withdrawal via ${w.method.toUpperCase()} (Rejected: ${w.rejectionReason})` 
-            : `Withdrawal via ${w.method.toUpperCase()} (Net: ₹${w.netAmount.toFixed(2)})`,
-          referenceId: w.id,
-        });
+        const withStatus = w.status as TransactionStatus;
+
+        // Hide pending withdrawal if older than 20 minutes
+        if (!isPendingExpired(withStatus, w.createdAt)) {
+          items.push({
+            id: w.id,
+            userId: w.userId,
+            type: 'withdrawal',
+            amount: w.amount,
+            currency: 'INR',
+            status: withStatus,
+            timestamp: w.createdAt,
+            note: w.status === 'rejected' && w.rejectionReason 
+              ? `Withdrawal via ${w.method.toUpperCase()} (Rejected: ${w.rejectionReason})` 
+              : `Withdrawal via ${w.method.toUpperCase()} (Net: ₹${w.netAmount.toFixed(2)})`,
+            referenceId: w.id,
+          });
+        }
       }
     });
 
+    // Strict chronological sort: Newest on TOP, Oldest at the BOTTOM
     return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [transactions, deposits, withdrawals]);
 
@@ -458,8 +486,8 @@ export const HistoryPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Active Pending Alert Banner (if pending items exist) */}
-      {pendingItems.length > 0 && statusFilter !== 'cancelled' && (
+      {/* Active Pending Alert Banner (only shown when user views pending records) */}
+      {pendingItems.length > 0 && statusFilter === 'pending' && (
         <div className="p-3 bg-gradient-to-r from-amber-500/15 via-orange-500/20 to-amber-500/15 rounded-2xl border-2 border-amber-400/50 shadow-sm space-y-1 animate-fadeIn">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -471,7 +499,7 @@ export const HistoryPage: React.FC = () => {
                   {pendingItems.length} Orders Awaiting Verification
                 </h3>
                 <p className="text-[11px] font-bold text-amber-800">
-                  Total Pending: ₹{pendingAmount.toFixed(2)} • Will credit automatically on approval!
+                  Total Pending: ₹{pendingAmount.toFixed(2)} • Active verification window: 20 mins
                 </p>
               </div>
             </div>
@@ -495,7 +523,7 @@ export const HistoryPage: React.FC = () => {
       </div>
 
       {/* =========================================================================
-          TRANSACTION LIST - EITHER FILTERED VIEW OR 3 GROUPED SECTIONS
+          TRANSACTION LIST - CLEAN UNIFIED CHRONOLOGICAL LIST (NEW ON TOP, OLD AT BOTTOM)
          ========================================================================= */}
       {displayItems.length === 0 ? (
         <div className="glass-card rounded-3xl p-10 text-center space-y-2">
@@ -507,75 +535,14 @@ export const HistoryPage: React.FC = () => {
               : 'There are no records matching your current selection.'}
           </p>
         </div>
-      ) : statusFilter === 'all' && !searchQuery.trim() ? (
-        /* When "All" is active and no search query, display in 3 clear separate visual sections */
-        <div className="space-y-6">
-          {/* SECTION 1: PENDING ORDERS (Show first if any exists so user sees what is being verified) */}
-          {pendingItems.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1 border-b border-amber-200 pb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                  <h2 className="text-xs font-black text-amber-900 uppercase tracking-wider font-outfit">
-                    ⏳ Pending Verification ({pendingItems.length})
-                  </h2>
-                </div>
-                <span className="text-xs font-black font-outfit text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg">
-                  ₹{pendingAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {pendingItems.map(renderTransactionCard)}
-              </div>
-            </div>
-          )}
-
-          {/* SECTION 2: SUCCESSFUL ORDERS */}
-          {successfulItems.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1 border-b border-emerald-200 pb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <h2 className="text-xs font-black text-emerald-950 uppercase tracking-wider font-outfit">
-                    ✅ Successful Completed ({successfulItems.length})
-                  </h2>
-                </div>
-                <span className="text-xs font-black font-outfit text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg">
-                  ₹{successfulAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {successfulItems.map(renderTransactionCard)}
-              </div>
-            </div>
-          )}
-
-          {/* SECTION 3: CANCELLED ORDERS */}
-          {cancelledItems.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1 border-b border-rose-200 pb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <XCircle className="w-4 h-4 text-rose-600" />
-                  <h2 className="text-xs font-black text-rose-950 uppercase tracking-wider font-outfit">
-                    ❌ Cancelled / Rejected ({cancelledItems.length})
-                  </h2>
-                </div>
-                <span className="text-xs font-black font-outfit text-rose-800 bg-rose-100 px-2 py-0.5 rounded-lg">
-                  ₹{cancelledAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {cancelledItems.map(renderTransactionCard)}
-              </div>
-            </div>
-          )}
-        </div>
       ) : (
-        /* Dedicated Filtered View */
+        /* Dedicated Clean Unified View - Newest First, Clean Cards */
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Showing {displayItems.length} {statusFilter !== 'all' ? statusFilter : ''} records
+              {statusFilter === 'all'
+                ? `All Records (${displayItems.length}) • Newest on top, oldest at bottom`
+                : `Showing ${displayItems.length} ${statusFilter} records`}
             </span>
           </div>
           {displayItems.map(renderTransactionCard)}

@@ -762,8 +762,9 @@ export const DepositPage: React.FC = () => {
             )}
           </div>
 
-          {/* Recent Deposit Orders Section with 3 Sections: Successful, Pending, Cancelled */}
-          {deposits.length > 0 && (() => {
+          {/* Recent Deposit Orders Section with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
+          {(() => {
+            const TWENTY_MINS_MS = 20 * 60 * 1000;
             const isDepSuccessful = (d: typeof deposits[0]) =>
               d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
             const isDepPending = (d: typeof deposits[0]) =>
@@ -771,15 +772,33 @@ export const DepositPage: React.FC = () => {
             const isDepCancelled = (d: typeof deposits[0]) =>
               d.status === 'rejected' || d.status === 'failed' || (d.status as string) === 'cancelled';
 
-            const successfulDeps = deposits.filter(isDepSuccessful);
-            const pendingDeps = deposits.filter(isDepPending);
-            const cancelledDeps = deposits.filter(isDepCancelled);
+            // Filter out pending verification orders older than 20 minutes
+            const activeDeposits = deposits.filter((d) => {
+              if (isDepPending(d)) {
+                const time = new Date(d.createdAt).getTime();
+                if (!isNaN(time) && Date.now() - time > TWENTY_MINS_MS) {
+                  return false; // Auto-hide expired pending (>20 mins)
+                }
+              }
+              return true;
+            });
+
+            if (activeDeposits.length === 0) return null;
+
+            // Strict sorting: Newest on TOP, Oldest at the BOTTOM
+            const sortedDeposits = [...activeDeposits].sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+            const successfulDeps = sortedDeposits.filter(isDepSuccessful);
+            const pendingDeps = sortedDeposits.filter(isDepPending);
+            const cancelledDeps = sortedDeposits.filter(isDepCancelled);
 
             const successfulTotal = successfulDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
             const pendingTotal = pendingDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
             const cancelledTotal = cancelledDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
 
-            const filteredDeps = deposits.filter((d) => {
+            const filteredDeps = sortedDeposits.filter((d) => {
               if (depositStatusFilter === 'successful') return isDepSuccessful(d);
               if (depositStatusFilter === 'pending') return isDepPending(d);
               if (depositStatusFilter === 'cancelled') return isDepCancelled(d);
@@ -787,14 +806,14 @@ export const DepositPage: React.FC = () => {
             });
 
             return (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-3">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
                     <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
-                    <span>Your Deposit Status & Orders</span>
+                    <span>Your Deposit Orders • Newest First</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    Total: {deposits.length} Orders
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    Total: {activeDeposits.length}
                   </span>
                 </div>
 
@@ -803,10 +822,10 @@ export const DepositPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDepositStatusFilter(depositStatusFilter === 'successful' ? 'all' : 'successful')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                       depositStatusFilter === 'successful'
                         ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-400/50 shadow-xs'
-                        : 'bg-white border-emerald-200 hover:bg-emerald-50/40'
+                        : 'bg-white border-emerald-200/80 hover:bg-emerald-50/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -826,10 +845,10 @@ export const DepositPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDepositStatusFilter(depositStatusFilter === 'pending' ? 'all' : 'pending')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                       depositStatusFilter === 'pending'
                         ? 'bg-amber-500/15 border-amber-500 ring-2 ring-amber-400/50 shadow-xs'
-                        : 'bg-white border-amber-200 hover:bg-amber-50/40'
+                        : 'bg-white border-amber-200/80 hover:bg-amber-50/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -849,10 +868,10 @@ export const DepositPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDepositStatusFilter(depositStatusFilter === 'cancelled' ? 'all' : 'cancelled')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                       depositStatusFilter === 'cancelled'
                         ? 'bg-rose-500/15 border-rose-500 ring-2 ring-rose-400/50 shadow-xs'
-                        : 'bg-white border-rose-200 hover:bg-rose-50/40'
+                        : 'bg-white border-rose-200/80 hover:bg-rose-50/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -880,7 +899,7 @@ export const DepositPage: React.FC = () => {
                         : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    All ({deposits.length})
+                    All ({activeDeposits.length})
                   </button>
                   <button
                     onClick={() => setDepositStatusFilter('successful')}
@@ -914,50 +933,50 @@ export const DepositPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Filtered Deposit List */}
+                {/* Filtered Deposit List - Clean UI with Newest on Top */}
                 {filteredDeps.length === 0 ? (
-                  <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
-                    No {depositStatusFilter} deposit records found.
+                  <div className="p-5 bg-slate-50 rounded-2xl text-center text-xs text-slate-400 border border-dashed border-slate-200">
+                    No {depositStatusFilter !== 'all' ? depositStatusFilter : ''} deposit records found.
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredDeps.slice(0, 10).map((dep) => {
+                    {filteredDeps.map((dep) => {
                       const isPending = isDepPending(dep);
                       const isCompleted = isDepSuccessful(dep);
 
                       return (
                         <div
                           key={dep.id}
-                          className={`glass-card rounded-2xl p-3.5 border transition-all ${
+                          className={`rounded-2xl p-3.5 border transition-all ${
                             isPending
-                              ? 'border-amber-300 bg-amber-50/40 shadow-xs'
+                              ? 'border-amber-300 bg-amber-50/50 shadow-xs'
                               : isCompleted
-                              ? 'border-emerald-200 bg-emerald-50/30'
+                              ? 'border-emerald-200 bg-white hover:border-emerald-300 shadow-xs'
                               : 'border-rose-200 bg-rose-50/20'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <div>
+                            <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-xs text-slate-900">{dep.id}</span>
-                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase">
+                                <span className="font-mono font-bold text-xs text-slate-800">{dep.id}</span>
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase border border-slate-200">
                                   {dep.method}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-slate-400 mt-0.5">
-                                {new Date(dep.createdAt).toLocaleDateString()} {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <div className="text-[11px] text-slate-400 font-medium">
+                                {new Date(dep.createdAt).toLocaleDateString()} • {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </div>
                             </div>
 
-                            <div className="text-right">
-                              <div className="text-sm font-black font-outfit text-[#0B1528]">
-                                ₹{(dep.totalInr || dep.amount).toFixed(2)}
+                            <div className="text-right space-y-1">
+                              <div className="text-sm font-black font-outfit text-slate-900">
+                                +₹{(dep.totalInr || dep.amount).toFixed(2)}
                               </div>
-                              <div className="mt-0.5">
+                              <div>
                                 {isPending ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
                                     <Clock className="w-3 h-3 animate-spin text-amber-600" />
-                                    Pending Approval
+                                    Pending Verification
                                   </span>
                                 ) : isCompleted ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -967,7 +986,7 @@ export const DepositPage: React.FC = () => {
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
                                     <XCircle className="w-3 h-3 text-rose-600" />
-                                    Rejected / Cancelled
+                                    Rejected
                                   </span>
                                 )}
                               </div>

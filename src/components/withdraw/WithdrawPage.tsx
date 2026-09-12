@@ -790,31 +790,47 @@ export const WithdrawPage: React.FC = () => {
         </button>
       </form>
 
-      {/* Recent Withdrawal Requests with 3 Sections: Successful, Pending, Cancelled */}
-      {withdrawals.length > 0 && (() => {
-        const successfulWiths = withdrawals.filter((w) => w.status === 'completed');
-        const pendingWiths = withdrawals.filter((w) => w.status === 'pending' || w.status === 'processing');
-        const cancelledWiths = withdrawals.filter((w) => w.status === 'rejected');
+      {/* Recent Withdrawal Requests with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
+      {(() => {
+        const TWENTY_MINS_MS = 20 * 60 * 1000;
+        const isWithPending = (w: typeof withdrawals[0]) => w.status === 'pending' || w.status === 'processing';
+        const isWithExpired = (w: typeof withdrawals[0]) => {
+          if (!isWithPending(w)) return false;
+          const time = new Date(w.createdAt).getTime();
+          return !isNaN(time) && (Date.now() - time > TWENTY_MINS_MS);
+        };
+
+        const activeWithdrawals = withdrawals.filter((w) => !isWithExpired(w));
+        if (activeWithdrawals.length === 0) return null;
+
+        const sortedWiths = [...activeWithdrawals].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        const successfulWiths = sortedWiths.filter((w) => w.status === 'completed');
+        const pendingWiths = sortedWiths.filter(isWithPending);
+        const cancelledWiths = sortedWiths.filter((w) => w.status === 'rejected');
 
         const successfulTotal = successfulWiths.reduce((sum, w) => sum + w.amount, 0);
         const pendingTotal = pendingWiths.reduce((sum, w) => sum + w.amount, 0);
         const cancelledTotal = cancelledWiths.reduce((sum, w) => sum + w.amount, 0);
 
-        const filteredWiths = withdrawals.filter((w) => {
+        const filteredWiths = sortedWiths.filter((w) => {
           if (withdrawStatusFilter === 'successful') return w.status === 'completed';
-          if (withdrawStatusFilter === 'pending') return w.status === 'pending' || w.status === 'processing';
+          if (withdrawStatusFilter === 'pending') return isWithPending(w);
           if (withdrawStatusFilter === 'cancelled') return w.status === 'rejected';
           return true;
         });
 
         return (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-3">
             <div className="flex items-center justify-between px-1">
-              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider font-outfit">
-                Recent Withdrawal Requests
-              </h4>
-              <span className="text-[10px] font-bold text-slate-400">
-                Total: {withdrawals.length} Requests
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
+                <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                <span>Recent Withdrawal Requests • Newest First</span>
+              </div>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                Total: {activeWithdrawals.length}
               </span>
             </div>
 
@@ -823,10 +839,10 @@ export const WithdrawPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'successful' ? 'all' : 'successful')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   withdrawStatusFilter === 'successful'
                     ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-400/50 shadow-xs'
-                    : 'bg-white border-emerald-200 hover:bg-emerald-50/40'
+                    : 'bg-white border-emerald-200/80 hover:bg-emerald-50/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -846,10 +862,10 @@ export const WithdrawPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'pending' ? 'all' : 'pending')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   withdrawStatusFilter === 'pending'
                     ? 'bg-amber-500/15 border-amber-500 ring-2 ring-amber-400/50 shadow-xs'
-                    : 'bg-white border-amber-200 hover:bg-amber-50/40'
+                    : 'bg-white border-amber-200/80 hover:bg-amber-50/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -869,10 +885,10 @@ export const WithdrawPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setWithdrawStatusFilter(withdrawStatusFilter === 'cancelled' ? 'all' : 'cancelled')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   withdrawStatusFilter === 'cancelled'
                     ? 'bg-rose-500/15 border-rose-500 ring-2 ring-rose-400/50 shadow-xs'
-                    : 'bg-white border-rose-200 hover:bg-rose-50/40'
+                    : 'bg-white border-rose-200/80 hover:bg-rose-50/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -900,7 +916,7 @@ export const WithdrawPage: React.FC = () => {
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                All ({withdrawals.length})
+                All ({activeWithdrawals.length})
               </button>
               <button
                 onClick={() => setWithdrawStatusFilter('successful')}
@@ -934,44 +950,54 @@ export const WithdrawPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Filtered Withdrawal List */}
+            {/* Filtered Withdrawal List - Clean UI with Newest on Top */}
             {filteredWiths.length === 0 ? (
-              <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
-                No {withdrawStatusFilter} withdrawal records found.
+              <div className="p-5 bg-slate-50 rounded-2xl text-center text-xs text-slate-400 border border-dashed border-slate-200">
+                No {withdrawStatusFilter !== 'all' ? withdrawStatusFilter : ''} withdrawal records found.
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredWiths.slice(0, 10).map((req) => (
-                  <div key={req.id} className="glass-card rounded-2xl p-3.5 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-slate-800">
-                        ₹{req.amount.toFixed(2)} ({req.method.toUpperCase()})
+                {filteredWiths.map((req) => (
+                  <div key={req.id} className="rounded-2xl p-3.5 border border-slate-200/80 bg-white flex items-center justify-between text-xs shadow-xs hover:border-slate-300 transition-all">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-slate-800">
+                          ₹{req.amount.toFixed(2)}
+                        </span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase border border-slate-200">
+                          {req.method.toUpperCase()}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        {new Date(req.createdAt).toLocaleString()}
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        {new Date(req.createdAt).toLocaleDateString()} • {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                       {req.rejectionReason && (
-                        <div className="text-[10px] font-bold text-rose-600 mt-0.5">
+                        <div className="text-[10px] font-bold text-rose-600">
                           Reason: {req.rejectionReason}
                         </div>
                       )}
                     </div>
 
-                    <div className="text-right">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${
-                          req.status === 'completed'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : req.status === 'rejected'
-                            ? 'bg-rose-100 text-rose-800'
-                            : req.status === 'processing'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {req.status === 'completed' ? 'Approved' : req.status}
-                      </span>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                    <div className="text-right space-y-1">
+                      <div>
+                        {req.status === 'completed' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Approved
+                          </span>
+                        ) : req.status === 'rejected' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                            <XCircle className="w-3 h-3 text-rose-600" />
+                            Rejected
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                            <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                            Pending Review
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-bold">
                         Net: ₹{req.netAmount.toFixed(2)}
                       </div>
                     </div>
