@@ -217,5 +217,20 @@
     "approvedAt": "2026-09-12T21:46:17.790Z",
     "creditedAt": "2026-09-12T21:46:17.790Z",
     "updatedAt": "2026-09-12T21:46:17.790Z"
+  },
+  "WDR-839376": {
+    "id": "WDR-839376",
+    "type": "withdrawal",
+    "amount": 0,
+    "netAmount": 0,
+    "method": "bank",
+    "userId": "",
+    "userName": "",
+    "userPhone": "",
+    "accountDetails": {},
+    "status": "completed",
+    "approvedAt": "2026-09-12T21:47:19.908Z",
+    "updatedAt": "2026-09-12T21:47:19.908Z",
+    "createdAt": "2026-09-12T21:47:19.908Z"
   }
 }
