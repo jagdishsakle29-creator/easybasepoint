@@ -44,7 +44,7 @@ export interface QuotaPackage {
 }
 
 export type TransactionType = 'deposit' | 'withdrawal' | 'reward' | 'commission' | 'quota_purchase';
-export type TransactionStatus = 'pending' | 'processing' | 'completed' | 'rejected' | 'failed';
+export type TransactionStatus = 'pending' | 'processing' | 'completed' | 'rejected' | 'failed' | 'approved' | 'credited';
 
 export interface Transaction {
   id: string;
@@ -59,6 +59,8 @@ export interface Transaction {
   metadata?: Record<string, any>;
 }
 
+export type DepositStatus = 'pending' | 'approved' | 'credited' | 'completed' | 'rejected' | 'failed';
+
 export interface DepositOrder {
   id: string;
   userId: string;
@@ -72,9 +74,13 @@ export interface DepositOrder {
   totalInr: number;
   network?: string;
   walletAddress?: string;
-  status: 'pending' | 'completed' | 'rejected';
+  status: DepositStatus;
+  credited?: boolean;
+  creditedAt?: string;
+  approvedAt?: string;
   createdAt: string;
   proofUrl?: string;
+  txHash?: string;
 }
 
 export type WithdrawalMethod = 'bank' | 'upi' | 'usdt';

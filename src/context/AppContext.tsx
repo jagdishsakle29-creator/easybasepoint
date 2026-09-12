@@ -58,7 +58,7 @@ interface AppContextType {
   updateProfile: (data: Partial<User>) => void;
   
   // Transactions & Flows
-  buyQuota: (pkg: QuotaPackage) => { success: boolean; message: string };
+  buyQuota: (pkgOrId: QuotaPackage | string, idempotencyKey?: string) => { success: boolean; message: string; transaction?: Transaction };
   submitInrDeposit: (amount: number, refNumber: string) => { success: boolean; message: string };
   submitUsdtDeposit: (usdtAmount: number, network: string, txHash: string) => { success: boolean; message: string };
   submitWithdrawal: (
@@ -96,25 +96,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => storage.getUser());
-  const [wallet, setWallet] = useState<Wallet>(() => {
-    const w = storage.getWallet();
-    const u = storage.getUser();
-    if (u) {
-      const allDeps = storage.getDeposits();
-      const cleanPhone = (u.phone || '').replace(/[^0-9]/g, '');
-      const userCompletedDeps = allDeps.filter((d) => 
-        d.status === 'completed' && 
-        (d.userId === u.id || (cleanPhone && d.userPhone && d.userPhone.replace(/[^0-9]/g, '').endsWith(cleanPhone.slice(-10))))
-      );
-      const sumApproved = userCompletedDeps.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
-      const sumQuota = userCompletedDeps.reduce((sum, d) => sum + (Number(d.calculatedInr || d.amount * 110) || 0), 0);
-      if (sumApproved > 0) {
-        w.balance = Math.max(Number(w.balance) || 0, parseFloat((50 + sumApproved).toFixed(2)));
-        w.quota = Math.max(Number(w.quota) || 0, parseFloat(sumQuota.toFixed(2)));
-      }
-    }
-    return w;
-  });
+  const [wallet, setWallet] = useState<Wallet>(() => storage.getWallet());
   const [packages, setPackages] = useState<QuotaPackage[]>(() => storage.getPackages());
   const [transactions, setTransactions] = useState<Transaction[]>(() => storage.getTransactions());
   const [deposits, setDeposits] = useState<DepositOrder[]>(() => storage.getDeposits());
@@ -176,124 +158,192 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Instant Real-Time Cloud Sync (SSE Stream + 2s Polling Fallback)
   useEffect(() => {
-    const processedEvents = new Set<string>();
+    const applyApprovalEvent = (event: { 
+      type?: string;
+      depId: string; 
+      depositId?: string;
+      action: 'approved' | 'rejected'; 
+      userId?: string;
+      userPhone?: string;
+      amount?: number;
+      currency?: string;
+      totalInr?: number; 
+      credited?: boolean;
+      creditedAt?: string;
+      approvedAt?: string;
+    }) => {
+      const depId = event.depId || event.depositId;
+      if (!depId) return;
 
-    // Track which deposit IDs have been credited to this active wallet session
-    const creditedInSession = new Set<string>();
+      const currentU = storage.getUser();
 
-    const applyApprovalEvent = (event: { depId: string; action: 'approved' | 'rejected'; totalInr?: number }) => {
       if (event.action === 'approved') {
         const allCurrentDeps = storage.getDeposits();
-        const matched = allCurrentDeps.find((d) => d.id === event.depId) || deposits.find((d) => d.id === event.depId);
+        const matched = allCurrentDeps.find((d) => d.id === depId);
 
-        const isUsdt = event.depId.startsWith('USDT') || matched?.method === 'USDT';
+        // Security & User Isolation (TEST 8):
+        // Ensure this event belongs to the currently logged in user!
+        if (currentU) {
+          const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
+          const eventPhone = (event.userPhone || (matched ? matched.userPhone : '') || '').replace(/[^0-9]/g, '');
+          const isUserMatch = 
+            (matched && (matched.userId === currentU.id || (cleanUserPhone && matched.userPhone && matched.userPhone.replace(/[^0-9]/g, '').endsWith(cleanUserPhone.slice(-10))))) ||
+            (event.userId && event.userId === currentU.id) ||
+            (cleanUserPhone.length >= 10 && eventPhone.length >= 10 && eventPhone.endsWith(cleanUserPhone.slice(-10)));
+
+          if (!isUserMatch && (event.userId || eventPhone || matched)) {
+            // Belongs to a different user session: do NOT credit current user's balance!
+            return;
+          }
+        }
+
+        // Idempotency Check (TEST 4, TEST 5, TEST 6):
+        // Verify this deposit has not already been credited!
+        if (storage.isDepositCredited(depId)) {
+          return;
+        }
+        storage.markDepositCredited(depId);
+
+        const isUsdt = depId.startsWith('USDT') || event.currency === 'USDT' || matched?.method === 'USDT';
         const defaultBal = isUsdt ? 5995 : 565;
         const defaultQuota = isUsdt ? 5500 : 500;
 
         const amountToAdd = matched ? (matched.totalInr || defaultBal) : (event.totalInr && event.totalInr > 0 ? event.totalInr : defaultBal);
         const quotaToAdd = matched ? (matched.method === 'USDT' ? (matched.calculatedInr || matched.amount * 110) : matched.amount) : defaultQuota;
+        const nowIso = event.creditedAt || new Date().toISOString();
 
-        if (!creditedInSession.has(event.depId)) {
-          creditedInSession.add(event.depId);
+        // 1. Instantly credit wallet React state and localStorage in REAL TIME without refresh!
+        setWallet((prev) => {
+          const curBal = Number(prev.balance) || 0;
+          const curQuota = Number(prev.quota) || 0;
+          const newBal = parseFloat((curBal + amountToAdd).toFixed(2));
+          const newQuota = parseFloat((curQuota + quotaToAdd).toFixed(2));
+          const updatedW: Wallet = { 
+            ...prev, 
+            balance: newBal, 
+            quota: newQuota, 
+            todayReceive: parseFloat(((Number(prev.todayReceive) || 0) + amountToAdd).toFixed(2)) 
+          };
+          storage.setWallet(updatedW);
+          return updatedW;
+        });
 
-          // 1. Instantly credit wallet React state and localStorage in REAL TIME without refresh!
-          setWallet((prev) => {
-            const curBal = Number(prev.balance) || 0;
-            const curQuota = Number(prev.quota) || 0;
-            const newBal = parseFloat((curBal + amountToAdd).toFixed(2));
-            const newQuota = parseFloat((curQuota + quotaToAdd).toFixed(2));
-            const updatedW: Wallet = { 
-              ...prev, 
-              balance: newBal, 
-              quota: newQuota, 
-              todayReceive: parseFloat(((Number(prev.todayReceive) || 0) + amountToAdd).toFixed(2)) 
+        // 2. Mark deposit as credited in state and storage
+        setDeposits((prev) => {
+          const exists = prev.some((d) => d.id === depId);
+          let updated: DepositOrder[];
+          if (exists) {
+            updated = prev.map((d) => d.id === depId ? { 
+              ...d, 
+              status: 'credited' as const,
+              credited: true,
+              creditedAt: nowIso,
+              approvedAt: event.approvedAt || nowIso,
+            } : d);
+          } else if (matched || (currentU && event.userId === currentU.id)) {
+            const newDep: DepositOrder = matched ? { 
+              ...matched, 
+              status: 'credited' as const,
+              credited: true,
+              creditedAt: nowIso,
+              approvedAt: event.approvedAt || nowIso,
+            } : {
+              id: depId,
+              userId: currentU ? currentU.id : 'player',
+              userPhone: currentU ? currentU.phone : '',
+              amount: isUsdt ? 50 : 500,
+              method: isUsdt ? 'USDT' : 'INR',
+              calculatedInr: isUsdt ? 5500 : 500,
+              bonusInr: isUsdt ? 495 : 65,
+              activityRewardInr: 0,
+              totalInr: amountToAdd,
+              status: 'credited',
+              credited: true,
+              creditedAt: nowIso,
+              approvedAt: nowIso,
+              createdAt: nowIso,
+              utrNumber: 'APPROVED',
             };
-            storage.setWallet(updatedW);
-            return updatedW;
-          });
+            updated = [newDep, ...prev];
+          } else {
+            updated = prev;
+          }
+          storage.setDeposits(updated);
+          return updated;
+        });
 
-          // 2. Mark deposit as completed (or insert if not present)
-          setDeposits((prev) => {
-            const exists = prev.some((d) => d.id === event.depId);
-            let updated: DepositOrder[];
-            if (exists) {
-              updated = prev.map((d) => d.id === event.depId ? { ...d, status: 'completed' as const } : d);
-            } else {
-              const newDep: DepositOrder = matched ? { ...matched, status: 'completed' as const } : {
-                id: event.depId,
-                userId: user?.id || 'player',
-                userPhone: user?.phone || '',
-                amount: isUsdt ? 50 : 500,
-                method: isUsdt ? 'USDT' : 'INR',
-                calculatedInr: isUsdt ? 5500 : 500,
-                bonusInr: isUsdt ? 495 : 65,
-                activityRewardInr: 0,
-                totalInr: amountToAdd,
-                status: 'completed',
-                createdAt: new Date().toISOString(),
-                utrNumber: 'APPROVED',
-              };
-              updated = [newDep, ...prev];
-            }
-            storage.setDeposits(updated);
-            return updated;
-          });
+        // 3. Mark transaction as completed (or insert if not present)
+        setTransactions((prev) => {
+          const exists = prev.some((t) => t.referenceId === depId);
+          let updated: Transaction[];
+          const noteText = isUsdt ? `USDT Deposit Credited (+₹${amountToAdd.toFixed(2)})` : `INR Deposit Credited (+₹${amountToAdd.toFixed(2)})`;
+          if (exists) {
+            updated = prev.map((t) =>
+              t.referenceId === depId
+                ? { ...t, status: 'completed' as const, amount: amountToAdd, note: noteText }
+                : t
+            );
+          } else if (currentU) {
+            const newTx: Transaction = {
+              id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+              userId: currentU.id,
+              type: 'deposit',
+              amount: amountToAdd,
+              currency: 'INR',
+              status: 'completed',
+              timestamp: nowIso,
+              note: noteText,
+              referenceId: depId,
+            };
+            updated = [newTx, ...prev];
+          } else {
+            updated = prev;
+          }
+          storage.setTransactions(updated);
+          return updated;
+        });
 
-          // 3. Mark transaction as completed (or insert if not present)
-          setTransactions((prev) => {
-            const exists = prev.some((t) => t.referenceId === event.depId);
-            let updated: Transaction[];
-            const noteText = isUsdt ? `USDT Deposit Approved (+₹${amountToAdd.toFixed(2)})` : `INR Deposit Approved (+Bonus)`;
-            if (exists) {
-              updated = prev.map((t) =>
-                t.referenceId === event.depId
-                  ? { ...t, status: 'completed' as const, amount: amountToAdd, note: noteText }
-                  : t
-              );
-            } else {
-              const newTx: Transaction = {
-                id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
-                userId: user?.id || 'player',
-                type: 'deposit',
-                amount: amountToAdd,
-                currency: 'INR',
-                status: 'completed',
-                timestamp: new Date().toISOString(),
-                note: noteText,
-                referenceId: event.depId,
-              };
-              updated = [newTx, ...prev];
-            }
-            storage.setTransactions(updated);
-            return updated;
-          });
-
-          // 4. Update matching registered accounts
+        // 4. Update matching registered accounts in storage
+        if (currentU) {
           const accounts = storage.getAccounts();
+          const cleanPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
           accounts.forEach((acc) => {
-            if (!matched || acc.user.id === matched.userId || (matched.userPhone && acc.user.phone.endsWith(matched.userPhone.slice(-10)))) {
+            const accPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+            if (acc.user.id === currentU.id || (cleanPhone && accPhone.endsWith(cleanPhone.slice(-10)))) {
               acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + amountToAdd).toFixed(2));
               acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + quotaToAdd).toFixed(2));
               storage.saveAccount(acc);
             }
           });
-
-          // 5. Fire celebratory screen Confetti
-          try {
-            confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
-          } catch {}
-
-          // 6. Show big success toast
-          addToast('success', `🎉 Payment Approved! ₹${amountToAdd.toFixed(2)} credited to your game wallet!`);
-          window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
         }
+
+        // 5. Fire celebratory screen Confetti
+        try {
+          confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
+        } catch {}
+
+        // 6. Show big success toast
+        addToast('success', `🎉 Payment Approved! ₹${amountToAdd.toFixed(2)} credited to your game wallet!`);
+        window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+      } else if (event.action === 'rejected') {
+        setDeposits((prev) => {
+          const updated = prev.map((d) => d.id === depId ? { ...d, status: 'rejected' as const, credited: false } : d);
+          storage.setDeposits(updated);
+          return updated;
+        });
+        setTransactions((prev) => {
+          const updated = prev.map((t) => t.referenceId === depId ? { ...t, status: 'rejected' as const } : t);
+          storage.setTransactions(updated);
+          return updated;
+        });
+        addToast('error', `Payment #${depId} was rejected.`);
       }
     };
 
-    // Connect SSE stream (0.1s instant event delivery!)
+    // Connect SSE stream (instant 0.1s latency)
     const unsubscribeSSE = cloudSync.subscribeToApprovals(applyApprovalEvent);
 
-    // Also poll recent approvals every 1.2 seconds as backup
+    // Optimized backup polling: 15s instead of 1.2s to eliminate game lag
     let isCancelled = false;
     const pollFallback = async () => {
       if (isCancelled) return;
@@ -303,8 +353,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    const intervalId = setInterval(pollFallback, 1200);
-    pollFallback();
+    const intervalId = setInterval(pollFallback, 15000);
 
     // Instant sync whenever user switches back to this tab / Safari focus
     const handleVisibility = () => {
@@ -373,9 +422,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [deposits, user]);
 
   const addToast = (type: Toast['type'], message: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => removeToast(id), 4000);
+    setToasts((prev) => {
+      // Deduplicate identical message
+      if (prev.some((t) => t.message === message)) {
+        return prev;
+      }
+      const id = Math.random().toString(36).substring(2, 9);
+      setTimeout(() => removeToast(id), 3500);
+      const next = [...prev, { id, type, message }];
+      return next.slice(-3);
+    });
   };
 
   const removeToast = (id: string) => {
@@ -446,24 +502,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, wrongPassword: true, message: 'Incorrect password. Please try again.' };
     }
 
-    // Recalculate balance from all completed deposits so approvals are NEVER lost
-    const allDeps = storage.getDeposits();
-    const cleanUserPhone = (existingAccount.user.phone || '').replace(/[^0-9]/g, '');
-    const userCompletedDeps = allDeps.filter((d) => 
-      d.status === 'completed' && 
-      (d.userId === existingAccount.user.id || (cleanUserPhone && d.userPhone && d.userPhone.replace(/[^0-9]/g, '').endsWith(cleanUserPhone.slice(-10))))
-    );
-    const sumApprovedDeposits = userCompletedDeps.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
-    const sumApprovedQuota = userCompletedDeps.reduce((sum, d) => sum + (Number(d.calculatedInr || d.amount * 110) || 0), 0);
-
-    const updatedWallet: Wallet = {
-      ...existingAccount.wallet,
-      balance: Math.max(Number(existingAccount.wallet.balance) || 0, parseFloat((50 + sumApprovedDeposits).toFixed(2))),
-      quota: Math.max(Number(existingAccount.wallet.quota) || 0, parseFloat(sumApprovedQuota.toFixed(2))),
+    const updatedWallet: Wallet = existingAccount.wallet || {
+      userId: existingAccount.user.id,
+      balance: 50.00,
+      quota: 0.00,
+      referralBalance: 0.00,
+      todayReceive: 0.00,
+      teamCommission: 0.00,
+      todayTeamRecharge: 0.00,
+      todayTeamMembers: 0,
+      totalTeamRecharge: 0.00,
+      totalTeamMembers: 0,
     };
-
-    existingAccount.wallet = updatedWallet;
-    storage.saveAccount(existingAccount);
 
     setUser(existingAccount.user);
     setWallet(updatedWallet);
@@ -562,46 +612,120 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('success', 'Profile updated successfully.');
   };
 
-  // Buying Quota
-  const buyQuota = (pkg: QuotaPackage): { success: boolean; message: string } => {
-    if (!user) {
+  // Buying Quota - Server-Authoritative & Idempotent
+  const buyQuota = (pkgOrId: QuotaPackage | string, idempotencyKey?: string): { success: boolean; message: string; transaction?: Transaction } => {
+    // 1. Authenticate user
+    const currentUser = storage.getUser() || user;
+    if (!currentUser) {
       addToast('error', 'Please log in to purchase a quota package.');
       return { success: false, message: 'Not logged in' };
     }
-    if (wallet.balance < pkg.price) {
-      addToast('error', `Insufficient wallet balance (₹${wallet.balance.toFixed(2)}). Please top up first.`);
+
+    // 2. Resolve packageId (NEVER trust client-provided price or quota)
+    const packageId = typeof pkgOrId === 'string' ? pkgOrId : pkgOrId?.id;
+    if (!packageId) {
+      addToast('error', 'Invalid package selected.');
+      return { success: false, message: 'Invalid package' };
+    }
+
+    // 3. Load authoritative package from database/storage
+    const allPackages = storage.getPackages();
+    const dbPkg = allPackages.find((p) => p.id === packageId);
+    if (!dbPkg) {
+      addToast('error', 'Package not found in database or unavailable.');
+      return { success: false, message: 'Package not found' };
+    }
+
+    // 4. Verify package is active
+    if (!dbPkg.isActive) {
+      addToast('error', 'This quota package is currently inactive.');
+      return { success: false, message: 'Package inactive' };
+    }
+
+    // 5. Idempotency Check (Prevent duplicate clicks or retries)
+    const purchaseKey = idempotencyKey || `BUY-${currentUser.id}-${packageId}-${Date.now()}`;
+    if (storage.isDepositCredited(purchaseKey)) {
+      return { success: false, message: 'Duplicate purchase transaction detected.' };
+    }
+
+    // 6. Verify server-authoritative balance from storage
+    const currentWallet = storage.getWallet();
+    const curBal = Number(currentWallet.balance) || 0;
+    const exactPrice = Number(dbPkg.price);
+    const exactQuota = Number(dbPkg.quota);
+    const exactIncome = Number(dbPkg.income);
+
+    if (curBal < exactPrice) {
+      addToast('error', `Insufficient wallet balance (₹${curBal.toFixed(2)}). Required: ₹${exactPrice.toFixed(2)}.`);
       return { success: false, message: 'Insufficient balance' };
     }
 
-    const newBalance = wallet.balance - pkg.price;
-    const newQuota = wallet.quota + pkg.quota;
-    const rewardEarned = pkg.income;
+    // 7. Atomic calculation: deduct balance, add quota, add income
+    const newBal = parseFloat((curBal - exactPrice).toFixed(2));
+    const newQuota = parseFloat(((Number(currentWallet.quota) || 0) + exactQuota).toFixed(2));
+    const newReceive = parseFloat(((Number(currentWallet.todayReceive) || 0) + exactIncome).toFixed(2));
 
-    setWallet((prev) => ({
-      ...prev,
-      balance: parseFloat(newBalance.toFixed(2)),
-      quota: parseFloat(newQuota.toFixed(2)),
-      todayReceive: parseFloat((prev.todayReceive + rewardEarned).toFixed(2)),
-    }));
-
-    const txnId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newTx: Transaction = {
-      id: txnId,
-      userId: user.id,
-      type: 'quota_purchase',
-      amount: pkg.price,
-      currency: 'INR',
-      status: 'completed',
-      timestamp: new Date().toISOString(),
-      note: `Quota Purchase: ₹${pkg.price} (+${pkg.incomePercent}% Bonus)`,
-      referenceId: pkg.id,
-      metadata: { quotaReceived: pkg.quota, income: pkg.income }
+    const updatedWallet: Wallet = {
+      ...currentWallet,
+      balance: newBal,
+      quota: newQuota,
+      todayReceive: newReceive,
     };
 
+    // 8. Create Transaction Record
+    const txnId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
+    const nowIso = new Date().toISOString();
+    const newTx: Transaction = {
+      id: txnId,
+      userId: currentUser.id,
+      type: 'quota_purchase',
+      amount: exactPrice,
+      currency: 'INR',
+      status: 'completed',
+      timestamp: nowIso,
+      note: `Quota Purchase: ₹${exactPrice.toLocaleString('en-IN')} (+${dbPkg.incomePercent}% Bonus)`,
+      referenceId: dbPkg.id,
+      metadata: { 
+        quotaReceived: exactQuota, 
+        income: exactIncome,
+        packageLevel: dbPkg.level,
+        idempotencyKey: purchaseKey
+      }
+    };
+
+    // 9. Atomic Commit to Database (Storage source of truth)
+    storage.setWallet(updatedWallet);
+    storage.markDepositCredited(purchaseKey);
+
+    const existingTxns = storage.getTransactions();
+    storage.setTransactions([newTx, ...existingTxns]);
+
+    // Save to user account
+    const accounts = storage.getAccounts();
+    accounts.forEach((acc) => {
+      const cleanPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
+      const accPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+      if (acc.user.id === currentUser.id || (cleanPhone && accPhone.endsWith(cleanPhone.slice(-10)))) {
+        acc.wallet = updatedWallet;
+        storage.saveAccount(acc);
+      }
+    });
+
+    // 10. Update React state
+    setWallet(updatedWallet);
     setTransactions((prev) => [newTx, ...prev]);
-    logAudit('QUOTA_BUY', `User ${user.name} bought quota package ₹${pkg.price}`, user.id);
-    addToast('success', `Successfully purchased ₹${pkg.price} quota package!`);
-    return { success: true, message: 'Purchase successful' };
+
+    logAudit('QUOTA_BUY', `User ${currentUser.name} purchased quota package ${dbPkg.id} (₹${exactPrice})`, currentUser.id);
+
+    // 11. Celebratory Confetti & CONFIRMED SUCCESS Message (ONLY upon complete confirmed transaction!)
+    try {
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+    } catch {}
+
+    addToast('success', `🎉 Successfully purchased ₹${exactPrice.toLocaleString('en-IN')} quota package!`);
+    window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+
+    return { success: true, message: 'Purchase successful', transaction: newTx };
   };
 
   // Submitting INR Deposit
@@ -847,8 +971,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Admin Deposit Actions
   const approveDeposit = (id: string, fallbackTotalInr?: number) => {
+    if (storage.isDepositCredited(id)) {
+      addToast('info', `ℹ️ Deposit #${id} has already been approved and credited.`);
+      return;
+    }
+    storage.markDepositCredited(id);
+
     let allDeps = storage.getDeposits();
     let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
+    const nowIso = new Date().toISOString();
 
     // If deposit is not found locally (e.g. cross-device approval via Telegram link),
     // synthesize a valid deposit record so the approval goes through and credits immediately!
@@ -865,14 +996,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bonusInr: totalInr - (isUsdt ? amount * 110 : amount),
         activityRewardInr: 0,
         totalInr,
-        status: 'completed',
-        createdAt: new Date().toISOString(),
+        status: 'credited',
+        credited: true,
+        creditedAt: nowIso,
+        approvedAt: nowIso,
+        createdAt: nowIso,
+      };
+    } else {
+      deposit = {
+        ...deposit,
+        status: 'credited',
+        credited: true,
+        creditedAt: nowIso,
+        approvedAt: nowIso,
       };
     }
 
-    // 1. Mark deposit as completed in state and storage
+    // 1. Mark deposit as credited in state and storage
     const updatedDeposits = (allDeps.some((d) => d.id === id) ? allDeps : [deposit, ...allDeps]).map((d) =>
-      d.id === id ? { ...d, status: 'completed' as const } : d
+      d.id === id ? { ...d, status: 'credited' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
     );
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
@@ -937,7 +1079,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           amount: addBal,
           currency: 'INR',
           status: 'completed',
-          timestamp: new Date().toISOString(),
+          timestamp: nowIso,
           note: txNote,
           referenceId: deposit.id,
         };
@@ -948,7 +1090,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 5. Instant Real-Time Broadcast to all players via ntfy.sh (0.1s latency)
-    cloudSync.broadcastApproval(deposit.id, 'approved', addBal);
+    cloudSync.broadcastApproval({
+      depId: deposit.id,
+      depositId: deposit.id,
+      action: 'approved',
+      userId: deposit.userId,
+      userPhone: deposit.userPhone,
+      amount: deposit.amount,
+      currency: deposit.method,
+      totalInr: addBal,
+      status: 'credited',
+      credited: true,
+      creditedAt: nowIso,
+      approvedAt: nowIso,
+    });
 
     // 6. Celebration confetti & audit log
     try {

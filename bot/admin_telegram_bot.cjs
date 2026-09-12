@@ -59,6 +59,60 @@ async function apiCall(method, body = {}) {
   }
 }
 
+// Persistent In-Memory & File Database for Deposits
+const DEPOSITS_DB_FILE = path.join(__dirname, 'deposits_db.json');
+let depositsDb = {};
+
+function loadDepositsDb() {
+  if (fs.existsSync(DEPOSITS_DB_FILE)) {
+    try {
+      depositsDb = JSON.parse(fs.readFileSync(DEPOSITS_DB_FILE, 'utf8'));
+    } catch (e) {
+      depositsDb = {};
+    }
+  }
+}
+
+function saveDepositsDb() {
+  try {
+    fs.writeFileSync(DEPOSITS_DB_FILE, JSON.stringify(depositsDb, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving deposits_db.json:', e.message);
+  }
+}
+
+loadDepositsDb();
+
+// Listen to incoming deposit broadcasts from web clients
+async function subscribeToIncomingDeposits() {
+  try {
+    const res = await fetch('https://ntfy.sh/ebp_deposits_lord12/json?poll=1&since=10m');
+    if (res.ok) {
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+      for (const line of lines) {
+        try {
+          const raw = JSON.parse(line);
+          if (raw.event === 'message' && raw.message && raw.message.startsWith('{')) {
+            const dep = JSON.parse(raw.message);
+            if (dep && dep.id && !depositsDb[dep.id]) {
+              depositsDb[dep.id] = {
+                ...dep,
+                status: dep.status || 'pending',
+                credited: false,
+              };
+              saveDepositsDb();
+            }
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+}
+
+setInterval(subscribeToIncomingDeposits, 3000);
+subscribeToIncomingDeposits();
+
 async function handleCallbackQuery(query) {
   const fromId = query.from.id.toString();
   const allowedAdminId = config.adminChatId.toString();
@@ -81,14 +135,76 @@ async function handleCallbackQuery(query) {
     const raw = data === 'approve_dep_demo' ? 'DEMO-809214' : data.replace('approve_dep:', '');
     const parts = raw.split(':');
     const depId = parts[0];
-    const totalInr = parts[1] ? parseFloat(parts[1]) : (depId.startsWith('USDT') ? 5995 : 565);
     
-    // Instant 0.1s Broadcast to Game Clients via ntfy.sh with totalInr
+    // Check local database for this deposit
+    loadDepositsDb();
+    let dep = depositsDb[depId];
+
+    // TEST 4 & TEST 5: Idempotency Check - NEVER credit the same deposit twice!
+    if (dep && dep.credited === true) {
+      console.log(`[IDEMPOTENCY] ℹ️ Deposit ${depId} is ALREADY CREDITED. Skipping duplicate action.`);
+      await apiCall('answerCallbackQuery', {
+        callback_query_id: query.id,
+        text: `ℹ️ Deposit already credited\nID: #${depId}`,
+        show_alert: true,
+      });
+      await apiCall('editMessageText', {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id,
+        text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\nℹ️ *DEPOSIT ALREADY CREDITED*\n🆔 *ID:* #${depId}\n⚠️ *Notice:* This deposit has already been credited to user balance.\n⏱ *Credited At:* ${dep.creditedAt || 'Earlier'}`,
+        parse_mode: 'Markdown',
+      });
+      return;
+    }
+
+    const isUsdt = depId.startsWith('USDT') || (dep && dep.method === 'USDT');
+    const totalInr = parts[1] ? parseFloat(parts[1]) : (dep ? (dep.totalInr || (isUsdt ? 5995 : 565)) : (isUsdt ? 5995 : 565));
+    const nowIso = new Date().toISOString();
+
+    // Mark as credited in persistent ledger
+    if (!dep) {
+      dep = {
+        id: depId,
+        totalInr,
+        amount: isUsdt ? 50 : 500,
+        method: isUsdt ? 'USDT' : 'INR',
+        status: 'credited',
+        credited: true,
+        creditedAt: nowIso,
+        approvedAt: nowIso,
+      };
+    } else {
+      dep.status = 'credited';
+      dep.credited = true;
+      dep.creditedAt = nowIso;
+      dep.approvedAt = nowIso;
+    }
+    depositsDb[depId] = dep;
+    saveDepositsDb();
+
+    // Instant 0.1s Structured Real-Time Broadcast to Game Clients via ntfy.sh
+    const approvalPayload = {
+      type: 'DEPOSIT_APPROVED',
+      depId,
+      depositId: depId,
+      userId: dep.userId,
+      userPhone: dep.userPhone,
+      amount: dep.amount || (isUsdt ? 50 : 500),
+      currency: isUsdt ? 'USDT' : 'INR',
+      totalInr,
+      action: 'approved',
+      status: 'credited',
+      credited: true,
+      creditedAt: nowIso,
+      approvedAt: nowIso,
+      timestamp: nowIso,
+    };
+
     try {
       await fetch('https://ntfy.sh/ebp_approvals_lord12', {
         method: 'POST',
         headers: { 'Title': 'Deposit Approved' },
-        body: JSON.stringify({ depId, action: 'approved', totalInr, timestamp: new Date().toISOString() }),
+        body: JSON.stringify(approvalPayload),
       });
       console.log(`[SYNC] ✅ Broadcasted approved deposit ${depId} (₹${totalInr}) to Game Clients in 0.1s!`);
     } catch (e) {
@@ -97,19 +213,52 @@ async function handleCallbackQuery(query) {
 
     await apiCall('answerCallbackQuery', {
       callback_query_id: query.id,
-      text: `✅ Payment Approved! User wallet has been credited in game.`,
+      text: `✅ ${isUsdt ? 'USDT' : 'INR'} Deposit Approved! Status: CREDITED`,
       show_alert: true,
     });
 
-    // Edit message to reflect Approved status and remove old buttons
+    const userDisplay = dep.userPhone ? `${dep.userPhone.slice(0, 4)}****${dep.userPhone.slice(-3)}` : (dep.userId || 'Player');
+    const amountDisplay = isUsdt ? `${dep.amount || 50} USDT (₹${totalInr} INR)` : `₹${totalInr} INR`;
+
+    // Edit message to reflect Approved & Credited status matching specification
     await apiCall('editMessageText', {
       chat_id: query.message.chat.id,
       message_id: query.message.message_id,
-      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n✅ *STATUS: PAYMENT APPROVED BY ADMIN*\n💰 *Action:* User Game Wallet Credited Immediately\n⏱ *Time:* ${new Date().toLocaleTimeString()}`,
+      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n` +
+        `✅ *${isUsdt ? 'USDT' : 'INR'} Deposit Approved*\n\n` +
+        `🆔 *ID:* \`#${depId}\`\n` +
+        `👤 *User:* ${userDisplay}\n` +
+        `💵 *Amount:* ${amountDisplay}\n` +
+        `📊 *Status:* *CREDITED*\n` +
+        `⏱ *Credited At:* ${new Date().toLocaleTimeString()}\n` +
+        `━━━━━━━━━━━━━━━━━━━`,
       parse_mode: 'Markdown',
     });
   } else if (data === 'reject_dep_demo' || data.startsWith('reject_dep:')) {
     const depId = data === 'reject_dep_demo' ? 'DEMO-809214' : data.replace('reject_dep:', '');
+    
+    loadDepositsDb();
+    if (depositsDb[depId]) {
+      depositsDb[depId].status = 'rejected';
+      depositsDb[depId].credited = false;
+      saveDepositsDb();
+    }
+
+    try {
+      await fetch('https://ntfy.sh/ebp_approvals_lord12', {
+        method: 'POST',
+        headers: { 'Title': 'Deposit Rejected' },
+        body: JSON.stringify({
+          type: 'DEPOSIT_REJECTED',
+          depId,
+          depositId: depId,
+          action: 'rejected',
+          status: 'rejected',
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch {}
+
     await apiCall('answerCallbackQuery', {
       callback_query_id: query.id,
       text: `❌ Payment Rejected. Order cancelled.`,
@@ -119,7 +268,7 @@ async function handleCallbackQuery(query) {
     await apiCall('editMessageText', {
       chat_id: query.message.chat.id,
       message_id: query.message.message_id,
-      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n❌ *STATUS: REJECTED BY ADMIN*\n🚫 *Action:* Order Cancelled / Refunded\n⏱ *Time:* ${new Date().toLocaleTimeString()}`,
+      text: `${query.message.text}\n\n━━━━━━━━━━━━━━━━━━━\n❌ *STATUS: REJECTED BY ADMIN*\n🆔 *ID:* \`#${depId}\`\n🚫 *Action:* Order Cancelled / Rejected\n⏱ *Time:* ${new Date().toLocaleTimeString()}\n━━━━━━━━━━━━━━━━━━━`,
       parse_mode: 'Markdown',
     });
   } else if (data.startsWith('approve_wdr:')) {

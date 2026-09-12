@@ -29,6 +29,7 @@ const STORAGE_KEYS = {
   UPIS: 'ebp_v2_upis',
   USDTS: 'ebp_v2_usdts',
   ACCOUNTS: 'ebp_v2_accounts',
+  CREDITED_DEPOSITS: 'ebp_v2_credited_deposits',
 };
 
 export interface RegisteredAccount {
@@ -353,6 +354,26 @@ export const storage = {
   },
   setDeposits(deposits: DepositOrder[]): void {
     localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(deposits));
+  },
+
+  getCreditedDepositIds(): string[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.CREDITED_DEPOSITS);
+    return raw ? JSON.parse(raw) : [];
+  },
+  isDepositCredited(id: string): boolean {
+    if (!id) return false;
+    const list = this.getCreditedDepositIds();
+    return list.includes(id);
+  },
+  markDepositCredited(id: string): boolean {
+    if (!id) return false;
+    const list = this.getCreditedDepositIds();
+    if (list.includes(id)) {
+      return false; // Already credited
+    }
+    list.push(id);
+    localStorage.setItem(STORAGE_KEYS.CREDITED_DEPOSITS, JSON.stringify(list));
+    return true; // Newly credited
   },
 
   getWithdrawals(): WithdrawalRequest[] {

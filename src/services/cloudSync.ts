@@ -21,10 +21,19 @@ export interface CloudDepositPayload {
 }
 
 export interface CloudApprovalEvent {
+  type?: string;
   depId: string;
+  depositId?: string;
   action: 'approved' | 'rejected';
+  userId?: string;
+  userPhone?: string;
   amount?: number;
+  currency?: string;
   totalInr?: number;
+  status?: string;
+  credited?: boolean;
+  creditedAt?: string;
+  approvedAt?: string;
   timestamp: string;
 }
 
@@ -44,17 +53,48 @@ export const cloudSync = {
   },
 
   // Broadcast an approval or rejection to all Player game clients in real time
-  async broadcastApproval(depId: string, action: 'approved' | 'rejected', totalInr?: number): Promise<boolean> {
+  async broadcastApproval(
+    depIdOrMeta: string | Partial<CloudApprovalEvent>,
+    actionOpt?: 'approved' | 'rejected',
+    totalInrOpt?: number
+  ): Promise<boolean> {
     try {
-      const payload: CloudApprovalEvent = {
-        depId,
-        action,
-        totalInr,
-        timestamp: new Date().toISOString(),
-      };
+      let payload: CloudApprovalEvent;
+      if (typeof depIdOrMeta === 'object') {
+        payload = {
+          type: 'DEPOSIT_APPROVED',
+          depId: depIdOrMeta.depId || depIdOrMeta.depositId || '',
+          depositId: depIdOrMeta.depositId || depIdOrMeta.depId || '',
+          action: depIdOrMeta.action || 'approved',
+          userId: depIdOrMeta.userId,
+          userPhone: depIdOrMeta.userPhone,
+          amount: depIdOrMeta.amount,
+          currency: depIdOrMeta.currency,
+          totalInr: depIdOrMeta.totalInr,
+          status: depIdOrMeta.status || (depIdOrMeta.action === 'approved' ? 'credited' : 'rejected'),
+          credited: depIdOrMeta.credited ?? (depIdOrMeta.action === 'approved'),
+          creditedAt: depIdOrMeta.creditedAt || new Date().toISOString(),
+          approvedAt: depIdOrMeta.approvedAt || new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        const action = actionOpt || 'approved';
+        payload = {
+          type: 'DEPOSIT_APPROVED',
+          depId: depIdOrMeta,
+          depositId: depIdOrMeta,
+          action,
+          totalInr: totalInrOpt,
+          status: action === 'approved' ? 'credited' : 'rejected',
+          credited: action === 'approved',
+          creditedAt: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        };
+      }
+
       await fetch(`${NTFY_BASE}/${TOPIC_APPROVALS}`, {
         method: 'POST',
-        headers: { 'Title': `Deposit ${action.toUpperCase()}` },
+        headers: { 'Title': `Deposit ${payload.action.toUpperCase()}` },
         body: JSON.stringify(payload),
       });
       return true;
@@ -64,9 +104,10 @@ export const cloudSync = {
   },
 
   // Poll recent approvals (fallback if SSE connection drops or Safari was backgrounded)
+  // CRITICAL: Uses since=45s instead of since=all to NEVER replay old deposits!
   async getRecentApprovals(): Promise<CloudApprovalEvent[]> {
     try {
-      const res = await fetch(`${NTFY_BASE}/${TOPIC_APPROVALS}/json?poll=1&since=all`, {
+      const res = await fetch(`${NTFY_BASE}/${TOPIC_APPROVALS}/json?poll=1&since=45s`, {
         cache: 'no-store',
       });
       if (!res.ok) return [];
@@ -83,9 +124,14 @@ export const cloudSync = {
             } else if (raw.message.includes(':')) {
               const [depId, action, total] = raw.message.split(':');
               events.push({
+                type: 'DEPOSIT_APPROVED',
                 depId,
+                depositId: depId,
                 action: action === 'rejected' ? 'rejected' : 'approved',
                 totalInr: total ? parseFloat(total) : undefined,
+                status: action === 'rejected' ? 'rejected' : 'credited',
+                credited: action !== 'rejected',
+                creditedAt: new Date().toISOString(),
                 timestamp: new Date().toISOString(),
               });
             }

@@ -49,7 +49,7 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
+    'overview' | 'usdt' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
   >('overview');
 
   // Package Form State
@@ -86,6 +86,15 @@ export const AdminPanel: React.FC = () => {
 
   const pendingDeposits = deposits.filter((d) => d.status === 'pending');
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
+
+  // Dedicated USDT Metrics
+  const usdtDeposits = deposits.filter((d) => d.method === 'USDT' || d.id.startsWith('USDT'));
+  const pendingUsdtDeposits = usdtDeposits.filter((d) => d.status === 'pending');
+  const approvedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'approved');
+  const creditedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'credited' || (d.status === 'completed' && d.credited !== false));
+  const rejectedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'rejected');
+  const totalUsdtVolume = usdtDeposits.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const totalUsdtInrVolume = usdtDeposits.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
 
   const handleSavePackage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +211,8 @@ export const AdminPanel: React.FC = () => {
       <div className="flex items-center gap-1.5 bg-[#0B1528] p-1.5 rounded-2xl overflow-x-auto no-scrollbar border border-orange-500/20 shadow-md">
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-          { id: 'deposits', label: 'Deposits', icon: ArrowDownToLine, badge: pendingDeposits.length },
+          { id: 'usdt', label: 'USDT Management', icon: Coins, badge: pendingUsdtDeposits.length },
+          { id: 'deposits', label: 'INR Deposits', icon: ArrowDownToLine, badge: pendingDeposits.filter(d => d.method !== 'USDT' && !d.id.startsWith('USDT')).length },
           { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, badge: pendingWithdrawals.length },
           { id: 'packages', label: 'Packages', icon: Package },
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
@@ -381,6 +391,323 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================
+          TAB: USDT MANAGEMENT & REAL-TIME INCOMING AREA
+         ======================================================= */}
+      {activeAdminTab === 'usdt' && (
+        <div className="space-y-5">
+          {/* Header & Live Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-[#0B1528] via-[#0F1E36] to-[#0B1528] p-4 rounded-3xl border border-emerald-500/20 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white font-outfit tracking-wide flex items-center gap-2">
+                  USDT MANAGEMENT
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    TRC20
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Real-time incoming USDT stream, approval management, and transaction ledger
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/60 text-[11px] text-slate-300 font-mono">
+                1 USDT = <span className="font-bold text-emerald-400 font-sans">₹{settings.usdtRate.toFixed(2)} INR</span>
+              </div>
+              {pendingUsdtDeposits.length > 0 && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-500 text-white animate-pulse shadow-md flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                  {pendingUsdtDeposits.length} Pending Approval
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 7 Required Metrics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+            <div className="glass-card rounded-2xl p-3 border border-slate-200/80 bg-white shadow-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total USDT</span>
+              <div className="text-xl font-black text-slate-900 font-outfit mt-1">
+                {usdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">deposits</span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-amber-300/80 bg-amber-50/40 shadow-xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Pending USDT</span>
+              <div className="text-xl font-black text-amber-600 font-outfit mt-1">
+                {pendingUsdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-amber-600 font-mono">
+                {pendingUsdtDeposits.reduce((acc, d) => acc + (d.amount || 0), 0).toFixed(1)} USDT
+              </span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-blue-200/80 bg-blue-50/30 shadow-xs">
+              <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Approved USDT</span>
+              <div className="text-xl font-black text-blue-600 font-outfit mt-1">
+                {approvedUsdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-blue-600 font-mono">verified</span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-emerald-300/80 bg-emerald-50/40 shadow-xs">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Credited USDT</span>
+              <div className="text-xl font-black text-emerald-600 font-outfit mt-1">
+                {creditedUsdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-emerald-600 font-mono">
+                {creditedUsdtDeposits.reduce((acc, d) => acc + (d.amount || 0), 0).toFixed(1)} USDT
+              </span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-rose-200/80 bg-rose-50/30 shadow-xs">
+              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Rejected USDT</span>
+              <div className="text-xl font-black text-rose-600 font-outfit mt-1">
+                {rejectedUsdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-rose-500 font-mono">cancelled</span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-purple-200/80 bg-purple-50/30 shadow-xs col-span-2 sm:col-span-2 lg:col-span-1">
+              <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Total Volume</span>
+              <div className="text-xl font-black text-purple-700 font-outfit mt-1">
+                {totalUsdtVolume.toLocaleString()} USDT
+              </div>
+              <span className="text-[10px] text-purple-600 font-sans">
+                ₹{totalUsdtInrVolume.toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div className="glass-card rounded-2xl p-3 border border-slate-200/80 bg-white shadow-xs col-span-2 sm:col-span-2 lg:col-span-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transactions</span>
+              <div className="text-xl font-black text-slate-800 font-outfit mt-1">
+                {usdtDeposits.length}
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">all statuses</span>
+            </div>
+          </div>
+
+          {/* Section 6: USDT INCOMING AREA */}
+          <div className="bg-gradient-to-br from-amber-50/70 via-white to-orange-50/50 rounded-3xl p-5 border-2 border-dashed border-amber-300 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF6B00] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#FF6B00]"></span>
+                </span>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900 font-outfit uppercase tracking-wider">
+                    USDT INCOMING
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    "USDT being added here in real time" — updates from PENDING → APPROVED → CREDITED
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-extrabold text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-200">
+                {pendingUsdtDeposits.length} Live Pending Request{pendingUsdtDeposits.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {pendingUsdtDeposits.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400 bg-white/80 rounded-2xl border border-slate-200/60 font-medium">
+                ⚡ No pending USDT deposits waiting for approval right now. New submissions will appear here automatically in 0.1s!
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingUsdtDeposits.map((dep) => (
+                  <div
+                    key={dep.id}
+                    className="p-4 bg-white rounded-2xl border border-amber-300 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-[#FF6B00] transition"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 uppercase tracking-wider animate-pulse">
+                          PENDING
+                        </span>
+                        <span className="font-mono text-xs font-black text-slate-900">
+                          #{dep.id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-600">
+                          {dep.userPhone ? `${dep.userPhone.slice(0, 4)}****${dep.userPhone.slice(-3)}` : dep.userId}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <span className="text-lg font-black text-emerald-600 font-outfit">
+                          {dep.amount} USDT
+                        </span>
+                        <span className="text-slate-400">→</span>
+                        <span className="font-black text-slate-800">
+                          ₹{dep.totalInr.toLocaleString('en-IN')} INR
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          (Chain: {dep.network || 'TRC20'})
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate max-w-md bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                        Tx Hash: {dep.proofUrl || dep.utrNumber || 'TRC20-TRANSFER'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => approveDeposit(dep.id)}
+                        className="flex-1 sm:flex-initial py-2.5 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Approve & Credit ₹{dep.totalInr}</span>
+                      </button>
+                      <button
+                        onClick={() => rejectDeposit(dep.id, 'Invalid USDT TxID or payment unconfirmed')}
+                        className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section 5: USDT Transaction Table */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider font-outfit">
+                USDT Transaction Table ({usdtDeposits.length} Records)
+              </h4>
+            </div>
+
+            {usdtDeposits.length === 0 ? (
+              <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
+                No USDT deposits recorded yet.
+              </div>
+            ) : (
+              <div className="glass-card rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black text-slate-500 uppercase font-outfit tracking-wider">
+                        <th className="py-3.5 px-3.5">Deposit ID</th>
+                        <th className="py-3.5 px-3.5">User</th>
+                        <th className="py-3.5 px-3.5">Telegram / Identifier</th>
+                        <th className="py-3.5 px-3.5">Amount</th>
+                        <th className="py-3.5 px-3.5">Currency</th>
+                        <th className="py-3.5 px-3.5">Network / Chain</th>
+                        <th className="py-3.5 px-3.5">Status</th>
+                        <th className="py-3.5 px-3.5">Created At</th>
+                        <th className="py-3.5 px-3.5">Approved At</th>
+                        <th className="py-3.5 px-3.5">Credited At</th>
+                        <th className="py-3.5 px-3.5">Tx / Hash</th>
+                        <th className="py-3.5 px-3.5 text-right">Admin / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {usdtDeposits.map((dep) => {
+                        const statusBadge = () => {
+                          if (dep.status === 'credited' || (dep.status === 'completed' && dep.credited !== false)) {
+                            return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">CREDITED</span>;
+                          }
+                          if (dep.status === 'approved') {
+                            return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">APPROVED</span>;
+                          }
+                          if (dep.status === 'rejected') {
+                            return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">REJECTED</span>;
+                          }
+                          if (dep.status === 'failed') {
+                            return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700 border border-slate-300">FAILED</span>;
+                          }
+                          return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">PENDING</span>;
+                        };
+
+                        return (
+                          <tr key={dep.id} className="hover:bg-slate-50/60 transition">
+                            <td className="py-3.5 px-3.5 font-mono font-bold text-slate-900">
+                              #{dep.id}
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <div className="font-bold text-slate-800">
+                                {dep.userPhone ? `${dep.userPhone.slice(0, 4)}****${dep.userPhone.slice(-3)}` : (dep.userId || 'Player')}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">{dep.userId}</div>
+                            </td>
+                            <td className="py-3.5 px-3.5 font-mono text-slate-600 text-[11px]">
+                              {dep.userPhone || dep.userId || '—'}
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <div className="font-black text-emerald-600 font-outfit text-sm">
+                                {dep.amount} USDT
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-sans">
+                                ₹{dep.totalInr.toLocaleString('en-IN')} INR
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-3.5 font-bold text-slate-800 font-mono">
+                              USDT
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 font-mono border border-slate-200">
+                                {dep.network || 'TRC20'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              {statusBadge()}
+                            </td>
+                            <td className="py-3.5 px-3.5 text-slate-500 text-[11px] font-sans">
+                              {new Date(dep.createdAt).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3.5 px-3.5 text-slate-500 text-[11px] font-sans">
+                              {dep.approvedAt ? new Date(dep.approvedAt).toLocaleTimeString('en-IN') : (dep.status === 'credited' ? 'Credited' : '—')}
+                            </td>
+                            <td className="py-3.5 px-3.5 text-slate-500 text-[11px] font-sans">
+                              {dep.creditedAt ? new Date(dep.creditedAt).toLocaleTimeString('en-IN') : (dep.status === 'credited' ? 'Credited' : '—')}
+                            </td>
+                            <td className="py-3.5 px-3.5 font-mono text-[11px] text-slate-600 max-w-[120px] truncate" title={dep.proofUrl || dep.utrNumber}>
+                              {dep.proofUrl || dep.utrNumber || '—'}
+                            </td>
+                            <td className="py-3.5 px-3.5 text-right">
+                              {dep.status === 'pending' ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => approveDeposit(dep.id)}
+                                    className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>Approve</span>
+                                  </button>
+                                  <button
+                                    onClick={() => rejectDeposit(dep.id)}
+                                    className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 font-mono">
+                                  {dep.status === 'credited' ? 'Credited' : 'Processed'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

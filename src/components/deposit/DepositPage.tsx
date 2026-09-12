@@ -47,9 +47,11 @@ export const DepositPage: React.FC = () => {
   const [maxFilter, setMaxFilter] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Buy Flow Modal State
+  // Buy Flow Modal State & Explicit State Machine: IDLE | SELECTED | PROCESSING | SUCCESS | FAILED
+  type PurchaseStatus = 'IDLE' | 'SELECTED' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
   const [selectedPkg, setSelectedPkg] = useState<QuotaPackage | null>(null);
-  const [isBuying, setIsBuying] = useState<boolean>(false);
+  const [purchaseStatus, setPurchaseStatus] = useState<PurchaseStatus>('IDLE');
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   // Direct INR Wallet Top-Up Modal State
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
@@ -81,16 +83,40 @@ export const DepositPage: React.FC = () => {
     }, 500);
   };
 
-  const handleConfirmBuy = () => {
-    if (!selectedPkg) return;
-    setIsBuying(true);
-    setTimeout(() => {
-      const res = buyQuota(selectedPkg);
-      setIsBuying(false);
-      if (res.success) {
-        setSelectedPkg(null);
-      }
-    }, 600);
+  const handleSelectPackage = (pkg: QuotaPackage) => {
+    setSelectedPkg(pkg);
+    setPurchaseStatus('SELECTED');
+    setPurchaseError(null);
+  };
+
+  const handleCloseBuyModal = () => {
+    if (purchaseStatus === 'PROCESSING') return;
+    setSelectedPkg(null);
+    setPurchaseStatus('IDLE');
+    setPurchaseError(null);
+  };
+
+  const handleConfirmBuy = async () => {
+    if (!selectedPkg || purchaseStatus === 'PROCESSING') return;
+    
+    setPurchaseStatus('PROCESSING');
+    setPurchaseError(null);
+
+    // Brief processing tick for smooth UX
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    // Call server-authoritative purchase handler with packageId
+    const res = buyQuota(selectedPkg.id);
+
+    if (res.success) {
+      setPurchaseStatus('SUCCESS');
+      setTimeout(() => {
+        handleCloseBuyModal();
+      }, 1400);
+    } else {
+      setPurchaseStatus('FAILED');
+      setPurchaseError(res.message || 'Purchase failed.');
+    }
   };
 
   const handleConfirmTopUp = () => {
@@ -570,7 +596,7 @@ export const DepositPage: React.FC = () => {
 
                   {/* Buy Button */}
                   <button
-                    onClick={() => setSelectedPkg(pkg)}
+                    onClick={() => handleSelectPackage(pkg)}
                     className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-sm rounded-xl shadow-orange-glow transition-all active:scale-95 touch-press flex-shrink-0"
                   >
                     Select
@@ -656,7 +682,7 @@ export const DepositPage: React.FC = () => {
       )}
 
       {/* =======================================================
-          BUY CONFIRMATION MODAL
+          BUY CONFIRMATION MODAL - Explicit State Machine
          ======================================================= */}
       {selectedPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -672,87 +698,118 @@ export const DepositPage: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedPkg(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                disabled={purchaseStatus === 'PROCESSING'}
+                onClick={handleCloseBuyModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Breakdown table */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2.5 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Selected Package Price:</span>
-                <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.price.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Applicable Bonus ({selectedPkg.incomePercent}%):</span>
-                <span className="font-bold text-emerald-600 font-outfit">+₹{selectedPkg.income.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Total Quota Credited:</span>
-                <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.quota.toFixed(2)}</span>
-              </div>
-              <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
-                <span className="font-bold text-slate-800">Your Current Balance:</span>
-                <span className={`font-extrabold font-outfit ${wallet.balance < selectedPkg.price ? 'text-rose-600' : 'text-slate-900'}`}>
-                  ₹{wallet.balance.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            {/* Insufficient balance notice */}
-            {wallet.balance < selectedPkg.price ? (
-              <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">Insufficient Balance</p>
-                  <p className="mt-0.5">
-                    You need ₹{(selectedPkg.price - wallet.balance).toFixed(2)} more. Top up now to complete this purchase.
-                  </p>
-                </div>
+            {/* Success State Card */}
+            {purchaseStatus === 'SUCCESS' ? (
+              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2 animate-fadeIn">
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto animate-bounce" />
+                <h4 className="text-base font-black text-emerald-900 font-outfit">Quota Purchase Confirmed!</h4>
+                <p className="text-xs text-emerald-700 font-medium">
+                  ₹{selectedPkg.quota.toLocaleString('en-IN')} added to your quota balance. Daily returns activated!
+                </p>
               </div>
             ) : (
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <span>
-                  Verified transaction: Quota balance and daily returns will be activated immediately upon purchase.
-                </span>
-              </div>
+              <>
+                {/* Breakdown table */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Selected Package Price:</span>
+                    <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Applicable Bonus ({selectedPkg.incomePercent}%):</span>
+                    <span className="font-bold text-emerald-600 font-outfit">+₹{selectedPkg.income.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Total Quota Credited:</span>
+                    <span className="font-bold text-slate-900 font-outfit">₹{selectedPkg.quota.toFixed(2)}</span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
+                    <span className="font-bold text-slate-800">Your Current Balance:</span>
+                    <span className={`font-extrabold font-outfit ${wallet.balance < selectedPkg.price ? 'text-rose-600' : 'text-slate-900'}`}>
+                      ₹{wallet.balance.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Insufficient balance or error notice */}
+                {purchaseStatus === 'FAILED' && purchaseError ? (
+                  <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">Purchase Failed</p>
+                      <p className="mt-0.5">{purchaseError}</p>
+                    </div>
+                  </div>
+                ) : wallet.balance < selectedPkg.price ? (
+                  <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">Insufficient Balance</p>
+                      <p className="mt-0.5">
+                        You need ₹{(selectedPkg.price - wallet.balance).toFixed(2)} more. Top up now to complete this purchase.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Verified transaction: Quota balance and daily returns will be activated immediately upon confirmed purchase.
+                    </span>
+                  </div>
+                )}
+
+                {/* Modal Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={purchaseStatus === 'PROCESSING'}
+                    onClick={handleCloseBuyModal}
+                    className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-2xl transition disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+
+                  {wallet.balance < selectedPkg.price ? (
+                    <button
+                      type="button"
+                      disabled={purchaseStatus === 'PROCESSING'}
+                      onClick={() => {
+                        handleCloseBuyModal();
+                        setIsTopUpModalOpen(true);
+                      }}
+                      className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition"
+                    >
+                      Top Up Balance
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={purchaseStatus === 'PROCESSING'}
+                      onClick={handleConfirmBuy}
+                      className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {purchaseStatus === 'PROCESSING' ? (
+                        <>
+                          <RotateCw className="w-4 h-4 animate-spin" />
+                          <span>Processing Purchase...</span>
+                        </>
+                      ) : (
+                        <span>Confirm & Buy</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
-
-            {/* Modal Buttons */}
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedPkg(null)}
-                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-2xl transition"
-              >
-                Cancel
-              </button>
-
-              {wallet.balance < selectedPkg.price ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPkg(null);
-                    setIsTopUpModalOpen(true);
-                  }}
-                  className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition"
-                >
-                  Top Up Balance
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={isBuying}
-                  onClick={handleConfirmBuy}
-                  className="flex-1 py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition active:scale-95 disabled:opacity-50"
-                >
-                  {isBuying ? 'Processing...' : 'Confirm & Buy'}
-                </button>
-              )}
-            </div>
           </div>
         </div>
       )}
