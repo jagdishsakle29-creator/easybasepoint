@@ -106,5 +106,27 @@
     "createdAt": "2026-09-12T16:33:19.484Z",
     "creditedAt": "2026-09-12T16:33:23.207Z",
     "approvedAt": "2026-09-12T16:33:23.207Z"
+  },
+  "DEP-157271": {
+    "id": "DEP-157271",
+    "totalInr": 1582,
+    "amount": 500,
+    "method": "INR",
+    "status": "completed",
+    "credited": true,
+    "creditedAt": "2026-09-12T17:12:52.515Z",
+    "approvedAt": "2026-09-12T17:12:52.515Z",
+    "createdAt": "2026-09-12T17:12:52.515Z"
+  },
+  "DEP-423777": {
+    "id": "DEP-423777",
+    "totalInr": 2373,
+    "amount": 500,
+    "method": "INR",
+    "status": "completed",
+    "credited": true,
+    "creditedAt": "2026-09-12T17:30:57.816Z",
+    "approvedAt": "2026-09-12T17:30:57.816Z",
+    "createdAt": "2026-09-12T17:30:57.816Z"
   }
 }

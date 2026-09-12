@@ -82,7 +82,10 @@ export default async function handler(req, res) {
             reply_markup: {
               inline_keyboard: [
                 [
+                  { text: '⚡ 1-Click Approve (Web)', url: `https://easybasepoint.vercel.app/?admin=lord12&approve_dep=${uniqueTxId}&total=${totalInr.toFixed(2)}` },
                   { text: `✅ Approve ₹${totalInr.toFixed(2)}`, callback_data: `approve_dep:${uniqueTxId}:${totalInr.toFixed(2)}` },
+                ],
+                [
                   { text: '❌ Reject', callback_data: `reject_dep:${uniqueTxId}` },
                 ]
               ]

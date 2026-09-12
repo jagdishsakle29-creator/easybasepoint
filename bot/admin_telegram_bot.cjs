@@ -321,6 +321,45 @@ async function executeDepositApproval(depId, fallbackTotalInr) {
 
   console.log(`[APPROVAL] ✅ Approved & Credited deposit ${depId} (₹${totalInr})! New Server Balance: ₹${wallet.balance}. Broadcasted to clients.`);
 
+  // Sync to Cloud Ledger so all web clients/players receive the credit in real time!
+  try {
+    const cloudRes = await fetch('https://api.restful-api.dev/objects/ff808181a067127101a096aef1d80342');
+    const cloudJson = cloudRes.ok ? await cloudRes.json() : {};
+    const currentData = (cloudJson && cloudJson.data) || {};
+    currentData[depId] = {
+      id: depId,
+      totalInr,
+      amount: dep.amount || 500,
+      method: dep.method || 'INR',
+      userId: dep.userId || '',
+      userPhone: dep.userPhone || '',
+      status: 'completed',
+      credited: true,
+      creditedAt: nowIso,
+      approvedAt: nowIso,
+    };
+    await fetch('https://api.restful-api.dev/objects/ff808181a067127101a096aef1d80342', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'ebp_approvals_ledger',
+        data: currentData,
+      }),
+    });
+    console.log(`[CLOUD_SYNC] ✅ Synchronized approval for #${depId} to global cloud ledger!`);
+  } catch (err) {
+    console.error(`[CLOUD_SYNC] ⚠️ Cloud sync warning:`, err.message);
+  }
+
+  // Also notify live Vercel endpoint
+  try {
+    await fetch('https://easybasepoint.vercel.app/api/bot/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ depId, totalInr, action: 'approved' }),
+    });
+  } catch {}
+
   return { ok: true, alreadyCredited, dep: depositsDb[depId], wallet };
 }
 

@@ -39,5 +39,19 @@
       "DEP-79948454"
     ],
     "updatedAt": "2026-09-12T16:33:23.207Z"
+  },
+  "default_player": {
+    "key": "default_player",
+    "userId": "player",
+    "phone": "",
+    "balance": 3955,
+    "quota": 1500,
+    "todayReceive": 3955,
+    "totalDeposited": 3955,
+    "creditedDepositIds": [
+      "DEP-157271",
+      "DEP-423777"
+    ],
+    "updatedAt": "2026-09-12T17:30:57.818Z"
   }
 }
