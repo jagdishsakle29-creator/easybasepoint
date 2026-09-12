@@ -9,6 +9,7 @@ export interface User {
   referredBy?: string;
   telegram?: string;
   isGoogleAuthEnabled: boolean;
+  transactionPin?: string;
   role: Role;
   status: 'active' | 'suspended';
   createdAt: string;

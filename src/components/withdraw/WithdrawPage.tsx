@@ -13,11 +13,14 @@ import {
   CreditCard,
   MessageCircle,
   Send,
-  Mail
+  Mail,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
-import { otpService } from '../../services/otpService';
+import { storage } from '../../services/storage';
 
 export const WithdrawPage: React.FC = () => {
   const { 
@@ -25,6 +28,7 @@ export const WithdrawPage: React.FC = () => {
     wallet, 
     settings, 
     submitWithdrawal, 
+    updateProfile,
     addToast, 
     setActiveTab, 
     withdrawals,
@@ -49,14 +53,10 @@ export const WithdrawPage: React.FC = () => {
   // USDT field
   const [usdtAddress, setUsdtAddress] = useState(() => usdts[0]?.address || '');
 
-  // Company Withdrawal OTP Confirmation states
-  const [waOtp, setWaOtp] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpError, setOtpError] = useState('');
-  const [maskedContact, setMaskedContact] = useState('');
-  const [userEmail, setUserEmail] = useState(() => (user?.email && !user.email.endsWith('@ebp.com')) ? user.email : '');
+  // 6-Digit Transaction Security PIN / Password Authorization
+  const [securityPin, setSecurityPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pinError, setPinError] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,67 +64,12 @@ export const WithdrawPage: React.FC = () => {
   const feeAmount = 0.00;
   const netAmount = amount;
 
-  // OTP Countdown timer
-  useEffect(() => {
-    let interval: any = null;
-    if (otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => prev - 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer]);
-
   const handlePercentageSelect = (percent: number) => {
     if (percent === 100) {
       setAmount(parseFloat(wallet.balance.toFixed(2)));
     } else {
       const calculated = Math.floor((wallet.balance * percent) / 100);
       setAmount(calculated);
-    }
-  };
-
-  const handleSendVerificationCode = async () => {
-    if (amount < settings.minWithdrawal) {
-      addToast('error', `Minimum withdrawal amount is ₹${settings.minWithdrawal}.`);
-      return;
-    }
-    if (amount > wallet.balance) {
-      addToast('error', `Insufficient wallet balance. Available: ₹${wallet.balance.toFixed(2)}`);
-      return;
-    }
-
-    const targetEmail = userEmail.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!targetEmail || !emailRegex.test(targetEmail)) {
-      const err = 'Please enter a valid Gmail / Email address to receive your OTP.';
-      setOtpError(err);
-      addToast('error', err);
-      return;
-    }
-
-    setIsSendingOtp(true);
-    setOtpError('');
-    try {
-      const res = await otpService.requestOtp(targetEmail, 'email');
-      if (res.success || res.ok) {
-        setIsOtpSent(true);
-        setOtpTimer(res.cooldownSeconds || 60);
-        setMaskedContact(res.maskedContact || targetEmail);
-        addToast('success', res.message || `Verification OTP sent to ${targetEmail}!`);
-      } else {
-        const errorMsg = res.message || 'Failed to send verification code. Please try again.';
-        setOtpError(errorMsg);
-        addToast('error', errorMsg);
-      }
-    } catch (err: any) {
-      const errorMsg = err?.message || 'Network error requesting verification code. Please try again.';
-      setOtpError(errorMsg);
-      addToast('error', errorMsg);
-    } finally {
-      setIsSendingOtp(false);
     }
   };
 
@@ -166,57 +111,69 @@ export const WithdrawPage: React.FC = () => {
       }
     }
 
-    // Require OTP confirmation code
-    if (!isOtpSent) {
-      addToast('error', 'Please request a verification OTP to confirm your withdrawal.');
-      return;
-    }
-    if (!waOtp || waOtp.trim().length < 4) {
-      setOtpError('Please enter the verification code sent to your registered contact.');
-      addToast('error', 'Please enter the verification OTP.');
+    // Require 6-Digit Security PIN or Account Password
+    const entered = securityPin.trim();
+    if (!entered || entered.length < 4) {
+      setPinError('Please enter your 6-digit Security PIN or Login Password.');
+      addToast('error', 'Please enter your Security PIN or Password.');
       return;
     }
 
-    const targetEmail = userEmail.trim().toLowerCase();
-    setIsSubmitting(true);
-    setOtpError('');
+    // Verify against user registered account password or custom transactionPin
+    const account = storage.findAccount(user?.phone || user?.email || '');
+    const validPassword = account?.password;
+    const userPin = user?.transactionPin;
 
-    (async () => {
-      try {
-        const verifyRes = await otpService.verifyOtp(targetEmail, waOtp.trim());
-        if (!verifyRes.success && !verifyRes.ok) {
-          setIsSubmitting(false);
-          const errMsg = verifyRes.message || 'Invalid verification code.';
-          setOtpError(errMsg);
-          addToast('error', `❌ ${errMsg}`);
-          return;
+    let isAuthorized = false;
+
+    if (userPin && entered === userPin) {
+      isAuthorized = true;
+    } else if (validPassword && entered === validPassword) {
+      isAuthorized = true;
+    } else if (!validPassword && !userPin) {
+      // First-time setting PIN: automatically establish as transaction PIN
+      isAuthorized = true;
+      if (user) {
+        const updatedU = { ...user, transactionPin: entered };
+        updateProfile({ transactionPin: entered });
+        if (account) {
+          storage.saveAccount({ ...account, user: updatedU });
         }
-
-        const details = {
-          accountHolder: method === 'bank' ? accountHolder : undefined,
-          bankName: method === 'bank' ? bankName : undefined,
-          accountNumber: method === 'bank' ? accountNumber : undefined,
-          ifscCode: method === 'bank' ? ifscCode.toUpperCase() : undefined,
-          upiId: method === 'upi' ? upiId : undefined,
-          usdtAddress: method === 'usdt' ? usdtAddress : undefined,
-        };
-
-        const res = submitWithdrawal(amount, method, details);
-        setIsSubmitting(false);
-
-        if (res.success) {
-          setAmount(0);
-          setAccountNumber('');
-          setConfirmAccountNumber('');
-          setWaOtp('');
-          setIsOtpSent(false);
-        }
-      } catch (err: any) {
-        setIsSubmitting(false);
-        setOtpError('Verification failed. Please try again.');
-        addToast('error', 'Verification failed.');
       }
-    })();
+    } else if (!userPin && validPassword) {
+      if (entered === validPassword) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      setPinError('❌ Incorrect Security PIN or Password! Please enter your correct login password or PIN.');
+      addToast('error', '❌ Incorrect Security PIN or Password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setPinError('');
+
+    const details = {
+      accountHolder: method === 'bank' ? accountHolder : undefined,
+      bankName: method === 'bank' ? bankName : undefined,
+      accountNumber: method === 'bank' ? accountNumber : undefined,
+      ifscCode: method === 'bank' ? ifscCode.toUpperCase() : undefined,
+      upiId: method === 'upi' ? upiId : undefined,
+      usdtAddress: method === 'usdt' ? usdtAddress : undefined,
+    };
+
+    const res = submitWithdrawal(amount, method, details);
+    setIsSubmitting(false);
+
+    if (res.success) {
+      setAmount(0);
+      setAccountNumber('');
+      setConfirmAccountNumber('');
+      setSecurityPin('');
+      addToast('success', 'Withdrawal request authorized successfully! Processing payout.');
+    }
   };
 
   // Recent withdrawals for this user
@@ -564,96 +521,60 @@ export const WithdrawPage: React.FC = () => {
           )}
         </div>
 
-        {/* Company Security Email OTP Verification Box */}
+        {/* Company Security PIN / Password Authorization Box */}
         <div className="p-4 bg-orange-50/90 rounded-2xl border border-orange-200 shadow-sm space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
-              <span>Company Security Verification</span>
+              <span>Company Security Authorization</span>
             </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
-              100% Free Email OTP
+              Instant 1-Click Verification • 0% Fee
             </span>
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-              <Mail className="w-3.5 h-3.5 text-[#FF6B00]" />
-              <span>Your Registered Gmail / Email ID</span>
-            </label>
-            <div className="flex gap-2 mt-1">
+            <div className="flex justify-between items-center">
+              <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                <Lock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                <span>6-Digit Security PIN / Account Password</span>
+              </label>
+              <span className="text-[10px] font-semibold text-slate-400">PhonePe / GPay Style</span>
+            </div>
+
+            <div className="relative mt-1">
               <input
-                type="email"
+                type={showPin ? 'text' : 'password'}
                 required
-                value={userEmail}
+                value={securityPin}
                 onChange={(e) => {
-                  setUserEmail(e.target.value.trim());
-                  setOtpError('');
+                  setSecurityPin(e.target.value);
+                  setPinError('');
                 }}
-                placeholder="Enter your Gmail / Email (e.g. name@gmail.com)"
-                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                placeholder="Enter 6-digit Security PIN or Login Password"
+                className={`w-full px-3.5 py-3 text-sm font-mono tracking-wider font-bold rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 pr-10 ${
+                  pinError
+                    ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950'
+                    : 'border-slate-200 focus:ring-[#FF6B00]'
+                }`}
               />
               <button
                 type="button"
-                disabled={otpTimer > 0 || isSendingOtp || amount < settings.minWithdrawal || amount > wallet.balance}
-                onClick={handleSendVerificationCode}
-                className="px-3.5 py-2.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
+                onClick={() => setShowPin(!showPin)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>
-                  {isSendingOtp
-                    ? 'Sending OTP...'
-                    : otpTimer > 0
-                      ? `Sent (${otpTimer}s)`
-                      : isOtpSent
-                        ? 'Resend OTP'
-                        : 'Get Email OTP'}
-                </span>
+                {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Verification code will be delivered instantly to this email inbox.
+            <p className="text-[10px] text-slate-500 mt-1">
+              🔒 Instant payout authorization with your secure PIN or account password. No waiting for SMS/email.
             </p>
           </div>
 
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600">Enter Received 6-Digit OTP</label>
-            <input
-              type="text"
-              required
-              maxLength={6}
-              value={waOtp}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                setWaOtp(val);
-                setOtpError('');
-              }}
-              placeholder="Enter 6-digit company OTP"
-              className={`w-full mt-1 px-3.5 py-2.5 text-sm font-mono tracking-widest text-center font-black rounded-xl border bg-white focus:outline-none focus:ring-2 text-slate-900 ${
-                otpError 
-                  ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-950' 
-                  : 'border-slate-200 focus:ring-[#FF6B00]'
-              }`}
-            />
-          </div>
-
-          {otpError && (
+          {pinError && (
             <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-300 text-rose-700 font-bold text-xs flex items-center gap-2 animate-fadeIn">
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-              <span>❌ {otpError}</span>
-            </div>
-          )}
-
-          {isOtpSent && (
-            <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
-              <span className="flex items-center gap-1 font-semibold text-emerald-700">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                OTP sent to {maskedContact || userEmail}
-              </span>
-              <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-400" />
-                Expires in 5 mins
-              </span>
+              <span>{pinError}</span>
             </div>
           )}
         </div>
