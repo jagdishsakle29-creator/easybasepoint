@@ -121,8 +121,10 @@
     "accountDetails": {
       "upiId": "dxcfgvhbjnmv@ybl"
     },
-    "status": "pending",
+    "status": "completed",
     "createdAt": "2026-09-12T21:34:00.887Z",
-    "type": "withdrawal"
+    "type": "withdrawal",
+    "approvedAt": "2026-09-12T21:34:18.397Z",
+    "updatedAt": "2026-09-12T21:34:18.397Z"
   }
 }
