@@ -114,17 +114,32 @@ export const DepositPage: React.FC = () => {
 
   const handleLaunchUpi = (appName: string, customAppUrl?: string) => {
     const upiId = settings.adminUpiId || 'basepnt@ybl';
-    navigator.clipboard.writeText(upiId);
-    addToast('success', `Copied UPI ID: ${upiId} • Opening ${appName}...`);
+    try {
+      navigator.clipboard.writeText(upiId);
+    } catch {}
 
+    // Only mobile phones (Android / iPhone) have native UPI apps installed
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !/Macintosh/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (!isMobile) {
+      // Desktop / Mac: Do not trigger custom URI schemes which cause Safari/Chrome invalid address popups!
+      addToast('success', `Copied UPI ID: ${upiId}! Please scan the QR Code below on your phone.`);
+      const qrEl = document.getElementById('deposit-qr-section');
+      if (qrEl) qrEl.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    // On iOS Safari, custom schemes (phonepe://, paytmmp://) cause "Safari cannot open the page because the address is invalid" if app isn't installed.
+    // Standard NPCI generic URI (upi://) is the universal safe scheme on iOS.
     const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${topUpAmount}&cu=INR&tn=Deposit`;
-    const isApple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+    const targetUrl = isIOS ? standardUpi : (customAppUrl || standardUpi);
 
-    if (isApple) {
-      window.location.href = standardUpi;
-    } else if (customAppUrl) {
-      window.location.href = customAppUrl;
-    } else {
+    addToast('success', `Copied UPI ID: ${upiId}! Opening ${appName}...`);
+
+    try {
+      window.location.href = targetUrl;
+    } catch {
       window.location.href = standardUpi;
     }
   };
@@ -783,7 +798,7 @@ export const DepositPage: React.FC = () => {
                   </div>
 
                   {/* QR Code and Official UPI */}
-                  <div className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
+                  <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
                     <img 
                       src="/deposit_qr.jpg" 
                       alt="Official PhonePe QR" 

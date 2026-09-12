@@ -63,10 +63,10 @@ export const cloudSync = {
     }
   },
 
-  // Poll recent approvals (fallback if SSE connection drops)
+  // Poll recent approvals (fallback if SSE connection drops or Safari was backgrounded)
   async getRecentApprovals(): Promise<CloudApprovalEvent[]> {
     try {
-      const res = await fetch(`${NTFY_BASE}/${TOPIC_APPROVALS}/json?poll=1&since=30m`, {
+      const res = await fetch(`${NTFY_BASE}/${TOPIC_APPROVALS}/json?poll=1&since=all`, {
         cache: 'no-store',
       });
       if (!res.ok) return [];

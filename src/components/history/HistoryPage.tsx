@@ -23,8 +23,25 @@ export const HistoryPage: React.FC = () => {
 
   // Combine transactions and deposits so every single deposit is guaranteed to appear in history
   const combinedItems = React.useMemo(() => {
-    const items = [...transactions];
-    const existingRefIds = new Set(transactions.map((t) => t.referenceId || t.id));
+    const items = transactions.map((t) => {
+      if (t.referenceId) {
+        const matchingDep = deposits.find((d) => d.id === t.referenceId);
+        if (matchingDep) {
+          const isUsdt = matchingDep.method === 'USDT' || matchingDep.id.startsWith('USDT');
+          return {
+            ...t,
+            status: matchingDep.status,
+            amount: matchingDep.totalInr || t.amount,
+            note: matchingDep.status === 'completed'
+              ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
+              : t.note,
+          };
+        }
+      }
+      return t;
+    });
+
+    const existingRefIds = new Set(items.map((t) => t.referenceId || t.id));
 
     deposits.forEach((dep) => {
       if (!existingRefIds.has(dep.id)) {

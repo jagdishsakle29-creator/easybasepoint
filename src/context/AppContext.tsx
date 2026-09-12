@@ -96,7 +96,25 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => storage.getUser());
-  const [wallet, setWallet] = useState<Wallet>(() => storage.getWallet());
+  const [wallet, setWallet] = useState<Wallet>(() => {
+    const w = storage.getWallet();
+    const u = storage.getUser();
+    if (u) {
+      const allDeps = storage.getDeposits();
+      const cleanPhone = (u.phone || '').replace(/[^0-9]/g, '');
+      const userCompletedDeps = allDeps.filter((d) => 
+        d.status === 'completed' && 
+        (d.userId === u.id || (cleanPhone && d.userPhone && d.userPhone.replace(/[^0-9]/g, '').endsWith(cleanPhone.slice(-10))))
+      );
+      const sumApproved = userCompletedDeps.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
+      const sumQuota = userCompletedDeps.reduce((sum, d) => sum + (Number(d.calculatedInr || d.amount * 110) || 0), 0);
+      if (sumApproved > 0) {
+        w.balance = Math.max(Number(w.balance) || 0, parseFloat((50 + sumApproved).toFixed(2)));
+        w.quota = Math.max(Number(w.quota) || 0, parseFloat(sumQuota.toFixed(2)));
+      }
+    }
+    return w;
+  });
   const [packages, setPackages] = useState<QuotaPackage[]>(() => storage.getPackages());
   const [transactions, setTransactions] = useState<Transaction[]>(() => storage.getTransactions());
   const [deposits, setDeposits] = useState<DepositOrder[]>(() => storage.getDeposits());
@@ -168,36 +186,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (event.action === 'approved') {
         const allCurrentDeps = storage.getDeposits();
         const matched = allCurrentDeps.find((d) => d.id === event.depId) || deposits.find((d) => d.id === event.depId);
+        const isAlreadyCompleted = matched && matched.status === 'completed';
+
         const isUsdt = event.depId.startsWith('USDT') || matched?.method === 'USDT';
         const defaultBal = isUsdt ? 5995 : 565;
         const defaultQuota = isUsdt ? 5500 : 500;
 
-        const amountToAdd = matched ? matched.totalInr : (event.totalInr && event.totalInr > 0 ? event.totalInr : defaultBal);
+        const amountToAdd = matched ? (matched.totalInr || defaultBal) : (event.totalInr && event.totalInr > 0 ? event.totalInr : defaultBal);
         const quotaToAdd = matched ? (matched.method === 'USDT' ? (matched.calculatedInr || matched.amount * 110) : matched.amount) : defaultQuota;
 
-        // 1. Credit wallet in React state and localStorage immediately
-        setWallet((prev) => {
-          const newBal = parseFloat(((Number(prev.balance) || 0) + amountToAdd).toFixed(2));
-          const newQuota = parseFloat(((Number(prev.quota) || 0) + quotaToAdd).toFixed(2));
-          const updatedW: Wallet = { ...prev, balance: newBal, quota: newQuota, todayReceive: parseFloat(((Number(prev.todayReceive) || 0) + amountToAdd).toFixed(2)) };
-          storage.setWallet(updatedW);
-          return updatedW;
-        });
+        if (!isAlreadyCompleted) {
+          // 1. Credit wallet in React state and localStorage immediately
+          setWallet((prev) => {
+            const newBal = parseFloat(((Number(prev.balance) || 0) + amountToAdd).toFixed(2));
+            const newQuota = parseFloat(((Number(prev.quota) || 0) + quotaToAdd).toFixed(2));
+            const updatedW: Wallet = { ...prev, balance: newBal, quota: newQuota, todayReceive: parseFloat(((Number(prev.todayReceive) || 0) + amountToAdd).toFixed(2)) };
+            storage.setWallet(updatedW);
+            return updatedW;
+          });
+        }
 
-        // 2. Mark deposit as completed
+        // 2. Mark deposit as completed (or insert if not present)
         setDeposits((prev) => {
-          const updated = prev.map((d) => d.id === event.depId ? { ...d, status: 'completed' as const } : d);
+          const exists = prev.some((d) => d.id === event.depId);
+          let updated: DepositOrder[];
+          if (exists) {
+            updated = prev.map((d) => d.id === event.depId ? { ...d, status: 'completed' as const } : d);
+          } else {
+            const newDep: DepositOrder = matched ? { ...matched, status: 'completed' as const } : {
+              id: event.depId,
+              userId: user?.id || 'player',
+              userPhone: user?.phone || '',
+              amount: isUsdt ? 50 : 500,
+              method: isUsdt ? 'USDT' : 'INR',
+              calculatedInr: isUsdt ? 5500 : 500,
+              bonusInr: isUsdt ? 495 : 65,
+              activityRewardInr: 0,
+              totalInr: amountToAdd,
+              status: 'completed',
+              createdAt: new Date().toISOString(),
+              utrNumber: 'APPROVED',
+            };
+            updated = [newDep, ...prev];
+          }
           storage.setDeposits(updated);
           return updated;
         });
 
-        // 3. Mark transaction as completed
+        // 3. Mark transaction as completed (or insert if not present)
         setTransactions((prev) => {
-          const updated = prev.map((t) =>
-            t.referenceId === event.depId
-              ? { ...t, status: 'completed' as const, amount: amountToAdd, note: isUsdt ? `USDT Deposit Approved (+₹${amountToAdd.toFixed(2)})` : `INR Deposit Approved (+Bonus)` }
-              : t
-          );
+          const exists = prev.some((t) => t.referenceId === event.depId);
+          let updated: Transaction[];
+          const noteText = isUsdt ? `USDT Deposit Approved (+₹${amountToAdd.toFixed(2)})` : `INR Deposit Approved (+Bonus)`;
+          if (exists) {
+            updated = prev.map((t) =>
+              t.referenceId === event.depId
+                ? { ...t, status: 'completed' as const, amount: amountToAdd, note: noteText }
+                : t
+            );
+          } else {
+            const newTx: Transaction = {
+              id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+              userId: user?.id || 'player',
+              type: 'deposit',
+              amount: amountToAdd,
+              currency: 'INR',
+              status: 'completed',
+              timestamp: new Date().toISOString(),
+              note: noteText,
+              referenceId: event.depId,
+            };
+            updated = [newTx, ...prev];
+          }
           storage.setTransactions(updated);
           return updated;
         });
@@ -206,20 +266,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const accounts = storage.getAccounts();
         accounts.forEach((acc) => {
           if (!matched || acc.user.id === matched.userId || (matched.userPhone && acc.user.phone.endsWith(matched.userPhone.slice(-10)))) {
-            acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + amountToAdd).toFixed(2));
-            acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + quotaToAdd).toFixed(2));
+            if (!isAlreadyCompleted) {
+              acc.wallet.balance = parseFloat(((Number(acc.wallet.balance) || 0) + amountToAdd).toFixed(2));
+              acc.wallet.quota = parseFloat(((Number(acc.wallet.quota) || 0) + quotaToAdd).toFixed(2));
+            }
             storage.saveAccount(acc);
           }
         });
 
-        // 5. Fire celebratory screen Confetti
-        try {
-          confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
-        } catch {}
+        if (!isAlreadyCompleted) {
+          // 5. Fire celebratory screen Confetti
+          try {
+            confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
+          } catch {}
 
-        // 6. Show big success toast
-        addToast('success', `🎉 Payment Approved! ₹${amountToAdd.toFixed(2)} credited to your game wallet!`);
-        window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+          // 6. Show big success toast
+          addToast('success', `🎉 Payment Approved! ₹${amountToAdd.toFixed(2)} credited to your game wallet!`);
+          window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+        }
       }
     };
 
@@ -239,9 +303,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const intervalId = setInterval(pollFallback, 2000);
     pollFallback();
 
+    // Instant sync whenever user switches back to this tab / Safari focus
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        pollFallback();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
     return () => {
       isCancelled = true;
       clearInterval(intervalId);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
       unsubscribeSSE();
     };
   }, []);
@@ -368,8 +443,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, wrongPassword: true, message: 'Incorrect password. Please try again.' };
     }
 
+    // Recalculate balance from all completed deposits so approvals are NEVER lost
+    const allDeps = storage.getDeposits();
+    const cleanUserPhone = (existingAccount.user.phone || '').replace(/[^0-9]/g, '');
+    const userCompletedDeps = allDeps.filter((d) => 
+      d.status === 'completed' && 
+      (d.userId === existingAccount.user.id || (cleanUserPhone && d.userPhone && d.userPhone.replace(/[^0-9]/g, '').endsWith(cleanUserPhone.slice(-10))))
+    );
+    const sumApprovedDeposits = userCompletedDeps.reduce((sum, d) => sum + (Number(d.totalInr) || 0), 0);
+    const sumApprovedQuota = userCompletedDeps.reduce((sum, d) => sum + (Number(d.calculatedInr || d.amount * 110) || 0), 0);
+
+    const updatedWallet: Wallet = {
+      ...existingAccount.wallet,
+      balance: Math.max(Number(existingAccount.wallet.balance) || 0, parseFloat((50 + sumApprovedDeposits).toFixed(2))),
+      quota: Math.max(Number(existingAccount.wallet.quota) || 0, parseFloat(sumApprovedQuota.toFixed(2))),
+    };
+
+    existingAccount.wallet = updatedWallet;
+    storage.saveAccount(existingAccount);
+
     setUser(existingAccount.user);
-    setWallet(existingAccount.wallet);
+    setWallet(updatedWallet);
+    storage.setUser(existingAccount.user);
+    storage.setWallet(updatedWallet);
+
     addToast('success', `Welcome back, ${existingAccount.user.name}!`);
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return { success: true, message: 'Login successful' };
@@ -506,24 +603,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Submitting INR Deposit
   const submitInrDeposit = (amount: number, refNumber: string): { success: boolean; message: string } => {
+    if (!user) {
+      addToast('error', 'Please log in to your account first.');
+      return { success: false, message: 'Authentication required' };
+    }
     if (amount <= 0) return { success: false, message: 'Invalid amount' };
 
-    // Ensure active user exists (auto-provision guest player if needed so deposit is never lost)
-    const activeUser: User = user || {
-      id: `USR-${Date.now().toString().slice(-6)}`,
-      name: 'Player',
-      phone: '9876543210',
-      email: 'player@gmail.com',
-      referralCode: 'EBP100',
-      isGoogleAuthEnabled: false,
-      role: 'user',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    };
-    if (!user) {
-      setUser(activeUser);
-      storage.setUser(activeUser);
-    }
+    const activeUser: User = user;
 
     // Extra Tier Free Bonus:
     // 50,000+ -> +5,000 Free
@@ -615,7 +701,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Submitting USDT Deposit
   const submitUsdtDeposit = (usdtAmount: number, network: string, txHash: string): { success: boolean; message: string } => {
-    if (!user) return { success: false, message: 'Not logged in' };
+    if (!user) {
+      addToast('error', 'Please log in to your account first.');
+      return { success: false, message: 'Not logged in' };
+    }
     if (usdtAmount <= 0) return { success: false, message: 'Invalid amount' };
 
     const calculatedInr = usdtAmount * settings.usdtRate;
