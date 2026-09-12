@@ -18,10 +18,106 @@ import {
   Copy,
   Info,
   QrCode,
-  CreditCard
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
+
+const SUPPORT_CATEGORIES = [
+  { 
+    id: 'deposit', 
+    label: '💳 Deposit / UTR Issue',
+    shortTitle: 'Deposit & UTR',
+    badge: '5-7 Mins Fast',
+    refLabel: '12-Digit Bank UTR / Order ID',
+    refPlaceholder: 'Enter 12-digit UTR from PhonePe/GPay/Paytm',
+    helpTip: 'Payment check karke 5-7 minutes me account me balance add ho jata hai. Kripya apna 12-digit UTR sahi se verify karein.',
+    subIssues: [
+      { id: 'dep-not-added', title: 'Payment sent but balance not added in 5-7 mins', desc: 'Mene PhonePe/GPay se payment kar diya he lekin wallet me balance add nahi hua.' },
+      { id: 'dep-wrong-utr', title: 'Entered wrong 12-digit UTR by mistake', desc: 'Mene deposit form me galti se galat UTR number submit kar diya tha.' },
+      { id: 'dep-qr-failed', title: 'PhonePe QR / UPI transaction failed or stuck', desc: 'Bank se paise kat gaye lekin transaction pending dikh raha he.' },
+      { id: 'dep-manual-verify', title: 'Paid to basepnt@ybl & need priority approval', desc: 'Mene official UPI basepnt@ybl par direct payment kiya he, kripya verify karein.' },
+    ]
+  },
+  { 
+    id: 'withdrawal', 
+    label: '💸 Withdrawal Delay',
+    shortTitle: 'Withdrawal',
+    badge: '0% Fees / Full Payout',
+    refLabel: 'Withdrawal Reference / Amount (₹)',
+    refPlaceholder: 'e.g. ₹5,000 withdrawal',
+    helpTip: 'Withdrawals have 0% deduction fee. Normal processing time is 15-30 minutes directly to your bank/UPI.',
+    subIssues: [
+      { id: 'with-delay', title: 'Withdrawal pending for more than 30 mins', desc: 'Mene withdrawal request lagayi thi, abhi tak account me transfer nahi hua.' },
+      { id: 'with-wa-otp', title: 'WhatsApp security verification code not received', desc: 'Withdrawal karte time WhatsApp confirmation code mere number par nahi aa raha.' },
+      { id: 'with-wrong-bank', title: 'Incorrect Bank Account / IFSC / UPI ID entered', desc: 'Withdrawal address/bank details me typing mistake ho gayi thi, update karein.' },
+      { id: 'with-rejected', title: 'Withdrawal rejected or returned to balance', desc: 'Meri withdrawal request reject hui he, kripya check karke batayein.' },
+    ]
+  },
+  { 
+    id: 'login', 
+    label: '🔑 Login / OTP Problem',
+    shortTitle: 'Login & Account',
+    badge: 'WhatsApp Code',
+    refLabel: 'Registered Mobile Number or Email',
+    refPlaceholder: 'Enter 10-digit WhatsApp mobile number',
+    helpTip: 'WhatsApp confirmation OTP is sent directly to your WhatsApp app. Make sure your WhatsApp is active on this phone.',
+    subIssues: [
+      { id: 'log-wa-code', title: 'WhatsApp confirmation 4-digit code not arriving', desc: 'Account verification ke liye WhatsApp par 4-digit OTP nahi aa raha he.' },
+      { id: 'log-cant-login', title: 'Already have account but getting login error', desc: 'Mera account pehle se he lekin password ya login submit nahi ho raha.' },
+      { id: 'log-new-user', title: 'New user registration error or age selection', desc: 'Sign up karte time registration complete nahi ho raha he.' },
+      { id: 'log-reset-pwd', title: 'Forgot password / Need account reset', desc: 'Me apna account password bhul gaya hu, kripya reset me madad karein.' },
+    ]
+  },
+  { 
+    id: 'quota', 
+    label: '📈 Quota & 13% Return',
+    shortTitle: 'Quota & 13% Yield',
+    badge: 'Daily 13% Return',
+    refLabel: 'Quota Package Name or Price (₹)',
+    refPlaceholder: 'e.g. Low Risk ₹1,400 or ₹28,000 Quota',
+    helpTip: 'Daily yield is 13% credited every 24 hours. VIP packages go up to ₹1.5 Lakh with high return.',
+    subIssues: [
+      { id: 'q-profit-missing', title: 'Daily 13% quota profit not credited today', desc: 'Mere active quota package ka daily 13% return aaj wallet me credit nahi hua.' },
+      { id: 'q-upgrade', title: 'Want to upgrade to higher VIP quota (up to ₹1.5L)', desc: 'Mujhe bada package (Low/Medium/High VIP up to 1.5 Lakh) upgrade karna he.' },
+      { id: 'q-cycle-info', title: 'Quota cycle validity & expiry inquiry', desc: 'Mujhe apne current quota plan ki duration aur cycle expiry detail janni he.' },
+      { id: 'q-risk-select', title: 'How to select Low / Medium / High Risk plan', desc: 'Low, medium aur high risk quota plans ke bare me guidance chahiye.' },
+    ]
+  },
+  { 
+    id: 'referral', 
+    label: '🎁 Referral Bonus',
+    shortTitle: '20% Referral',
+    badge: '20% Lifetime',
+    refLabel: "Friend's Mobile / Referral Link Code",
+    refPlaceholder: "e.g. Friend's 10-digit mobile number",
+    helpTip: 'You receive 20% lifetime instant commission on Level 1 whenever your invited friend purchases a quota.',
+    subIssues: [
+      { id: 'ref-bonus-missing', title: 'Friend registered & bought plan, 20% bonus missing', desc: 'Mere dost ne mere referral link se sign up karke plan liya lekin 20% bonus nahi mila.' },
+      { id: 'ref-link-issue', title: 'Referral link (bit.ly short link) not opening', desc: 'Mera bit.ly referral short link dosto ke phone me sahi se open nahi ho raha.' },
+      { id: 'ref-team-view', title: 'Friend joined but not appearing in Level 1 team', desc: 'Mera friend registered ho chuka he par mere Team list me show nahi kar raha.' },
+      { id: 'ref-l2-inquiry', title: 'Level 2 team bonus calculation inquiry', desc: 'Level 2 commission structure aur payouts ke bare me information chahiye.' },
+    ]
+  },
+  { 
+    id: 'other', 
+    label: '❓ Other Issue',
+    shortTitle: 'General Help',
+    badge: '24/7 Live Desk',
+    refLabel: 'Reference / Subject (Optional)',
+    refPlaceholder: 'Brief reference or order number',
+    helpTip: 'Official Telegram Support Manager @easybasepoint is active 24/7 for 1-on-1 personalized help.',
+    subIssues: [
+      { id: 'oth-general', title: 'General inquiry about EasyBasePoint rules', desc: 'Mujhe EasyBasePoint platform ke features aur guidelines ke bare me puchna he.' },
+      { id: 'oth-profile', title: 'Request to update personal mobile / details', desc: 'Mujhe apne account me phone number ya bank information change karwani he.' },
+      { id: 'oth-app-bug', title: 'Website / App performance or page error', desc: 'Website use karte time technical issue ya error aa raha he.' },
+      { id: 'oth-manager', title: 'Request direct chat with Senior Support Manager', desc: 'Mujhe direct support supervisor se baat karni he fast solution ke liye.' },
+    ]
+  },
+];
 
 export const ProfilePage: React.FC = () => {
   const { 
@@ -51,8 +147,9 @@ export const ProfilePage: React.FC = () => {
   // 2FA state
   const [totpCode, setTotpCode] = useState('');
 
-  // Support ticket form state
-  const [supportCategory, setSupportCategory] = useState('Deposit Issue (UTR / Pending)');
+  // Support ticket form state with dynamic sub-options
+  const [selectedCatId, setSelectedCatId] = useState<string>('quota'); // default to quota or deposit
+  const [selectedSubIssueId, setSelectedSubIssueId] = useState<string>('');
   const [ticketRefNumber, setTicketRefNumber] = useState('');
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketMessage, setTicketMessage] = useState('');
@@ -79,17 +176,33 @@ export const ProfilePage: React.FC = () => {
     addToast('success', nextState ? 'Google 2FA enabled.' : 'Google 2FA disabled.');
   };
 
+  const currentCategory = SUPPORT_CATEGORIES.find((c) => c.id === selectedCatId) || SUPPORT_CATEGORIES[0];
+
+  const handleSelectCategory = (catId: string) => {
+    setSelectedCatId(catId);
+    setSelectedSubIssueId('');
+    setTicketSubject('');
+    setTicketMessage('');
+  };
+
+  const handleSelectSubIssue = (sub: { id: string; title: string; desc: string }) => {
+    setSelectedSubIssueId(sub.id);
+    setTicketSubject(sub.title);
+    setTicketMessage(sub.desc);
+  };
+
   const handleSendTicket = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketMessage.trim()) {
-      addToast('error', 'Please describe your problem in detail.');
+      addToast('error', 'Please describe your problem or select a specific issue option.');
       return;
     }
-    const fullSubject = `[${supportCategory}] ${ticketSubject ? ticketSubject : supportCategory}${ticketRefNumber ? ` (Ref/UTR: ${ticketRefNumber})` : ''}`;
+    const fullSubject = `[${currentCategory.label}] ${ticketSubject || currentCategory.shortTitle}${ticketRefNumber ? ` (Ref: ${ticketRefNumber})` : ''}`;
     addSupportTicket(fullSubject, ticketMessage);
     setTicketSubject('');
     setTicketMessage('');
     setTicketRefNumber('');
+    setSelectedSubIssueId('');
     setActiveModal(null);
     addToast('success', 'Support ticket submitted! Support manager will contact you.');
   };
@@ -449,67 +562,118 @@ export const ProfilePage: React.FC = () => {
             <form onSubmit={handleSendTicket} className="space-y-3.5">
               {/* Problem Category Selection Options */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
-                  Select Problem / Issue Type
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                    Select Problem / Issue Type
+                  </label>
+                  <span className="text-[10px] font-bold text-[#FF6B00]">Step 1: Choose Type</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'Deposit Issue (UTR / Pending)', label: '💳 Deposit / UTR Issue' },
-                    { id: 'Withdrawal Pending / Delay', label: '💸 Withdrawal Delay' },
-                    { id: 'Login / OTP / Account Problem', label: '🔑 Login / OTP Problem' },
-                    { id: 'Quota Package & Daily Yield', label: '📈 Quota & 13% Return' },
-                    { id: '20% Referral Commission Query', label: '🎁 Referral Bonus' },
-                    { id: 'General / Other Inquiry', label: '❓ Other Issue' },
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSupportCategory(cat.id)}
-                      className={`p-2.5 rounded-xl border text-left text-[11px] font-bold transition ${
-                        supportCategory === cat.id
-                          ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00] shadow-xs'
-                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                  {SUPPORT_CATEGORIES.map((cat) => {
+                    const isSelected = selectedCatId === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleSelectCategory(cat.id)}
+                        className={`p-2.5 rounded-xl border text-left text-[11px] font-bold transition flex items-center justify-between ${
+                          isSelected
+                            ? 'border-[#FF6B00] bg-orange-50 text-[#FF6B00] shadow-xs font-black ring-1 ring-orange-500/30'
+                            : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-slate-50/50'
+                        }`}
+                      >
+                        <span>{cat.label}</span>
+                        {isSelected && <span className="w-2 h-2 rounded-full bg-[#FF6B00]"></span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* UTR / Transaction / Order Reference (Optional) */}
+              {/* DYNAMIC SUB-OPTIONS FOR THE SELECTED CATEGORY */}
+              <div className="p-3 bg-orange-50/70 rounded-2xl border-2 border-orange-300/80 space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black text-orange-950 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#FF6B00]" />
+                    <span>Step 2: Tap Your Specific {currentCategory.shortTitle} Option:</span>
+                  </span>
+                  <span className="text-[9px] font-black bg-[#FF6B00] text-white px-2 py-0.5 rounded-full uppercase">
+                    {currentCategory.badge}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {currentCategory.subIssues.map((sub) => {
+                    const isSelected = selectedSubIssueId === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => handleSelectSubIssue(sub)}
+                        className={`w-full p-2.5 rounded-xl border text-left text-xs font-bold transition flex items-start justify-between gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'border-[#FF6B00] bg-white text-[#FF6B00] shadow-md ring-2 ring-orange-400/40'
+                            : 'border-orange-100 bg-white/90 text-slate-800 hover:border-orange-300 hover:bg-white'
+                        }`}
+                      >
+                        <div className="space-y-0.5 flex-1">
+                          <div className="font-extrabold leading-tight text-xs flex items-center gap-1.5">
+                            <span className={isSelected ? 'text-[#FF6B00]' : 'text-slate-800'}>
+                              {sub.title}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 line-clamp-1">{sub.desc}</div>
+                        </div>
+                        {isSelected ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#FF6B00] flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Helpful Quick Tip Banner */}
+                <div className="p-2 bg-white rounded-xl border border-orange-200/80 flex items-start gap-2 text-[10px] text-orange-950 leading-snug">
+                  <AlertCircle className="w-3.5 h-3.5 text-[#FF6B00] flex-shrink-0 mt-0.5" />
+                  <span>{currentCategory.helpTip}</span>
+                </div>
+              </div>
+
+              {/* Dynamic UTR / Transaction / Order Reference */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">
-                  Transaction / UTR Reference (If applicable)
+                <label className="text-[11px] font-bold text-slate-700">
+                  {currentCategory.refLabel}
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 12-digit UTR, Order ID, or TXN Number"
+                  placeholder={currentCategory.refPlaceholder}
                   value={ticketRefNumber}
                   onChange={(e) => setTicketRefNumber(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full mt-1 px-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
               {/* Brief Subject */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Subject (Short Summary)</label>
+                <label className="text-[11px] font-bold text-slate-700">Subject (Selected Problem)</label>
                 <input
                   type="text"
-                  placeholder={`e.g. Help needed regarding ${supportCategory}`}
+                  placeholder={`Help needed regarding ${currentCategory.shortTitle}`}
                   value={ticketSubject}
                   onChange={(e) => setTicketSubject(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full mt-1 px-3 py-2.5 text-xs font-bold rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
               {/* Message Details */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-500">Describe Your Problem in Detail</label>
+                <label className="text-[11px] font-bold text-slate-700">Describe Your Problem in Detail</label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="Please specify exact details so our support team can resolve it immediately..."
+                  placeholder="Tap an option above or type your exact problem..."
                   value={ticketMessage}
                   onChange={(e) => setTicketMessage(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
@@ -518,10 +682,10 @@ export const ProfilePage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white rounded-2xl text-xs font-extrabold shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] to-amber-500 hover:from-[#E55F00] hover:to-amber-600 text-white rounded-2xl text-xs font-extrabold shadow-orange-glow transition active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>Submit Support Ticket</span>
+                <Send className="w-4 h-4" />
+                <span>Submit Support Ticket ({currentCategory.shortTitle})</span>
               </button>
             </form>
           </div>

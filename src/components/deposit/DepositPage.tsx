@@ -196,7 +196,7 @@ export const DepositPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(settings.adminUpiId || 'easybasepoint@okhdfcbank');
+                        navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
                         addToast('success', 'UPI ID copied to clipboard!');
                       }}
                       className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
@@ -207,7 +207,7 @@ export const DepositPage: React.FC = () => {
                   </div>
 
                   <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                    {settings.adminUpiId || 'easybasepoint@okhdfcbank'}
+                    {settings.adminUpiId || 'basepnt@ybl'}
                   </div>
                   <div className="text-[10px] text-slate-300">
                     Verified Payee: <strong>{settings.adminUpiName || 'EasyBasePoint Enterprise Solutions'}</strong>
@@ -694,7 +694,7 @@ export const DepositPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(settings.adminUpiId || 'easybasepoint@okhdfcbank');
+                    navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
                     addToast('success', 'UPI ID copied to clipboard!');
                   }}
                   className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
@@ -705,7 +705,7 @@ export const DepositPage: React.FC = () => {
               </div>
 
               <div className="p-2 bg-white rounded-xl border border-blue-200/60 font-mono text-slate-800 text-xs select-all">
-                {settings.adminUpiId || 'easybasepoint@okhdfcbank'}
+                {settings.adminUpiId || 'basepnt@ybl'}
                 <div className="font-sans text-[10px] text-slate-400 mt-0.5">
                   Name: {settings.adminUpiName || 'EasyBasePoint Enterprise'}
                 </div>

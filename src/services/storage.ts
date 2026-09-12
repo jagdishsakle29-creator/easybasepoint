@@ -288,12 +288,12 @@ export const defaultSettings: RewardSettings = {
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
   isDemoMode: false,
-  adminUpiId: 'easybasepoint@okhdfcbank',
-  adminUpiName: 'EasyBasePoint Enterprise Solutions',
-  adminBankName: 'HDFC Bank Ltd',
-  adminBankAccount: '50200088991234',
-  adminBankIfsc: 'HDFC0001234',
-  adminBankHolder: 'EasyBasePoint Global Pvt Ltd',
+  adminUpiId: 'basepnt@ybl',
+  adminUpiName: 'Bank Of India (basepnt@ybl)',
+  adminBankName: 'Bank Of India',
+  adminBankAccount: '7855',
+  adminBankIfsc: 'BKID0007855',
+  adminBankHolder: 'EasyBasePoint Primary',
   adminUsdtTrc20: 'TQn9Y2khEsLJW1ChVWFMSMeSTow5KaxnSE',
   adminUsdtBep20: '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5',
   telegramChannelUrl: 'https://t.me/easybasepoint',
@@ -376,6 +376,11 @@ export const storage = {
     if (!raw) return defaultSettings;
     try {
       const parsed = JSON.parse(raw);
+      if (!parsed.adminUpiId || parsed.adminUpiId === 'easybasepoint@okhdfcbank') {
+        parsed.adminUpiId = 'basepnt@ybl';
+        parsed.adminUpiName = 'Bank Of India (basepnt@ybl)';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
       return { ...defaultSettings, ...parsed };
     } catch {
       return defaultSettings;
