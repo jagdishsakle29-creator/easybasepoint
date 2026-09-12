@@ -128,16 +128,19 @@
     "id": "DEP_PROD_VERIFIED_1",
     "userId": "USER_101",
     "amount": 2100,
-    "totalInr": 2373,
+    "totalInr": 565,
     "utrNumber": "123456789012",
     "paymentScreenshot": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
     "remark": "cousin",
     "method": "INR",
     "userPhone": "",
     "proofUrl": "data:image/jpeg;base64,RkFLRV9QUk9PRl9JTUFHRQ==",
-    "status": "pending_verification",
-    "credited": false,
-    "createdAt": "2026-09-12T18:37:07.893Z"
+    "status": "approved",
+    "credited": true,
+    "createdAt": "2026-09-12T18:37:07.893Z",
+    "approvedAt": "2026-09-12T18:37:09.995Z",
+    "creditedAt": "2026-09-12T18:37:09.995Z",
+    "updatedAt": "2026-09-12T18:37:09.995Z"
   },
   "DEP-631722": {
     "id": "DEP-631722",
