@@ -1,4 +1,4 @@
-import { markApproval } from './ledgerHelper.js';
+import { markApproval, markWithdrawalApproval } from './ledgerHelper.js';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '6527377657';
@@ -128,6 +128,89 @@ export default async function handler(req, res) {
         }
 
         return res.status(200).json({ ok: true, action: 'rejected', depId });
+      }
+
+      if (data.startsWith('approve_wdr:')) {
+        const parts = data.replace('approve_wdr:', '').split(':');
+        const wdrId = parts[0];
+        const amount = parts[1] ? Number(parts[1]) : 0;
+
+        const originalText = message?.text || '';
+        const phoneMatch = originalText.match(/Phone:\*?\s*([0-9]{10})/i) || originalText.match(/([0-9]{10})/);
+        const extractedPhone = phoneMatch ? phoneMatch[1] : '';
+
+        const updatedWdr = await markWithdrawalApproval(wdrId, 'approved', { amount, userPhone: extractedPhone });
+        const payoutAmount = amount || updatedWdr?.netAmount || updatedWdr?.amount || 0;
+
+        await callTelegram('answerCallbackQuery', {
+          callback_query_id: cbId,
+          text: `✅ Approved withdrawal #${wdrId} (₹${payoutAmount.toFixed(2)})! Payout processed.`,
+          show_alert: true,
+        });
+
+        if (chatId && messageId) {
+          const updatedText = `${originalText}\n\n✅ *STATUS: APPROVED BY ADMIN*\n💸 *Paid out to User:* ₹${payoutAmount.toFixed(2)} INR\n⚡ *Time:* ${new Date().toLocaleTimeString()}`;
+          
+          await callTelegram('editMessageText', {
+            chat_id: chatId,
+            message_id: messageId,
+            text: updatedText,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Payout Completed', callback_data: `payout_info:${wdrId}` },
+                  { text: '📊 Open Admin Portal', url: 'https://easybasepoint.vercel.app/?admin=lord12' },
+                ]
+              ]
+            }
+          });
+        }
+
+        return res.status(200).json({ ok: true, action: 'approved', wdrId });
+      }
+
+      if (data.startsWith('reject_wdr:')) {
+        const parts = data.replace('reject_wdr:', '').split(':');
+        const wdrId = parts[0];
+        const amount = parts[1] ? Number(parts[1]) : 0;
+
+        const originalText = message?.text || '';
+        const phoneMatch = originalText.match(/Phone:\*?\s*([0-9]{10})/i) || originalText.match(/([0-9]{10})/);
+        const extractedPhone = phoneMatch ? phoneMatch[1] : '';
+
+        const updatedWdr = await markWithdrawalApproval(wdrId, 'rejected', { 
+          amount, 
+          userPhone: extractedPhone,
+          reason: 'Payout Rejected by Admin - Refunded to Game Balance' 
+        });
+        const refundAmount = amount || updatedWdr?.amount || 0;
+
+        await callTelegram('answerCallbackQuery', {
+          callback_query_id: cbId,
+          text: `❌ Rejected withdrawal #${wdrId}. ₹${refundAmount.toFixed(2)} has been refunded to player's game balance!`,
+          show_alert: true,
+        });
+
+        if (chatId && messageId) {
+          const updatedText = `${originalText}\n\n❌ *STATUS: REJECTED BY ADMIN*\n↩️ *Refunded to Player Balance:* ₹${refundAmount.toFixed(2)} INR\n⏱ *Time:* ${new Date().toLocaleTimeString()}`;
+          
+          await callTelegram('editMessageText', {
+            chat_id: chatId,
+            message_id: messageId,
+            text: updatedText,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '❌ Payout Rejected & Refunded', callback_data: `refund_info:${wdrId}` },
+                ]
+              ]
+            }
+          });
+        }
+
+        return res.status(200).json({ ok: true, action: 'rejected', wdrId });
       }
 
       // Default callback answer

@@ -585,14 +585,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return merged;
       });
     }
+
+    // Merge withdrawals into React state & storage from backend
+    const backendWiths = await cloudSync.fetchAllWithdrawals();
+    if (backendWiths && backendWiths.length > 0) {
+      setWithdrawals((prev) => {
+        const map = new Map();
+        prev.forEach((w) => map.set(w.id, w));
+        backendWiths.forEach((bw: any) => {
+          const existing = map.get(bw.id);
+          if (!existing) {
+            map.set(bw.id, bw);
+          } else if (bw.status !== existing.status) {
+            map.set(bw.id, { ...existing, status: bw.status, rejectionReason: bw.rejectionReason });
+          }
+        });
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        storage.setWithdrawals(merged);
+        return merged;
+      });
+
+      // Reconcile any rejected withdrawals to ensure user wallet is refunded
+      if (currentU && currentU.id) {
+        backendWiths.forEach((bw: any) => {
+          if (bw.status === 'rejected') {
+            const bwPhone = (bw.userPhone || '').replace(/[^0-9]/g, '');
+            const isUserMatch =
+              (bw.userId && bw.userId === currentU.id) ||
+              (cleanUserPhone.length === 10 && bwPhone.length === 10 && bwPhone === cleanUserPhone);
+
+            if (isUserMatch) {
+              const currentW = storage.getWallet();
+              const refundedList = Array.isArray((currentW as any).refundedWithdrawalIds) ? [...(currentW as any).refundedWithdrawalIds] : [];
+              if (!refundedList.includes(bw.id)) {
+                refundedList.push(bw.id);
+                const refundAmount = Number(bw.amount) || 0;
+                if (refundAmount > 0) {
+                  const newBal = parseFloat((Number(currentW.balance || 0) + refundAmount).toFixed(2));
+                  const updatedW: Wallet = {
+                    ...currentW,
+                    balance: newBal,
+                    ...({ refundedWithdrawalIds: refundedList } as any),
+                  };
+                  storage.setWallet(updatedW);
+                  setWallet(updatedW);
+                  window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+                }
+              }
+            }
+          }
+        });
+      }
+    }
   }, [creditWalletForDeposit]);
 
   // Instant Real-Time Cloud Sync (SSE Stream + 2.5s Polling Fallback)
   useEffect(() => {
     const applyApprovalEvent = (event: { 
       type?: string;
-      depId: string; 
+      depId?: string; 
       depositId?: string;
+      wdrId?: string;
+      withdrawalId?: string;
       action?: 'approved' | 'rejected'; 
       userId?: string;
       userPhone?: string;
@@ -602,8 +658,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       credited?: boolean;
       creditedAt?: string;
       approvedAt?: string;
+      reason?: string;
       wallet?: any;
     }) => {
+      // 1. Handle Withdrawal Approval / Rejection Events
+      const wdrId = event.wdrId || event.withdrawalId || (event.depId && event.depId.startsWith('WDR-') ? event.depId : undefined);
+      if (wdrId) {
+        const currentU = storage.getUser();
+        if (!currentU || !currentU.id) return;
+
+        const allWiths = storage.getWithdrawals();
+        const matchedWith = allWiths.find((w) => w.id === wdrId);
+        const cleanUserPhone = (currentU.phone || '').replace(/[^0-9]/g, '');
+        const eventPhone = (event.userPhone || (matchedWith ? matchedWith.userPhone : '') || '').replace(/[^0-9]/g, '');
+
+        const isUserMatch =
+          (event.userId && event.userId === currentU.id) ||
+          (matchedWith && matchedWith.userId && matchedWith.userId === currentU.id) ||
+          (cleanUserPhone.length === 10 && eventPhone.length === 10 && eventPhone === cleanUserPhone);
+
+        if (!isUserMatch) return;
+
+        if (event.action === 'approved' || event.type === 'WITHDRAWAL_APPROVED') {
+          setWithdrawals((prev) => {
+            const updated = prev.map((w) => w.id === wdrId ? { ...w, status: 'completed' as const } : w);
+            storage.setWithdrawals(updated);
+            return updated;
+          });
+          setTransactions((prev) => {
+            const updated = prev.map((t) => t.referenceId === wdrId ? { ...t, status: 'completed' as const } : t);
+            storage.setTransactions(updated);
+            return updated;
+          });
+          addToast('success', `✅ Payout of ₹${event.amount || matchedWith?.amount || ''} has been approved & processed!`);
+        } else if (event.action === 'rejected' || event.type === 'WITHDRAWAL_REJECTED') {
+          const reason = event.reason || 'Payout Rejected by Admin';
+          const refundAmount = Number(event.amount) || Number(matchedWith?.amount) || 0;
+
+          setWithdrawals((prev) => {
+            const updated = prev.map((w) => w.id === wdrId ? { ...w, status: 'rejected' as const, rejectionReason: reason } : w);
+            storage.setWithdrawals(updated);
+            return updated;
+          });
+          setTransactions((prev) => {
+            const updated = prev.map((t) => t.referenceId === wdrId ? { ...t, status: 'rejected' as const, note: `${t.note} (Refunded: ${reason})` } : t);
+            storage.setTransactions(updated);
+            return updated;
+          });
+
+          // Idempotent refund to wallet balance
+          if (refundAmount > 0) {
+            const currentW = storage.getWallet();
+            const refundedList = Array.isArray((currentW as any).refundedWithdrawalIds) ? [...(currentW as any).refundedWithdrawalIds] : [];
+            if (!refundedList.includes(wdrId)) {
+              refundedList.push(wdrId);
+              const newBal = parseFloat((Number(currentW.balance || 0) + refundAmount).toFixed(2));
+              const updatedW: Wallet = {
+                ...currentW,
+                balance: newBal,
+                ...({ refundedWithdrawalIds: refundedList } as any),
+              };
+              storage.setWallet(updatedW);
+              setWallet(updatedW);
+
+              const accounts = storage.getAccounts();
+              accounts.forEach((acc) => {
+                if (acc.user.id === currentU.id || (cleanUserPhone.length >= 10 && (acc.user.phone || '').endsWith(cleanUserPhone.slice(-10)))) {
+                  acc.wallet = { ...acc.wallet, balance: newBal, ...({ refundedWithdrawalIds: refundedList } as any) };
+                }
+              });
+              storage.setAccounts(accounts);
+              window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+            }
+          }
+
+          addToast('error', `❌ Withdrawal #${wdrId} was rejected: ${reason}. ₹${refundAmount} refunded to your balance.`);
+        }
+        return;
+      }
+
+      // 2. Handle Deposit Events
       const depId = event.depId || event.depositId;
       if (!depId && !event.wallet) return;
 
@@ -1296,6 +1430,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `WDR-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: user.id,
       userName: user.name,
+      userPhone: user.phone || '',
       amount,
       method,
       fee,
@@ -1306,6 +1441,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setWithdrawals((prev) => [newWithdrawal, ...prev]);
+    storage.setWithdrawals([newWithdrawal, ...storage.getWithdrawals()]);
+
+    // Broadcast to serverless cloud ledger & Telegram alert
+    cloudSync.broadcastWithdrawal(newWithdrawal);
     telegramService.sendWithdrawalAlert(newWithdrawal, settings);
 
     const newTx: Transaction = {
@@ -1494,24 +1633,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Admin Actions
   const approveWithdrawal = (id: string) => {
+    const item = withdrawals.find((w) => w.id === id) || storage.getWithdrawals().find((w) => w.id === id);
     setWithdrawals((prev) =>
       prev.map((w) => (w.id === id ? { ...w, status: 'completed' } : w))
     );
     setTransactions((prev) =>
       prev.map((t) => (t.referenceId === id ? { ...t, status: 'completed' } : t))
     );
-    logAudit('APPROVE_WITHDRAWAL', `Approved withdrawal ${id}`);
+    const updated = storage.getWithdrawals().map((w) => (w.id === id ? { ...w, status: 'completed' as const } : w));
+    storage.setWithdrawals(updated);
+    logAudit('APPROVE_WITHDRAWAL', `Approved withdrawal ${id}`, item?.userId);
     addToast('success', `Withdrawal ${id} approved successfully.`);
+
+    // Broadcast to serverless ledger & player app
+    cloudSync.broadcastWithdrawalApproval(id, 'approved', {
+      amount: item?.amount,
+      userId: item?.userId,
+      userPhone: item?.userPhone,
+    });
   };
 
   const rejectWithdrawal = (id: string, reason: string) => {
-    const item = withdrawals.find((w) => w.id === id);
+    const item = withdrawals.find((w) => w.id === id) || storage.getWithdrawals().find((w) => w.id === id);
     if (!item) return;
 
-    setWallet((prev) => ({
-      ...prev,
-      balance: parseFloat((prev.balance + item.amount).toFixed(2)),
-    }));
+    // Refund amount to wallet balance
+    const currentW = storage.getWallet();
+    const refundedList = Array.isArray((currentW as any).refundedWithdrawalIds) ? [...(currentW as any).refundedWithdrawalIds] : [];
+    if (!refundedList.includes(id)) {
+      refundedList.push(id);
+      const newBal = parseFloat((Number(currentW.balance || 0) + item.amount).toFixed(2));
+      const updatedW: Wallet = {
+        ...currentW,
+        balance: newBal,
+        ...({ refundedWithdrawalIds: refundedList } as any),
+      };
+      storage.setWallet(updatedW);
+      setWallet(updatedW);
+
+      const accounts = storage.getAccounts();
+      const currentU = storage.getUser();
+      const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
+      accounts.forEach((acc) => {
+        if (acc.user.id === currentU?.id || (cleanUserPhone.length >= 10 && (acc.user.phone || '').endsWith(cleanUserPhone.slice(-10)))) {
+          acc.wallet = { ...acc.wallet, balance: newBal, ...({ refundedWithdrawalIds: refundedList } as any) };
+        }
+      });
+      storage.setAccounts(accounts);
+      window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
+    }
 
     setWithdrawals((prev) =>
       prev.map((w) => (w.id === id ? { ...w, status: 'rejected', rejectionReason: reason } : w))
@@ -1519,9 +1689,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions((prev) =>
       prev.map((t) => (t.referenceId === id ? { ...t, status: 'rejected', note: `${t.note} (Refunded: ${reason})` } : t))
     );
+    const updated = storage.getWithdrawals().map((w) => (w.id === id ? { ...w, status: 'rejected' as const, rejectionReason: reason } : w));
+    storage.setWithdrawals(updated);
 
     logAudit('REJECT_WITHDRAWAL', `Rejected withdrawal ${id}: ${reason}`, item.userId);
     addToast('info', `Withdrawal rejected and ₹${item.amount} refunded to user.`);
+
+    // Broadcast to serverless ledger & player app
+    cloudSync.broadcastWithdrawalApproval(id, 'rejected', {
+      amount: item.amount,
+      reason,
+      userId: item.userId,
+      userPhone: item.userPhone,
+    });
   };
 
   const addQuotaPackage = (pkg: Omit<QuotaPackage, 'id'>) => {

@@ -1,4 +1,4 @@
-import { fetchLedgerFromGitHub, recordDeposit } from './ledgerHelper.js';
+import { fetchLedgerFromGitHub, recordWithdrawal } from './ledgerHelper.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     try {
       const { data } = await fetchLedgerFromGitHub();
       const list = Object.values(data || {})
-        .filter((item) => item.type !== 'withdrawal' && (!item.id || !item.id.startsWith('WDR-')))
+        .filter((item) => item.type === 'withdrawal' || (item.id && item.id.startsWith('WDR-')))
         .sort((a, b) => {
           const tA = new Date(a.createdAt || 0).getTime();
           const tB = new Date(b.createdAt || 0).getTime();
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         });
       return res.status(200).json(list);
     } catch (err) {
-      console.error('[API_DEPOSITS] Error listing deposits:', err.message);
+      console.error('[API_WITHDRAWALS] Error listing withdrawals:', err.message);
       return res.status(200).json([]);
     }
   }
@@ -29,13 +29,13 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const depId = body.id || body.depId || `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      body.id = depId;
+      const wdrId = body.id || `WDR-${Math.floor(100000 + Math.random() * 900000)}`;
+      body.id = wdrId;
 
-      const recorded = await recordDeposit(body);
-      return res.status(200).json({ ok: true, deposit: recorded });
+      const recorded = await recordWithdrawal(body);
+      return res.status(200).json({ ok: true, withdrawal: recorded });
     } catch (err) {
-      console.error('[API_DEPOSITS] Error recording deposit:', err.message);
+      console.error('[API_WITHDRAWALS] Error recording withdrawal:', err.message);
       return res.status(400).json({ ok: false, error: err.message });
     }
   }

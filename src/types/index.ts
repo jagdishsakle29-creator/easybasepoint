@@ -93,6 +93,7 @@ export interface WithdrawalRequest {
   id: string;
   userId: string;
   userName: string;
+  userPhone?: string;
   amount: number;
   method: WithdrawalMethod;
   fee: number;

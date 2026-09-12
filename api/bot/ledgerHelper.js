@@ -206,3 +206,82 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
   }
   return data[depId];
 }
+
+export async function recordWithdrawal(withdrawal) {
+  const { data } = await fetchLedgerFromGitHub();
+  const id = withdrawal.id || `WDR-${Date.now()}`;
+
+  data[id] = {
+    ...withdrawal,
+    id,
+    type: 'withdrawal',
+    amount: Number(withdrawal.amount) || 0,
+    fee: Number(withdrawal.fee) || 0,
+    netAmount: Number(withdrawal.netAmount) || Number(withdrawal.amount) || 0,
+    method: withdrawal.method || 'bank',
+    userId: withdrawal.userId || '',
+    userName: withdrawal.userName || '',
+    userPhone: withdrawal.userPhone || '',
+    accountDetails: withdrawal.accountDetails || {},
+    status: withdrawal.status || 'pending',
+    createdAt: withdrawal.createdAt || new Date().toISOString(),
+  };
+
+  await saveLedgerToGitHub(data);
+  const isSynthetic = id.startsWith('TEST_') || id.startsWith('DEMO_') || id.startsWith('FAKE_');
+  if (!isSynthetic && process.env.NODE_ENV !== 'test') {
+    await broadcastToNtfy(NTFY_DEPOSITS_TOPIC, { type: 'NEW_WITHDRAWAL', withdrawal: data[id] });
+  }
+  return data[id];
+}
+
+export async function markWithdrawalApproval(wdrId, action = 'approved', meta = {}) {
+  const { data } = await fetchLedgerFromGitHub();
+  const existing = data[wdrId] || {};
+  const isApproved = action === 'approved';
+  const nowIso = new Date().toISOString();
+
+  const finalStatus = isApproved ? 'completed' : 'rejected';
+
+  data[wdrId] = {
+    ...existing,
+    id: wdrId,
+    type: 'withdrawal',
+    amount: existing.amount || meta.amount || 0,
+    netAmount: existing.netAmount || meta.netAmount || existing.amount || meta.amount || 0,
+    method: existing.method || meta.method || 'bank',
+    userId: existing.userId || meta.userId || '',
+    userName: existing.userName || meta.userName || '',
+    userPhone: existing.userPhone || meta.userPhone || '',
+    accountDetails: existing.accountDetails || meta.accountDetails || {},
+    status: finalStatus,
+    rejectionReason: !isApproved ? (meta.reason || existing.rejectionReason || 'Admin Rejected Payout - Refunded to Game Balance') : undefined,
+    approvedAt: isApproved ? nowIso : undefined,
+    rejectedAt: !isApproved ? nowIso : undefined,
+    updatedAt: nowIso,
+    createdAt: existing.createdAt || nowIso,
+  };
+
+  await saveLedgerToGitHub(data);
+
+  const approvalEvent = {
+    type: isApproved ? 'WITHDRAWAL_APPROVED' : 'WITHDRAWAL_REJECTED',
+    wdrId,
+    withdrawalId: wdrId,
+    action: isApproved ? 'approved' : 'rejected',
+    status: finalStatus,
+    amount: data[wdrId].amount,
+    netAmount: data[wdrId].netAmount,
+    method: data[wdrId].method,
+    reason: data[wdrId].rejectionReason,
+    userId: data[wdrId].userId || '',
+    userPhone: data[wdrId].userPhone || '',
+    timestamp: nowIso,
+  };
+
+  const isSynthetic = wdrId.startsWith('TEST_') || wdrId.startsWith('DEMO_');
+  if (!isSynthetic && process.env.NODE_ENV !== 'test') {
+    await broadcastToNtfy(NTFY_APPROVALS_TOPIC, approvalEvent);
+  }
+  return data[wdrId];
+}

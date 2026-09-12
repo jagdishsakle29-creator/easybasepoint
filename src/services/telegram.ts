@@ -111,11 +111,12 @@ export const telegramService = {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `🆔 *Request ID:* \`${withdrawal.id}\`\n` +
         `👤 *User:* ${withdrawal.userName}\n` +
+        (withdrawal.userPhone ? `📱 *Phone:* \`${withdrawal.userPhone}\`\n` : '') +
         `💸 *Gross Amount:* ₹${withdrawal.amount.toFixed(2)} INR\n` +
         `✂️ *Platform Fee (0%):* ₹0.00 INR (Zero Deduction)\n` +
         `🟢 *Net Payout:* *₹${withdrawal.netAmount.toFixed(2)} INR*\n` +
         `🏦 *Method:* ${withdrawal.method.toUpperCase()}\n` +
-        `📋 *Account:* \`${withdrawal.accountDetails.accountNumber || withdrawal.accountDetails.upiId || withdrawal.accountDetails.usdtAddress}\`\n` +
+        `📋 *Account:* \`${withdrawal.accountDetails.accountNumber || withdrawal.accountDetails.upiId || withdrawal.accountDetails.usdtAddress || 'Provided'}\`\n` +
         `⏱ *Time:* ${new Date(withdrawal.createdAt).toLocaleTimeString()}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payout:_`;
@@ -130,8 +131,8 @@ export const telegramService = {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '✅ Approve Payout', callback_data: `approve_wdr:${withdrawal.id}` },
-                { text: '❌ Reject Payout', callback_data: `reject_wdr:${withdrawal.id}` },
+                { text: '✅ Approve Payout', callback_data: `approve_wdr:${withdrawal.id}:${withdrawal.amount}` },
+                { text: '❌ Reject Payout', callback_data: `reject_wdr:${withdrawal.id}:${withdrawal.amount}` },
               ],
             ],
           },

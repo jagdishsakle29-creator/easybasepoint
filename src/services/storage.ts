@@ -536,6 +536,9 @@ export const storage = {
     const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
     return raw ? JSON.parse(raw) : [];
   },
+  setAccounts(accounts: RegisteredAccount[]): void {
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+  },
   saveAccount(account: RegisteredAccount): void {
     const accounts = this.getAccounts();
     const cleanPhone = account.user.phone.replace(/[^0-9]/g, '');

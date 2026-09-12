@@ -38,14 +38,19 @@ export interface ServerWallet {
 
 export interface CloudApprovalEvent {
   type?: string;
-  depId: string;
+  depId?: string;
   depositId?: string;
+  wdrId?: string;
+  withdrawalId?: string;
   action?: 'approved' | 'rejected';
   userId?: string;
   userPhone?: string;
   amount?: number;
   currency?: string;
   totalInr?: number;
+  netAmount?: number;
+  method?: string;
+  reason?: string;
   status?: string;
   credited?: boolean;
   creditedAt?: string;
@@ -90,6 +95,111 @@ export const cloudSync = {
     } catch {
       return false;
     }
+  },
+
+  // Broadcast a new withdrawal request to Backend & Admin in real time
+  async broadcastWithdrawal(withdrawal: any): Promise<boolean> {
+    try {
+      fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(withdrawal),
+      }).catch(() => {});
+
+      fetch(NTFY_DEPOSITS_PUB, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'NEW_WITHDRAWAL', withdrawal }),
+      }).catch(() => {});
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // Broadcast a withdrawal approval or rejection
+  async broadcastWithdrawalApproval(
+    wdrId: string,
+    action: 'approved' | 'rejected',
+    meta: { amount?: number; reason?: string; userId?: string; userPhone?: string } = {}
+  ): Promise<boolean> {
+    try {
+      const nowIso = new Date().toISOString();
+      fetch(`${getApiBaseUrl()}/bot/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': 'lord12',
+        },
+        body: JSON.stringify({
+          type: 'withdrawal',
+          wdrId,
+          id: wdrId,
+          action,
+          amount: meta.amount,
+          reason: meta.reason,
+          userId: meta.userId,
+          userPhone: meta.userPhone,
+          adminKey: 'lord12',
+        }),
+      }).catch(() => {});
+
+      const approvalEvent: CloudApprovalEvent = {
+        type: action === 'approved' ? 'WITHDRAWAL_APPROVED' : 'WITHDRAWAL_REJECTED',
+        wdrId,
+        withdrawalId: wdrId,
+        depId: wdrId,
+        action,
+        status: action === 'approved' ? 'completed' : 'rejected',
+        amount: meta.amount,
+        netAmount: meta.amount,
+        reason: meta.reason,
+        userId: meta.userId,
+        userPhone: meta.userPhone,
+        timestamp: nowIso,
+      };
+
+      fetch(NTFY_APPROVALS_PUB, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(approvalEvent),
+      }).catch(() => {});
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // Fetch all withdrawals from backend database (with GitHub ledger fallback)
+  async fetchAllWithdrawals(): Promise<any[]> {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) return data;
+      }
+    } catch {}
+
+    try {
+      const gitRes = await fetch(`${GITHUB_RAW_LEDGER}?t=${Date.now()}`, { cache: 'no-store' });
+      if (gitRes.ok) {
+        const dataObj = await gitRes.json();
+        const list = Object.values(dataObj || {})
+          .filter((item: any) => item.type === 'withdrawal' || (item.id && item.id.startsWith('WDR-')))
+          .sort((a: any, b: any) => {
+            const tA = new Date(a.createdAt || 0).getTime();
+            const tB = new Date(b.createdAt || 0).getTime();
+            return tB - tA;
+          });
+        return list;
+      }
+    } catch {}
+
+    return [];
   },
 
   // Broadcast an approval or rejection

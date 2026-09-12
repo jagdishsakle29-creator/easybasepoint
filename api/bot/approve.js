@@ -1,4 +1,4 @@
-import { markApproval } from './ledgerHelper.js';
+import { markApproval, markWithdrawalApproval } from './ledgerHelper.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,12 +17,36 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: 'Unauthorized: Valid admin credentials required' });
   }
 
-  const depId = body.depId || body.id || req.query.depId;
-  const totalInr = body.totalInr ? Number(body.totalInr) : (req.query.total ? Number(req.query.total) : 565);
-  const action = body.action || req.query.action || 'approved';
+  const query = req.query || {};
+  const depId = body.depId || body.id || body.wdrId || query.depId || query.wdrId || query.id;
+  const totalInr = body.totalInr ? Number(body.totalInr) : (query.total ? Number(query.total) : 565);
+  const action = body.action || query.action || 'approved';
 
   if (!depId) {
-    return res.status(400).json({ ok: false, error: 'depId is required' });
+    return res.status(400).json({ ok: false, error: 'depId or wdrId is required' });
+  }
+
+  const isWithdrawal = body.type === 'withdrawal' || query.type === 'withdrawal' || (depId && depId.startsWith('WDR-'));
+  if (isWithdrawal) {
+    try {
+      const updated = await markWithdrawalApproval(depId, action, {
+        amount: body.amount || query.amount,
+        reason: body.reason || query.reason,
+        userId: body.userId || query.userId,
+        userPhone: body.userPhone || query.userPhone,
+      });
+      console.log(`[API_APPROVE] Successfully processed withdrawal #${depId} as ${action}`);
+      return res.status(200).json({
+        ok: true,
+        wdrId: depId,
+        status: updated.status,
+        action,
+        amount: updated.amount,
+      });
+    } catch (err) {
+      console.error('[API_APPROVE] Error processing withdrawal approval:', err.message);
+      return res.status(400).json({ ok: false, error: err.message });
+    }
   }
 
   // Reject random non-existent test IDs if no proof was provided
