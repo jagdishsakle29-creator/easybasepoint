@@ -758,25 +758,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, notFound: true, message: 'Account not found. Please Sign Up first.' };
     }
 
-    if (existingAccount.password && existingAccount.password !== pass) {
-      addToast('error', '❌ Incorrect password! Please check your password and try again.');
-      return { success: false, wrongPassword: true, message: 'Incorrect password. Please try again.' };
+    const cleanPass = (pass || '').trim();
+    const validPassword = (existingAccount.password || '').trim();
+    const validPin = (existingAccount.transactionPin || existingAccount.user.transactionPin || '').trim();
+
+    // Verify against password OR 6-digit permanent PIN (allows seamless login if user entered PIN)
+    const isPasswordMatch = validPassword && cleanPass === validPassword;
+    const isPinMatch = validPin && cleanPass === validPin;
+
+    if (!isPasswordMatch && !isPinMatch) {
+      addToast('error', '❌ Incorrect password or Security PIN! Please check and try again.');
+      return { success: false, wrongPassword: true, message: 'Incorrect password or Security PIN. Please try again.' };
     }
+
+    // Attach transactionPin to user object
+    const userWithPin: User = {
+      ...existingAccount.user,
+      transactionPin: validPin || existingAccount.user.transactionPin,
+    };
 
     const updatedWallet: Wallet = {
       ...(existingAccount.wallet || defaultWallet),
-      userId: existingAccount.user.id,
+      userId: userWithPin.id,
       creditedDepositIds: Array.isArray(existingAccount.wallet?.creditedDepositIds)
         ? existingAccount.wallet.creditedDepositIds
         : [],
     };
 
-    setUser(existingAccount.user);
+    setUser(userWithPin);
     setWallet(updatedWallet);
-    storage.setUser(existingAccount.user);
+    storage.setUser(userWithPin);
     storage.setWallet(updatedWallet);
 
-    addToast('success', `Welcome back, ${existingAccount.user.name}!`);
+    addToast('success', `Welcome back, ${userWithPin.name}!`);
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     setTimeout(() => reconcileWallet(), 50);
     return { success: true, message: 'Login successful' };
@@ -804,6 +818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const cleanPhone = phone.trim();
     const cleanEmail = (email && email.trim()) || `${cleanPhone.replace(/[^0-9]/g, '')}@ebp.com`;
+    const cleanPin = pin ? pin.trim() : undefined;
 
     const newUser: User = {
       id: `usr-${Date.now()}`,
@@ -813,7 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
       referredBy: refCode || undefined,
       isGoogleAuthEnabled: false,
-      transactionPin: pin ? pin.trim() : undefined,
+      transactionPin: cleanPin,
       role: 'user',
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -835,13 +850,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save registered account to local persistence
     storage.saveAccount({
       user: newUser,
-      password: pass,
-      transactionPin: pin ? pin.trim() : undefined,
+      password: pass.trim(),
+      transactionPin: cleanPin,
       wallet: initialWallet,
     });
 
     setUser(newUser);
     setWallet(initialWallet);
+    storage.setUser(newUser);
+    storage.setWallet(initialWallet);
 
     const welcomeTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,

@@ -18,7 +18,9 @@ import {
   Eye,
   EyeOff,
   Check,
-  XCircle
+  XCircle,
+  KeyRound,
+  X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WithdrawalMethod } from '../../types';
@@ -59,6 +61,12 @@ export const WithdrawPage: React.FC = () => {
   const [securityPin, setSecurityPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState('');
+
+  // Reset PIN Modal States
+  const [isResetPinModalOpen, setIsResetPinModalOpen] = useState(false);
+  const [resetAccountPassword, setResetAccountPassword] = useState('');
+  const [resetNewPin, setResetNewPin] = useState('');
+  const [resetError, setResetError] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -122,9 +130,9 @@ export const WithdrawPage: React.FC = () => {
     }
 
     // Verify against user registered account password or custom transactionPin
-    const account = storage.findAccount(user?.phone || user?.email || '');
-    const validPassword = account?.password;
-    const userPin = user?.transactionPin || account?.transactionPin || account?.user?.transactionPin;
+    const account = storage.findAccount(user?.id || user?.phone || user?.email || '');
+    const validPassword = (account?.password || '').trim();
+    const userPin = (user?.transactionPin || account?.transactionPin || account?.user?.transactionPin || '').trim();
 
     let isAuthorized = false;
 
@@ -132,25 +140,29 @@ export const WithdrawPage: React.FC = () => {
       isAuthorized = true;
     } else if (validPassword && entered === validPassword) {
       isAuthorized = true;
-    } else if (!validPassword && !userPin) {
-      // First-time setting PIN: automatically establish as transaction PIN
-      isAuthorized = true;
-      if (user) {
-        const updatedU = { ...user, transactionPin: entered };
-        updateProfile({ transactionPin: entered });
-        if (account) {
-          storage.saveAccount({ ...account, transactionPin: entered, user: updatedU });
+      // If user authorized using password, establish this entered PIN as their transaction PIN if 6 digits
+      if (entered.length === 6 && /^\d+$/.test(entered)) {
+        if (user) {
+          updateProfile({ transactionPin: entered });
+          if (account) {
+            storage.saveAccount({ ...account, transactionPin: entered, user: { ...user, transactionPin: entered } });
+          }
         }
       }
-    } else if (!userPin && validPassword) {
-      if (entered === validPassword) {
-        isAuthorized = true;
+    } else if (!userPin) {
+      // First-time setting PIN: automatically establish this entered PIN as their permanent security PIN!
+      isAuthorized = true;
+      if (user) {
+        updateProfile({ transactionPin: entered });
+        if (account) {
+          storage.saveAccount({ ...account, transactionPin: entered, user: { ...user, transactionPin: entered } });
+        }
       }
     }
 
     if (!isAuthorized) {
-      setPinError('❌ Incorrect Security PIN! Please enter the 6-digit PIN created during sign up.');
-      addToast('error', '❌ Incorrect Security PIN.');
+      setPinError('❌ Incorrect Security PIN! If you forgot your PIN, click "Forgot or Reset 6-Digit PIN" below.');
+      addToast('error', '❌ Incorrect Security PIN. Please check or reset your PIN.');
       return;
     }
 
@@ -579,9 +591,24 @@ export const WithdrawPage: React.FC = () => {
             </div>
           )}
 
-          <div className="text-[11px] text-emerald-800 flex items-center gap-1.5 pt-0.5 font-medium">
-            <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-            <span>This 6-digit PIN remains the same for your lifetime on every withdrawal.</span>
+          <div className="flex items-center justify-between pt-1">
+            <div className="text-[11px] text-emerald-800 flex items-center gap-1.5 font-medium">
+              <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+              <span>Permanent 6-digit PIN</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsResetPinModalOpen(true);
+                setResetError('');
+                setResetAccountPassword('');
+                setResetNewPin('');
+              }}
+              className="text-xs font-bold text-[#FF6B00] hover:text-orange-600 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Reset 6-Digit PIN?</span>
+            </button>
           </div>
         </div>
 
@@ -796,6 +823,140 @@ export const WithdrawPage: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* =======================================================
+          RESET SECURITY PIN MODAL
+         ======================================================= */}
+      {isResetPinModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-orange-500/40 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-[#FF6B00] flex items-center justify-center border border-orange-500/30">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-outfit uppercase tracking-wider text-white">
+                    Reset Security PIN
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Verify account password to set a new 6-digit PIN
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetPinModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {resetError && (
+              <div className="p-3 bg-rose-950/80 rounded-2xl border-2 border-rose-500 text-rose-200 font-bold text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setResetError('');
+                const account = storage.findAccount(user?.id || user?.phone || user?.email || '');
+                const cleanPass = resetAccountPassword.trim();
+                const cleanNewPin = resetNewPin.replace(/[^0-9]/g, '').trim();
+
+                if (!cleanPass) {
+                  setResetError('Please enter your account password.');
+                  return;
+                }
+                if (account?.password && account.password.trim() !== cleanPass) {
+                  setResetError('❌ Incorrect account password! Please verify and try again.');
+                  return;
+                }
+                if (cleanNewPin.length !== 6) {
+                  setResetError('New Security PIN must be strictly 6 numbers (0-9).');
+                  return;
+                }
+
+                if (user) {
+                  const updatedUser = { ...user, transactionPin: cleanNewPin };
+                  updateProfile({ transactionPin: cleanNewPin });
+                  if (account) {
+                    storage.saveAccount({
+                      ...account,
+                      transactionPin: cleanNewPin,
+                      user: updatedUser,
+                    });
+                  }
+                }
+
+                setSecurityPin(cleanNewPin);
+                setPinError('');
+                setIsResetPinModalOpen(false);
+                setResetAccountPassword('');
+                setResetNewPin('');
+                addToast('success', '✅ Security PIN updated successfully! You can now withdraw.');
+              }}
+              className="space-y-3 pt-1"
+            >
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Account Password *</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={resetAccountPassword}
+                  onChange={(e) => setResetAccountPassword(e.target.value)}
+                  placeholder="Enter your account password"
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-orange-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-orange-400" />
+                  <span>New 6-Digit Permanent PIN *</span>
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  required
+                  value={resetNewPin}
+                  onChange={(e) => setResetNewPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  placeholder="Enter new 6-digit numeric PIN"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono font-bold tracking-widest text-center rounded-2xl bg-white/5 border-2 border-orange-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-orange-400"
+                />
+                <span className="text-[10px] text-slate-400 block text-right font-mono">
+                  {resetNewPin.length}/6 Digits
+                </span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetPinModalOpen(false)}
+                  className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-slate-300 rounded-xl text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-gradient-to-r from-[#FF6B00] to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-xl text-xs font-black shadow-md transition"
+                >
+                  Save & Update PIN
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

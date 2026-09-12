@@ -265,12 +265,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password or Security PIN */}
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Password</span>
+                    <span>Password or 6-Digit Security PIN</span>
                   </label>
                   <button
                     type="button"
@@ -286,10 +286,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your account password"
+                    placeholder="Enter account password or 6-digit PIN"
                     className="w-full pl-3.5 pr-3 py-3 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  💡 Tip: You can log in using either your account password or your 6-digit PIN.
+                </p>
               </div>
             </>
           )}

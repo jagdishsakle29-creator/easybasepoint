@@ -503,13 +503,20 @@ export const storage = {
     }
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
   },
-  findAccount(emailOrPhone: string): RegisteredAccount | undefined {
-    if (!emailOrPhone) return undefined;
+  findAccount(emailOrPhoneOrId: string): RegisteredAccount | undefined {
+    if (!emailOrPhoneOrId) return undefined;
     const accounts = this.getAccounts();
-    const clean = emailOrPhone.trim().toLowerCase();
-    const cleanDigits = emailOrPhone.replace(/[^0-9]/g, '');
+    if (accounts.length === 0) return undefined;
 
-    return accounts.find((a) => {
+    const clean = emailOrPhoneOrId.trim().toLowerCase();
+    const cleanDigits = emailOrPhoneOrId.replace(/[^0-9]/g, '');
+
+    // 1. Check direct ID match
+    const byId = accounts.find((a) => a.user.id && a.user.id === emailOrPhoneOrId.trim());
+    if (byId) return byId;
+
+    // 2. Check phone or email match
+    const byPhoneOrEmail = accounts.find((a) => {
       const aPhone = a.user.phone.replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
       
@@ -523,6 +530,14 @@ export const storage = {
       }
       return false;
     });
+    if (byPhoneOrEmail) return byPhoneOrEmail;
+
+    // 3. Fallback: if only 1 account exists on this device/browser, return it
+    if (accounts.length === 1) {
+      return accounts[0];
+    }
+
+    return undefined;
   },
 
   resetAll(): void {
