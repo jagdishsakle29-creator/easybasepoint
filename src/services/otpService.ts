@@ -64,7 +64,7 @@ export const otpService = {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok || data.success === false || data.ok === false) {
         return {
           ok: false,
           success: false,
@@ -82,10 +82,10 @@ export const otpService = {
       return {
         ok: true,
         success: true,
-        status: data.status,
-        message: data.message || 'Verification code sent to your registered contact.',
+        status: data.status || 'SENT',
+        message: data.message || 'Verification OTP sent successfully',
         cooldownSeconds: data.cooldownSeconds || 60,
-        expiresInSeconds: data.expiresInSeconds || 300,
+        expiresInSeconds: data.expiresIn || data.expiresInSeconds || 300,
         maskedContact: data.maskedContact,
         sessionToken: data.sessionToken,
       };
@@ -94,7 +94,7 @@ export const otpService = {
         ok: false,
         success: false,
         error: 'NETWORK_ERROR',
-        message: 'Network error communicating with authentication server. Please check your connection.',
+        message: err?.message || 'Network error communicating with authentication server. Please check your connection.',
       };
     }
   },
@@ -115,7 +115,7 @@ export const otpService = {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok || data.success === false || data.ok === false) {
         return {
           ok: false,
           success: false,
@@ -138,7 +138,7 @@ export const otpService = {
         ok: false,
         success: false,
         error: 'NETWORK_ERROR',
-        message: 'Network error connecting to verification gateway.',
+        message: err?.message || 'Network error connecting to verification gateway.',
       };
     }
   },

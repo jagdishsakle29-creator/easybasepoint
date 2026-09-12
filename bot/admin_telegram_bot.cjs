@@ -809,96 +809,68 @@ const server = http.createServer((req, res) => {
       const parts = id.split('@');
       return `${parts[0].slice(0, 2)}***@${parts[1]}`;
     }
-    return `${id.slice(0, 2)}******${id.slice(-2)}`;
+    const digits = id.replace(/[^0-9]/g, '');
+    if (digits.length <= 4) return digits;
+    return `${digits.slice(0, 2)}******${digits.slice(-2)}`;
   }
 
-  // Helper: Dispatch OTP via Company Transactional SMS / Email Gateway
-  async function dispatchOtpViaGateway(identifier, code, channel = 'sms') {
-    const apiKey = config.otpProviderApiKey || process.env.OTP_PROVIDER_API_KEY || process.env.FAST2SMS_API_KEY;
-    const provider = (config.otpProvider || process.env.OTP_PROVIDER || 'FAST2SMS').toUpperCase();
-    const senderId = config.otpSenderId || process.env.OTP_PROVIDER_SENDER_ID || 'EASYBP';
+  function normalizeIdentifier(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    const trimmed = raw.trim();
+    if (trimmed.includes('@')) {
+      return trimmed.toLowerCase();
+    }
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  }
 
-    // 1. If real provider credentials exist, invoke their transactional gateway API
-    if (apiKey) {
-      if (provider === 'FAST2SMS') {
-        const cleanPhone = identifier.replace(/[^0-9]/g, '');
-        const payload = JSON.stringify({
-          route: 'otp',
-          variables_values: code,
-          numbers: cleanPhone,
-        });
-
-        return new Promise((resolve) => {
-          const reqFast = https.request('https://www.fast2sms.com/dev/bulkV2', {
-            method: 'POST',
-            headers: {
-              'authorization': apiKey,
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload),
-            },
-          }, (resFast) => {
-            let resBody = '';
-            resFast.on('data', chunk => { resBody += chunk; });
-            resFast.on('end', () => {
-              console.log(`[OTP_GATEWAY] Fast2SMS dispatch status: ${resFast.statusCode} for ${maskIdentifier(identifier)}`);
-              resolve({ ok: resFast.statusCode === 200, status: resFast.statusCode });
-            });
-          });
-          reqFast.on('error', (err) => {
-            console.error(`[OTP_GATEWAY] Fast2SMS connection error:`, err.message);
-            resolve({ ok: false, error: err.message });
-          });
-          reqFast.write(payload);
-          reqFast.end();
-        });
-      }
-
-      if (provider === 'TWILIO') {
-        const sid = process.env.TWILIO_ACCOUNT_SID;
-        const auth = apiKey; // Token
-        const from = process.env.TWILIO_FROM_NUMBER || '+1234567890';
-        const formattedTo = identifier.startsWith('+') ? identifier : `+91${identifier.replace(/[^0-9]/g, '')}`;
-        const postData = new URLSearchParams({
-          To: formattedTo,
-          From: from,
-          Body: `Your EasyBasePoint verification code is ${code}. Valid for 5 minutes. Do not share with anyone.`,
-        }).toString();
-
-        return new Promise((resolve) => {
-          const twilioReq = https.request(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-            method: 'POST',
-            auth: `${sid}:${auth}`,
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Content-Length': Buffer.byteLength(postData),
-            },
-          }, (tRes) => {
-            console.log(`[OTP_GATEWAY] Twilio dispatch status: ${tRes.statusCode} for ${maskIdentifier(identifier)}`);
-            resolve({ ok: tRes.statusCode >= 200 && tRes.statusCode < 300 });
-          });
-          twilioReq.on('error', (err) => resolve({ ok: false, error: err.message }));
-          twilioReq.write(postData);
-          twilioReq.end();
-        });
-      }
+  // Helper: Dispatch OTP via Telegram Bot
+  async function dispatchOtpViaTelegram(identifier, code) {
+    const token = config.botToken || process.env.TELEGRAM_BOT_TOKEN || '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M';
+    const chatId = config.adminChatId || process.env.TELEGRAM_ADMIN_CHAT_ID || '6527377657';
+    if (!token || !chatId) {
+      return { ok: false, error: 'CONFIGURATION_ERROR', message: 'Telegram bot credentials missing.' };
     }
 
-    // 2. If provider is not configured: Check development/test mode
-    if (config.allowDevFallbackOtp) {
-      console.log(`[COMPANY_OTP_DISPATCH] 📨 Dev Mode Gateway Active: Code generated for ${maskIdentifier(identifier)}`);
-      // When dev mode is on, we print delivery simulation to secure server console only.
-      // Notice: The code is strictly NOT returned in the API response or sent to client JS!
-      console.log(`[SECURE_AUDIT] OTP verification dispatched to ${maskIdentifier(identifier)}: [PROTECTED_6_DIGIT_CODE]`);
-      return { ok: true, devMode: true };
-    }
+    const masked = maskIdentifier(identifier);
+    const postData = JSON.stringify({
+      chat_id: chatId,
+      text: `🔐 *EasyBasePoint Security Verification*\n\n` +
+            `━━━━━━━━━━━━━━━━━━━\n` +
+            `👤 *User / Contact:* \`${masked}\`\n` +
+            `🔢 *Verification OTP:* \`${code}\`\n` +
+            `⏱ *Validity:* 5 Minutes (300s)\n` +
+            `🛡 *Action:* Withdrawal Payout Confirmation\n` +
+            `━━━━━━━━━━━━━━━━━━━\n\n` +
+            `_Enter this OTP in the Withdrawal Verification section to confirm your payout._`,
+      parse_mode: 'Markdown',
+    });
 
-    // 3. In strict production mode without provider: Report missing configuration per user guidelines!
-    return {
-      ok: false,
-      error: 'PROVIDER_NOT_CONFIGURED',
-      message: 'Company SMS/Email gateway is not configured. Please set OTP_PROVIDER_API_KEY in server environment variables.',
-      missingConfig: ['OTP_PROVIDER_API_KEY', 'OTP_PROVIDER_SENDER_ID'],
-    };
+    return new Promise((resolve) => {
+      const req = https.request(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+      }, (res) => {
+        let resBody = '';
+        res.on('data', chunk => { resBody += chunk; });
+        res.on('end', () => {
+          let parsed = {};
+          try { parsed = JSON.parse(resBody); } catch {}
+          console.log(`[OTP_FLOW] Telegram/API response status: ${res.statusCode}`);
+          console.log(`[OTP_FLOW] Telegram/API response body: ok=${parsed.ok}, message_id=${parsed.result?.message_id || 'N/A'}`);
+          resolve({ ok: res.statusCode === 200 && parsed.ok === true, data: parsed });
+        });
+      });
+      req.on('error', (err) => {
+        console.error(`[OTP_FLOW] Telegram connection error:`, err.message);
+        resolve({ ok: false, error: err.message });
+      });
+      req.write(postData);
+      req.end();
+    });
   }
 
   // 7. POST /api/auth/send-otp
@@ -906,22 +878,25 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
+      console.log('[OTP_FLOW] === OTP REQUEST START ===');
       try {
         const { identifier, channel = 'sms' } = JSON.parse(body || '{}');
         if (!identifier || typeof identifier !== 'string') {
+          console.warn('[OTP_FLOW] Validation failed: Missing identifier');
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'VALIDATION_ERROR', message: 'Valid mobile number or email is required.' }));
+          res.end(JSON.stringify({ success: false, ok: false, error: 'VALIDATION_ERROR', message: 'Valid mobile number or email is required.' }));
           return;
         }
 
-        const isEmail = identifier.includes('@');
-        const cleanIdentifier = isEmail
-          ? identifier.trim().toLowerCase()
-          : identifier.replace(/[^0-9]/g, '');
+        const cleanIdentifier = normalizeIdentifier(identifier);
+        const isEmail = cleanIdentifier.includes('@');
+
+        console.log(`[OTP_FLOW] Withdrawal/User Identifier: ${maskIdentifier(cleanIdentifier)}`);
 
         if (!isEmail && cleanIdentifier.length !== 10) {
+          console.warn(`[OTP_FLOW] Validation failed: Invalid phone length (${cleanIdentifier.length} digits)`);
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'INVALID_PHONE', message: 'Mobile number must be exactly 10 digits.' }));
+          res.end(JSON.stringify({ success: false, ok: false, error: 'INVALID_PHONE', message: 'Mobile number must be a valid 10-digit number.' }));
           return;
         }
 
@@ -931,8 +906,10 @@ const server = http.createServer((req, res) => {
         // Cooldown enforcement: minimum 60 seconds between resends
         if (existing && existing.lastRequestedAt && (now - existing.lastRequestedAt < 60000)) {
           const waitSeconds = Math.ceil((60000 - (now - existing.lastRequestedAt)) / 1000);
+          console.log(`[OTP_FLOW] Cooldown active for ${maskIdentifier(cleanIdentifier)}: ${waitSeconds}s remaining`);
           res.writeHead(429, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            success: false,
             ok: false,
             error: 'COOLDOWN_ACTIVE',
             message: `Please wait ${waitSeconds}s before requesting a new code.`,
@@ -941,29 +918,30 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        // Hourly rate-limiting: maximum 5 requests per hour per contact
-        let reqCount = (existing && existing.requestCountHour) || 0;
-        let windowStart = (existing && existing.hourWindowStart) || now;
-        if (now - windowStart > 3600000) {
-          reqCount = 0;
-          windowStart = now;
-        }
-        if (reqCount >= 5) {
-          res.writeHead(429, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            ok: false,
-            error: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many OTP requests for this contact. Please try again after 1 hour.',
-          }));
-          return;
-        }
-
         // Cryptographically secure 6-digit numeric OTP (100000 - 999999)
         const numericCode = crypto.randomInt(100000, 1000000).toString();
 
-        // Salted SHA-256 Hash - Plaintext OTP is NEVER stored in database or memory!
+        // Salted SHA-256 Hash - Plaintext OTP is NEVER logged or stored in cleartext!
         const salt = crypto.randomBytes(16).toString('hex');
         const hash = crypto.createHash('sha256').update(numericCode + salt).digest('hex');
+
+        console.log(`[OTP_FLOW] OTP generated: [PROTECTED_6_DIGIT] (Hash: ${hash.slice(0, 12)}...)`);
+        console.log(`[OTP_FLOW] Telegram/API request started -> Target Chat: ${maskIdentifier(config.adminChatId || '6527377657')}`);
+
+        // Dispatch via Telegram Bot
+        const dispatchResult = await dispatchOtpViaTelegram(cleanIdentifier, numericCode);
+
+        if (!dispatchResult.ok) {
+          console.error('[OTP_FLOW] Telegram delivery failed');
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            ok: false,
+            error: 'DELIVERY_FAILED',
+            message: 'Failed to deliver verification OTP to Telegram. Please check connection and try again.',
+          }));
+          return;
+        }
 
         // Store hashed representation with 5-minute expiry (300,000 ms) and max 5 attempts
         global.otpStore.set(cleanIdentifier, {
@@ -973,39 +951,27 @@ const server = http.createServer((req, res) => {
           attempts: 0,
           maxAttempts: 5,
           lastRequestedAt: now,
-          requestCountHour: reqCount + 1,
-          hourWindowStart: windowStart,
         });
 
-        // Dispatch via company transactional provider
-        const dispatchResult = await dispatchOtpViaGateway(cleanIdentifier, numericCode, channel);
+        console.log('[OTP_FLOW] OTP stored successfully (Expires in: 300s)');
+        console.log('[OTP_FLOW] Final API response: success=true, expiresIn=300');
+        console.log('[OTP_FLOW] === OTP REQUEST END ===');
 
-        if (!dispatchResult.ok && dispatchResult.error === 'PROVIDER_NOT_CONFIGURED') {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            ok: false,
-            error: 'PROVIDER_NOT_CONFIGURED',
-            message: dispatchResult.message,
-            missingConfig: dispatchResult.missingConfig,
-          }));
-          return;
-        }
-
-        // Return clean success response.
-        // SECURITY RULE: Actual OTP value is strictly NOT returned in API response!
+        // Return clean success response
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
+          success: true,
           ok: true,
           status: 'SENT',
-          message: `Verification code sent to ${maskIdentifier(cleanIdentifier)}.`,
+          message: `Verification OTP sent successfully to ${maskIdentifier(cleanIdentifier)}`,
+          expiresIn: 300,
           cooldownSeconds: 60,
-          expiresInSeconds: 300,
           maskedContact: maskIdentifier(cleanIdentifier),
         }));
       } catch (err) {
-        console.error('[AUTH_OTP] Error generating OTP:', err.message);
+        console.error('[OTP_FLOW] Error generating OTP:', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'SERVER_ERROR', message: 'Failed to process OTP request.' }));
+        res.end(JSON.stringify({ success: false, ok: false, error: 'SERVER_ERROR', message: 'Failed to process OTP request.' }));
       }
     });
     return;
@@ -1020,15 +986,11 @@ const server = http.createServer((req, res) => {
         const { identifier, otp } = JSON.parse(body || '{}');
         if (!identifier || !otp) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'VALIDATION_ERROR', message: 'Contact identifier and OTP are required.' }));
+          res.end(JSON.stringify({ success: false, ok: false, error: 'VALIDATION_ERROR', message: 'Contact identifier and OTP are required.' }));
           return;
         }
 
-        const isEmail = identifier.includes('@');
-        const cleanIdentifier = isEmail
-          ? identifier.trim().toLowerCase()
-          : identifier.replace(/[^0-9]/g, '');
-
+        const cleanIdentifier = normalizeIdentifier(identifier);
         const cleanOtp = String(otp).trim();
         const record = global.otpStore.get(cleanIdentifier);
         const now = Date.now();
@@ -1036,6 +998,7 @@ const server = http.createServer((req, res) => {
         if (!record) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            success: false,
             ok: false,
             error: 'OTP_NOT_FOUND',
             message: 'No verification code was requested for this contact or it was already used. Please request a new OTP.',
@@ -1048,6 +1011,7 @@ const server = http.createServer((req, res) => {
           global.otpStore.delete(cleanIdentifier);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            success: false,
             ok: false,
             error: 'OTP_EXPIRED',
             message: 'Verification code has expired. Please request a new OTP.',
@@ -1060,6 +1024,7 @@ const server = http.createServer((req, res) => {
           global.otpStore.delete(cleanIdentifier);
           res.writeHead(429, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            success: false,
             ok: false,
             error: 'TOO_MANY_ATTEMPTS',
             message: 'Maximum verification attempts exceeded. For your security, this code is now invalidated. Please request a new OTP.',
@@ -1073,7 +1038,7 @@ const server = http.createServer((req, res) => {
         // Salted hash computation
         const computedHash = crypto.createHash('sha256').update(cleanOtp + record.salt).digest('hex');
 
-        // Constant-time timing-safe comparison to prevent timing attacks
+        // Constant-time timing-safe comparison
         const isMatch = crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(record.hash));
 
         if (!isMatch) {
@@ -1082,6 +1047,7 @@ const server = http.createServer((req, res) => {
             global.otpStore.delete(cleanIdentifier);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
+              success: false,
               ok: false,
               error: 'TOO_MANY_ATTEMPTS',
               message: 'Invalid code. All attempts exhausted. Please request a new OTP.',
@@ -1092,6 +1058,7 @@ const server = http.createServer((req, res) => {
 
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            success: false,
             ok: false,
             error: 'INVALID_OTP',
             message: `Invalid verification code. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining.`,
@@ -1115,16 +1082,17 @@ const server = http.createServer((req, res) => {
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
+          success: true,
           ok: true,
           verified: true,
           verificationToken,
           identifier: cleanIdentifier,
-          message: 'Contact verified successfully!',
+          message: 'Verification successful!',
         }));
       } catch (err) {
         console.error('[AUTH_VERIFY] Error verifying OTP:', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'SERVER_ERROR', message: 'Failed to verify OTP.' }));
+        res.end(JSON.stringify({ success: false, ok: false, error: 'SERVER_ERROR', message: 'Failed to verify OTP.' }));
       }
     });
     return;

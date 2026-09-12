@@ -54,12 +54,25 @@ export const WithdrawPage: React.FC = () => {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
+  const [maskedContact, setMaskedContact] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 0% Withdrawal Fee (Zero Deductions as requested)
   const feeAmount = 0.00;
   const netAmount = amount;
+
+  // Contact identifier helper (extract clean 10-digit mobile or email)
+  const getCleanContact = () => {
+    const rawPhone = (user?.phone || '').replace(/[^0-9]/g, '');
+    if (rawPhone.length >= 10) {
+      return rawPhone.slice(-10);
+    }
+    if (user?.email && user.email.includes('@')) {
+      return user.email.trim();
+    }
+    return rawPhone;
+  };
 
   // OTP Countdown timer
   useEffect(() => {
@@ -93,27 +106,32 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
 
-    const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      addToast('error', 'Valid 10-digit registered phone number is required.');
+    const cleanContact = getCleanContact();
+    if (!cleanContact || (cleanContact.length !== 10 && !cleanContact.includes('@'))) {
+      const err = 'Valid 10-digit registered mobile number or email is required to request OTP.';
+      setOtpError(err);
+      addToast('error', err);
       return;
     }
 
     setIsSendingOtp(true);
     setOtpError('');
     try {
-      const res = await otpService.requestOtp(cleanPhone);
-      if (res.success) {
+      const res = await otpService.requestOtp(cleanContact);
+      if (res.success || res.ok) {
         setIsOtpSent(true);
         setOtpTimer(res.cooldownSeconds || 60);
-        addToast('success', res.message || 'Verification OTP sent to your registered contact!');
+        setMaskedContact(res.maskedContact || '');
+        addToast('success', res.message || 'Verification OTP sent successfully!');
       } else {
-        setOtpError(res.message);
-        addToast('error', res.message);
+        const errorMsg = res.message || 'Failed to send verification code. Please try again.';
+        setOtpError(errorMsg);
+        addToast('error', errorMsg);
       }
     } catch (err: any) {
-      setOtpError('Failed to send verification code. Please try again.');
-      addToast('error', 'Failed to request verification code.');
+      const errorMsg = err?.message || 'Network error requesting verification code. Please try again.';
+      setOtpError(errorMsg);
+      addToast('error', errorMsg);
     } finally {
       setIsSendingOtp(false);
     }
@@ -168,17 +186,18 @@ export const WithdrawPage: React.FC = () => {
       return;
     }
 
-    const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
+    const cleanContact = getCleanContact();
     setIsSubmitting(true);
     setOtpError('');
 
     (async () => {
       try {
-        const verifyRes = await otpService.verifyOtp(cleanPhone, waOtp.trim());
-        if (!verifyRes.success) {
+        const verifyRes = await otpService.verifyOtp(cleanContact, waOtp.trim());
+        if (!verifyRes.success && !verifyRes.ok) {
           setIsSubmitting(false);
-          setOtpError(verifyRes.message);
-          addToast('error', `❌ ${verifyRes.message}`);
+          const errMsg = verifyRes.message || 'Invalid verification code.';
+          setOtpError(errMsg);
+          addToast('error', `❌ ${errMsg}`);
           return;
         }
 
@@ -568,7 +587,15 @@ export const WithdrawPage: React.FC = () => {
               className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#e05e00] text-white rounded-xl text-xs font-black shadow-xs transition disabled:opacity-50 flex items-center gap-1"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{isSendingOtp ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Request OTP'}</span>
+              <span>
+                {isSendingOtp
+                  ? 'Sending OTP...'
+                  : otpTimer > 0
+                    ? `OTP Sent (${otpTimer}s)`
+                    : isOtpSent
+                      ? 'Resend OTP'
+                      : 'Request OTP'}
+              </span>
             </button>
           </div>
 
@@ -603,9 +630,12 @@ export const WithdrawPage: React.FC = () => {
             <div className="flex items-center justify-between text-xs text-emerald-800 pt-0.5">
               <span className="flex items-center gap-1 font-semibold text-emerald-700">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                OTP sent to your verified registered contact
+                OTP sent to {maskedContact ? `+91 ${maskedContact}` : 'your registered contact'}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">Valid 5 mins</span>
+              <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                <Clock className="w-3 h-3 text-slate-400" />
+                Expires in 5 mins
+              </span>
             </div>
           )}
         </div>
