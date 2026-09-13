@@ -886,6 +886,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribeDeposits;
   }, [settings.inrRewardPercent]);
 
+  // Listen for incoming withdrawals from players in real-time
+  useEffect(() => {
+    const unsubscribeWithdrawals = cloudSync.subscribeToWithdrawals((incoming) => {
+      setWithdrawals((prev) => {
+        if (prev.some((w) => w.id === incoming.id)) return prev;
+        const updated = [incoming, ...prev];
+        storage.setWithdrawals(updated);
+        return updated;
+      });
+    });
+    return unsubscribeWithdrawals;
+  }, []);
+
   const addToast = (type: Toast['type'], message: string) => {
     setToasts((prev) => {
       // Deduplicate identical message

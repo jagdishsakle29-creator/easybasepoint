@@ -462,4 +462,33 @@ export const cloudSync = {
       return () => {};
     }
   },
+
+  // Create an SSE stream for Admin Panel to receive incoming withdrawals from players in real-time
+  subscribeToWithdrawals(onWithdrawal: (withdrawal: any) => void): () => void {
+    if (typeof EventSource === 'undefined') return () => {};
+
+    try {
+      const sse = new EventSource(NTFY_DEPOSITS_SSE);
+
+      sse.onmessage = (e) => {
+        try {
+          if (!e.data || e.data.startsWith(':')) return;
+          const outer = JSON.parse(e.data);
+          const data = outer.message ? JSON.parse(outer.message) : outer;
+
+          if (data && data.type === 'NEW_WITHDRAWAL' && (data.withdrawal || data.id)) {
+            const wdr = data.withdrawal || data;
+            console.log('[SSE] Received new withdrawal in real-time:', wdr);
+            onWithdrawal(wdr);
+          }
+        } catch {}
+      };
+
+      return () => {
+        sse.close();
+      };
+    } catch {
+      return () => {};
+    }
+  },
 };

@@ -90,7 +90,20 @@ export const AdminPanel: React.FC = () => {
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
 
   const pendingDeposits = deposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
-  const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
+  
+  // Dedicated Withdrawal Metrics & Filtered List
+  const [withFilter, setWithFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
+  const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending' || (w.status as string) === 'processing');
+  const completedWithdrawals = withdrawals.filter((w) => w.status === 'completed');
+  const rejectedWithdrawals = withdrawals.filter((w) => w.status === 'rejected');
+
+  const filteredWithdrawals = withdrawals.filter((w) => {
+    if (withFilter === 'all') return true;
+    if (withFilter === 'pending') return w.status === 'pending' || (w.status as string) === 'processing';
+    if (withFilter === 'completed') return w.status === 'completed';
+    if (withFilter === 'rejected') return w.status === 'rejected';
+    return true;
+  });
 
   // Dedicated USDT Metrics
   const usdtDeposits = deposits.filter((d) => d.method === 'USDT' || d.id.startsWith('USDT'));
@@ -273,9 +286,9 @@ export const AdminPanel: React.FC = () => {
       <div className="flex items-center gap-1.5 bg-[#0B1528] p-1.5 rounded-2xl overflow-x-auto no-scrollbar border border-orange-500/20 shadow-md">
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-          { id: 'usdt', label: 'USDT Management', icon: Coins, badge: pendingUsdtDeposits.length },
-          { id: 'deposits', label: 'INR Deposits', icon: ArrowDownToLine, badge: pendingDeposits.filter(d => d.method !== 'USDT' && !d.id.startsWith('USDT')).length },
           { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, badge: pendingWithdrawals.length },
+          { id: 'deposits', label: 'INR Deposits', icon: ArrowDownToLine, badge: pendingDeposits.filter(d => d.method !== 'USDT' && !d.id.startsWith('USDT')).length },
+          { id: 'usdt', label: 'USDT Management', icon: Coins, badge: pendingUsdtDeposits.length },
           { id: 'packages', label: 'Packages', icon: Package },
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
           { id: 'users', label: 'Users', icon: Users },
@@ -320,8 +333,11 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
 
-            <div className="glass-card rounded-2xl p-4 border border-slate-200/80">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Pending Withdrawals</span>
+            <div 
+              onClick={() => setActiveAdminTab('withdrawals')}
+              className="glass-card rounded-2xl p-4 border border-orange-200/80 bg-orange-50/20 cursor-pointer hover:border-orange-300 transition"
+            >
+              <span className="text-[10px] font-bold text-[#FF6B00] uppercase">Pending Withdrawals</span>
               <div className="text-2xl font-black text-[#FF6B00] font-outfit mt-1">
                 {pendingWithdrawals.length}
               </div>
@@ -376,6 +392,58 @@ export const AdminPanel: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Pending Withdrawals Quick Feed on Overview */}
+          {pendingWithdrawals.length > 0 && (
+            <div className="glass-card rounded-3xl p-5 border border-amber-300/80 bg-amber-50/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B00] animate-ping" />
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider font-outfit">
+                    Pending Withdrawal Requests ({pendingWithdrawals.length})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setActiveAdminTab('withdrawals')}
+                  className="text-xs font-bold text-[#FF6B00] hover:underline"
+                >
+                  View All Withdrawals ➔
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {pendingWithdrawals.slice(0, 3).map((w) => (
+                  <div key={w.id} className="bg-white p-3 rounded-2xl border border-amber-200/60 flex items-center justify-between gap-3 shadow-xs">
+                    <div>
+                      <div className="font-extrabold text-slate-900 text-sm font-outfit">
+                        ₹{(Number(w.amount) || 0).toFixed(2)} via {(w.method || 'bank').toUpperCase()}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {w.userName || w.userPhone || 'Player'} • ID: {w.id}
+                        {w.userPhone ? ` • Phone: ${w.userPhone}` : ''}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => approveWithdrawal(w.id)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition active:scale-95"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => setRejectingId(w.id)}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1007,18 +1075,49 @@ export const AdminPanel: React.FC = () => {
           TAB 3: WITHDRAWAL REQUESTS
          ======================================================= */}
       {activeAdminTab === 'withdrawals' && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-            Withdrawal Management ({withdrawals.length} Total, {pendingWithdrawals.length} Pending)
-          </h3>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-outfit">
+                Withdrawal Management ({withdrawals.length} Total, {pendingWithdrawals.length} Pending)
+              </h3>
+              <p className="text-xs text-slate-400">Review, approve payouts or reject with instant wallet refund</p>
+            </div>
 
-          {withdrawals.length === 0 ? (
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              {(['all', 'pending', 'completed', 'rejected'] as const).map((filter) => {
+                const count = filter === 'all' 
+                  ? withdrawals.length 
+                  : filter === 'pending' 
+                  ? pendingWithdrawals.length 
+                  : filter === 'completed' 
+                  ? completedWithdrawals.length 
+                  : rejectedWithdrawals.length;
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setWithFilter(filter)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition ${
+                      withFilter === filter
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {filter} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredWithdrawals.length === 0 ? (
             <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
-              No withdrawal requests submitted yet.
+              No {withFilter !== 'all' ? withFilter : ''} withdrawal requests found.
             </div>
           ) : (
             <div className="space-y-3">
-              {withdrawals.map((req) => (
+              {filteredWithdrawals.map((req) => (
                 <div
                   key={req.id}
                   className="glass-card rounded-2xl p-4 border border-slate-200/80 space-y-3"
@@ -1026,10 +1125,11 @@ export const AdminPanel: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-extrabold text-slate-900 font-outfit text-base">
-                        ₹{req.amount.toFixed(2)} via {req.method.toUpperCase()}
+                        ₹{(Number(req.amount) || 0).toFixed(2)} via {(req.method || 'bank').toUpperCase()}
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        Requested by: {req.userName} • ID: {req.id}
+                        Requested by: {req.userName || req.userPhone || 'Player'} • ID: {req.id}
+                        {req.userPhone ? ` • Phone: ${req.userPhone}` : ''}
                       </div>
                     </div>
 
@@ -1048,35 +1148,35 @@ export const AdminPanel: React.FC = () => {
 
                   {/* Account Details */}
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1 text-slate-600 font-mono">
-                    {req.accountDetails.accountHolder && (
+                    {req.accountDetails?.accountHolder && (
                       <div>Holder: {req.accountDetails.accountHolder}</div>
                     )}
-                    {req.accountDetails.bankName && (
+                    {req.accountDetails?.bankName && (
                       <div>Bank: {req.accountDetails.bankName}</div>
                     )}
-                    {req.accountDetails.accountNumber && (
+                    {req.accountDetails?.accountNumber && (
                       <div>Account: {req.accountDetails.accountNumber}</div>
                     )}
-                    {req.accountDetails.ifscCode && (
+                    {req.accountDetails?.ifscCode && (
                       <div>IFSC: {req.accountDetails.ifscCode}</div>
                     )}
-                    {req.accountDetails.upiId && (
+                    {req.accountDetails?.upiId && (
                       <div>UPI: {req.accountDetails.upiId}</div>
                     )}
-                    {req.accountDetails.usdtAddress && (
+                    {req.accountDetails?.usdtAddress && (
                       <div className="truncate">USDT: {req.accountDetails.usdtAddress}</div>
                     )}
                     <div className="text-[11px] text-slate-400 font-sans pt-1">
-                      Handling Fee: ₹{req.fee.toFixed(2)} • Net Payout: ₹{req.netAmount.toFixed(2)}
+                      Handling Fee: ₹{(Number(req.fee) || 0).toFixed(2)} • Net Payout: ₹{(Number(req.netAmount) || Number(req.amount) || 0).toFixed(2)}
                     </div>
                   </div>
 
                   {/* Approve / Reject Buttons if Pending */}
-                  {req.status === 'pending' && (
+                  {(req.status === 'pending' || (req.status as string) === 'processing') && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => approveWithdrawal(req.id)}
-                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer shadow-xs"
                       >
                         <Check className="w-4 h-4" />
                         <span>Approve Payout</span>
@@ -1084,7 +1184,7 @@ export const AdminPanel: React.FC = () => {
 
                       <button
                         onClick={() => setRejectingId(req.id)}
-                        className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                        className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                         <span>Reject & Refund</span>

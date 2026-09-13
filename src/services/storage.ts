@@ -398,18 +398,7 @@ export const storage = {
     if (!raw) return [];
     try {
       const parsed: DepositOrder[] = JSON.parse(raw);
-      const TWENTY_MINS_MS = 20 * 60 * 1000;
-      const valid = parsed.filter((d) => {
-        const isPending = d.status === 'pending' || d.status === 'pending_verification' || (d.status as string) === 'processing';
-        if (isPending) {
-          const t = new Date(d.createdAt).getTime();
-          if (!isNaN(t) && Date.now() - t > TWENTY_MINS_MS) {
-            return false; // Auto-hide expired pending (>20m)
-          }
-        }
-        return true;
-      });
-      return valid.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch {
       return [];
     }
@@ -449,18 +438,7 @@ export const storage = {
     if (!raw) return [];
     try {
       const parsed: WithdrawalRequest[] = JSON.parse(raw);
-      const TWENTY_MINS_MS = 20 * 60 * 1000;
-      const valid = parsed.filter((w) => {
-        const isPending = w.status === 'pending' || w.status === 'processing';
-        if (isPending) {
-          const t = new Date(w.createdAt).getTime();
-          if (!isNaN(t) && Date.now() - t > TWENTY_MINS_MS) {
-            return false; // Auto-hide expired pending (>20m)
-          }
-        }
-        return true;
-      });
-      return valid.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch {
       return [];
     }

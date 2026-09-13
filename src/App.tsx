@@ -38,6 +38,8 @@ const AppContent: React.FC = () => {
     addToast,
     approveDeposit,
     rejectDeposit,
+    approveWithdrawal,
+    rejectWithdrawal,
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -76,14 +78,28 @@ const AppContent: React.FC = () => {
       rejectDeposit(rejectDepParam, 'Rejected via Admin Link');
     }
 
-    if (approveDepParam || rejectDepParam) {
+    const approveWdrParam = params.get('approve_wdr');
+    if (approveWdrParam) {
+      approveWithdrawal(approveWdrParam);
+    }
+
+    const rejectWdrParam = params.get('reject_wdr');
+    const reasonParam = params.get('reason');
+    if (rejectWdrParam) {
+      rejectWithdrawal(rejectWdrParam, reasonParam || 'Rejected via Admin Link');
+    }
+
+    if (approveDepParam || rejectDepParam || approveWdrParam || rejectWdrParam) {
       const url = new URL(window.location.href);
       url.searchParams.delete('approve_dep');
       url.searchParams.delete('total');
       url.searchParams.delete('reject_dep');
+      url.searchParams.delete('approve_wdr');
+      url.searchParams.delete('reject_wdr');
+      url.searchParams.delete('reason');
       window.history.replaceState({}, '', url.toString());
     }
-  }, [settings.adminSecretKey, approveDeposit, rejectDeposit, setActiveTab, addToast]);
+  }, [settings.adminSecretKey, approveDeposit, rejectDeposit, approveWithdrawal, rejectWithdrawal, setActiveTab, addToast]);
 
   // Show community popup only once after successful login/registration, never while signing up or if previously dismissed
   useEffect(() => {
