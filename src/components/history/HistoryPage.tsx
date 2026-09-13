@@ -216,10 +216,14 @@ export const HistoryPage: React.FC = () => {
   }, [cancelledItems]);
 
   // Filter items by status tab and search query
+  const effectiveStatusFilter = activeTab === 'deposit' && statusFilter === 'all'
+    ? (pendingItems.length > 0 ? 'pending' : 'successful')
+    : statusFilter;
+
   const displayItems = useMemo(() => {
     let list = typeFiltered;
-    if (statusFilter !== 'all') {
-      list = list.filter((t) => getStatusCategory(t.status) === statusFilter);
+    if (effectiveStatusFilter !== 'all') {
+      list = list.filter((t) => getStatusCategory(t.status) === effectiveStatusFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -231,7 +235,7 @@ export const HistoryPage: React.FC = () => {
       );
     }
     return list;
-  }, [typeFiltered, statusFilter, searchQuery]);
+  }, [typeFiltered, effectiveStatusFilter, searchQuery]);
 
   const getStatusBadge = (status: TransactionStatus) => {
     const cat = getStatusCategory(status);
@@ -372,7 +376,11 @@ export const HistoryPage: React.FC = () => {
             key={tab.id}
             onClick={() => {
               setActiveTab(tab.id as any);
-              setStatusFilter('all');
+              if (tab.id === 'deposit') {
+                setStatusFilter(pendingItems.length > 0 ? 'pending' : 'successful');
+              } else {
+                setStatusFilter('all');
+              }
             }}
             className={`flex-1 min-w-[95px] py-2 px-3 text-center text-xs font-black font-outfit rounded-xl transition-all duration-300 ${
               activeTab === tab.id
@@ -393,7 +401,7 @@ export const HistoryPage: React.FC = () => {
         {/* 1. Successful Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'successful' ? 'all' : 'successful')}
+          onClick={() => setStatusFilter(statusFilter === 'successful' && activeTab !== 'deposit' ? 'all' : 'successful')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'successful'
               ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent border-emerald-500 ring-2 ring-emerald-400/50 shadow-md scale-[1.02]'
@@ -420,7 +428,7 @@ export const HistoryPage: React.FC = () => {
         {/* 2. Pending Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+          onClick={() => setStatusFilter(statusFilter === 'pending' && activeTab !== 'deposit' ? 'all' : 'pending')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'pending'
               ? 'bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border-amber-500 ring-2 ring-amber-400/50 shadow-md scale-[1.02]'
@@ -447,7 +455,7 @@ export const HistoryPage: React.FC = () => {
         {/* 3. Cancelled Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'cancelled' ? 'all' : 'cancelled')}
+          onClick={() => setStatusFilter(statusFilter === 'cancelled' && activeTab !== 'deposit' ? 'all' : 'cancelled')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'cancelled'
               ? 'bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-transparent border-rose-500 ring-2 ring-rose-400/50 shadow-md scale-[1.02]'
@@ -472,18 +480,20 @@ export const HistoryPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Status Segment Filter Buttons: All | Successful | Pending | Cancelled */}
+      {/* Status Segment Filter Buttons: All (hidden on deposit) | Successful | Pending | Cancelled */}
       <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold font-outfit">
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-            statusFilter === 'all'
-              ? 'bg-white text-slate-900 shadow-xs font-black'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          All ({typeFiltered.length})
-        </button>
+        {activeTab !== 'deposit' && (
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
+              statusFilter === 'all'
+                ? 'bg-white text-slate-900 shadow-xs font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            All ({typeFiltered.length})
+          </button>
+        )}
         <button
           onClick={() => setStatusFilter('successful')}
           className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
@@ -560,8 +570,8 @@ export const HistoryPage: React.FC = () => {
           <History className="w-10 h-10 text-slate-300 mx-auto" />
           <h4 className="text-sm font-bold text-slate-700">No Transactions Found</h4>
           <p className="text-xs text-slate-400">
-            {statusFilter !== 'all' 
-              ? `No ${statusFilter} records found for this category.` 
+            {effectiveStatusFilter !== 'all' 
+              ? `No ${effectiveStatusFilter} records found for this category.` 
               : 'There are no records matching your current selection.'}
           </p>
         </div>
@@ -570,9 +580,9 @@ export const HistoryPage: React.FC = () => {
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {statusFilter === 'all'
+              {effectiveStatusFilter === 'all'
                 ? `All Records (${displayItems.length}) • Newest on top, oldest at bottom`
-                : `Showing ${displayItems.length} ${statusFilter} records`}
+                : `Showing ${displayItems.length} ${effectiveStatusFilter} records`}
             </span>
           </div>
           {displayItems.map(renderTransactionCard)}
