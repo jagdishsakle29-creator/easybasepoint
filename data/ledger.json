@@ -400,5 +400,20 @@
     "approvedAt": "2026-09-13T16:48:02.018Z",
     "updatedAt": "2026-09-13T16:48:02.018Z",
     "createdAt": "2026-09-13T16:48:02.018Z"
+  },
+  "DEP_CONC_1": {
+    "id": "DEP_CONC_1",
+    "totalInr": 565,
+    "amount": 500,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "paymentScreenshot": "VERIFIED_BY_ADMIN",
+    "status": "rejected",
+    "credited": false,
+    "approvedAt": "2026-09-13T16:49:40.306Z",
+    "updatedAt": "2026-09-13T16:49:40.306Z",
+    "createdAt": "2026-09-13T16:49:40.306Z"
   }
 }
