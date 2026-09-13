@@ -375,10 +375,13 @@
     "accountDetails": {
       "upiId": "invalid@upi"
     },
-    "status": "pending",
+    "status": "rejected",
     "type": "withdrawal",
     "fee": 0,
     "userName": "",
-    "createdAt": "2026-09-13T06:18:57.783Z"
+    "createdAt": "2026-09-13T06:18:57.783Z",
+    "rejectionReason": "Payout Rejected by Admin - Refunded to Game Balance",
+    "rejectedAt": "2026-09-13T06:19:02.260Z",
+    "updatedAt": "2026-09-13T06:19:02.260Z"
   }
 }
