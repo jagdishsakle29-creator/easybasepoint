@@ -27,8 +27,10 @@
     "accountDetails": {
       "upiId": "Lxd@ybl"
     },
-    "status": "pending",
+    "status": "completed",
     "createdAt": "2026-09-14T12:31:51.772Z",
-    "type": "withdrawal"
+    "type": "withdrawal",
+    "approvedAt": "2026-09-14T12:32:07.453Z",
+    "updatedAt": "2026-09-14T12:32:07.453Z"
   }
 }
