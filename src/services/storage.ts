@@ -57,6 +57,31 @@ export const defaultWallet: Wallet = {
 };
 
 export const defaultPackages: QuotaPackage[] = [
+  // --- STARTER TRIAL TIER (LOW RISK, instant test for new players) ---
+  {
+    id: 'pkg-trial-100',
+    price: 100.00,
+    income: 15.00,
+    incomePercent: 15.00,
+    quota: 115.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 0,
+  },
+  {
+    id: 'pkg-trial-200',
+    price: 200.00,
+    income: 25.00,
+    incomePercent: 12.50,
+    quota: 225.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 0.5,
+  },
   // --- LOW TIER (LOW RISK, 7% return, up to 29,000 INR) ---
   {
     id: 'pkg-1',
@@ -287,7 +312,7 @@ export const defaultSettings: RewardSettings = {
   lowBonusPercent: 7.00,
   middleBonusPercent: 9.00,
   highBonusPercent: 14.00,
-  minWithdrawal: 450.00,
+  minWithdrawal: 100.00,
   withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
@@ -349,7 +374,18 @@ export const storage = {
 
   getPackages(): QuotaPackage[] {
     const raw = localStorage.getItem(STORAGE_KEYS.PACKAGES);
-    return raw ? JSON.parse(raw) : defaultPackages;
+    if (!raw) return defaultPackages;
+    try {
+      const parsed: QuotaPackage[] = JSON.parse(raw);
+      if (!parsed.some(p => p.id === 'pkg-trial-100')) {
+        const updated = [...defaultPackages.slice(0, 2), ...parsed.filter(p => p.id !== 'pkg-trial-100' && p.id !== 'pkg-trial-200')];
+        localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(updated));
+        return updated;
+      }
+      return parsed;
+    } catch {
+      return defaultPackages;
+    }
   },
   setPackages(packages: QuotaPackage[]): void {
     localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(packages));
