@@ -60,7 +60,7 @@ export const DepositPage: React.FC = () => {
 
   // Direct INR Wallet Top-Up Modal State
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
-  const [topUpAmount, setTopUpAmount] = useState<number>(100);
+  const [topUpAmount, setTopUpAmount] = useState<number>(200);
   const [utrRef, setUtrRef] = useState<string>('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
   const [depositStatusFilter, setDepositStatusFilter] = useState<'successful' | 'pending' | 'cancelled' | null>(null);
@@ -220,7 +220,7 @@ export const DepositPage: React.FC = () => {
 
   const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
     const upiId = settings.adminUpiId || 'basepnt@ybl';
-    const amount = topUpAmount || 100;
+    const amount = topUpAmount || 200;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const payeeName = settings.adminUpiName || 'EasyBasePoint';
@@ -427,7 +427,7 @@ export const DepositPage: React.FC = () => {
                 Select Quick Amount
               </label>
               <div className="grid grid-cols-5 gap-1.5">
-                {[100, 200, 500, 890, 1400].map((amt) => (
+                {[200, 350, 500, 800, 1200].map((amt) => (
                   <button
                     key={amt}
                     type="button"
