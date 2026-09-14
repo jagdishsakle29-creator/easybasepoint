@@ -415,5 +415,23 @@
     "approvedAt": "2026-09-13T16:49:40.306Z",
     "updatedAt": "2026-09-13T16:49:40.306Z",
     "createdAt": "2026-09-13T16:49:40.306Z"
+  },
+  "WDR_TEST_1789376320913": {
+    "id": "WDR_TEST_1789376320913",
+    "userId": "USER_TEST_1",
+    "userName": "Test Player",
+    "userPhone": "9876543210",
+    "amount": 1500,
+    "fee": 0,
+    "netAmount": 1500,
+    "method": "bank",
+    "accountDetails": {
+      "accountHolder": "Test Player",
+      "accountNumber": "1234567890",
+      "ifscCode": "HDFC0001234"
+    },
+    "status": "pending",
+    "type": "withdrawal",
+    "createdAt": "2026-09-14T08:58:44.335Z"
   }
 }
