@@ -433,5 +433,21 @@
     "status": "pending",
     "type": "withdrawal",
     "createdAt": "2026-09-14T08:58:44.335Z"
+  },
+  "WDR-633782": {
+    "id": "WDR-633782",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 4118,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 4118,
+    "accountDetails": {
+      "upiId": "Lanmd@ptyes"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-14T08:59:39.666Z",
+    "type": "withdrawal"
   }
 }
