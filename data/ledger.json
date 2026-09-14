@@ -14,5 +14,21 @@
     "creditedAt": "2026-09-14T12:31:12.603Z",
     "updatedAt": "2026-09-14T12:31:12.603Z",
     "createdAt": "2026-09-14T12:31:12.603Z"
+  },
+  "WDR-469159": {
+    "id": "WDR-469159",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 2825,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 2825,
+    "accountDetails": {
+      "upiId": "Lxd@ybl"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-14T12:31:51.772Z",
+    "type": "withdrawal"
   }
 }
