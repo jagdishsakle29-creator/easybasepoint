@@ -20,21 +20,33 @@ export const HomePage: React.FC = () => {
   const { wallet, settings, setActiveTab, deposits, transactions } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Calculate extra commission / bonus received
-  const extraCommission = React.useMemo(() => {
-    // 1. Extra bonus from approved deposits
-    const depositBonus = (deposits || [])
+  // Calculate today's pure commission & profits earned (STRICTLY EXCLUDING deposit principal)
+  const todayCommissionEarned = React.useMemo(() => {
+    // 1. Extra bonus/commission from approved deposits (e.g. 13% bonus)
+    const depositCommission = (deposits || [])
       .filter((d) => d.status === 'completed' || d.status === 'approved')
       .reduce((sum, d) => sum + (Number(d.bonusInr) || 0) + (Number(d.activityRewardInr) || 0), 0);
 
-    // 2. Bonus or commission transactions
-    const txBonus = (transactions || [])
-      .filter((t) => (t.type === 'commission' || t.type === 'reward') && t.status === 'completed')
+    // 2. Earnings from quota income / daily profit tasks / referral commissions
+    const taskProfit = (transactions || [])
+      .filter((t) => (t.type === 'reward' || t.type === 'commission') && t.status === 'completed')
+      .filter((t) => !t.note?.includes('Welcome Cash Bonus'))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const teamComm = Number(wallet.teamCommission) || 0;
-    return Math.max(depositBonus, txBonus, teamComm);
-  }, [deposits, transactions, wallet.teamCommission]);
+    const computedTotal = depositCommission + taskProfit + teamComm;
+
+    if (computedTotal > 0) {
+      return computedTotal;
+    }
+
+    // If wallet.todayReceive has a non-deposit pure commission value (< 450)
+    if (wallet.todayReceive > 0 && wallet.todayReceive < 450) {
+      return wallet.todayReceive;
+    }
+
+    return 0.00;
+  }, [deposits, transactions, wallet.todayReceive, wallet.teamCommission]);
 
   // Auto-swipe banner every 4 seconds as requested!
   useEffect(() => {
@@ -251,7 +263,7 @@ export const HomePage: React.FC = () => {
           <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#FF6B00] group-hover:translate-x-1 transition-all" />
         </div>
 
-        {/* Today Earn Card with Extra Commission Display */}
+        {/* Today Earn Card with Pure Commission Display */}
         <div
           onClick={() => setActiveTab('history')}
           className="glass-card rounded-2xl p-4 flex items-center justify-between hover:translate-x-0.5 hover:border-orange-200 transition-all cursor-pointer group"
@@ -267,16 +279,16 @@ export const HomePage: React.FC = () => {
                 </span>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-emerald-500" />
-                  <span>+₹{extraCommission.toFixed(2)} Extra Commission</span>
+                  <span>+₹{todayCommissionEarned.toFixed(2)} Commission</span>
                 </span>
               </div>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-lg font-bold text-[#0B1528] font-outfit">
-                  ₹{wallet.todayReceive.toFixed(2)}
+                <span className="text-xl font-black text-emerald-600 font-outfit">
+                  ₹{todayCommissionEarned.toFixed(2)}
                 </span>
-                <span className="text-xs font-semibold text-emerald-600 font-outfit">
-                  {extraCommission > 0
-                    ? `(Includes +₹${extraCommission.toFixed(2)} Extra Bonus)`
+                <span className="text-xs font-semibold text-slate-500 font-outfit">
+                  {todayCommissionEarned > 0
+                    ? `(Today Extra Commission & Profit)`
                     : `(${settings.inrRewardPercent}% Extra Commission On Recharge)`}
                 </span>
               </div>
