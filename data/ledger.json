@@ -446,8 +446,10 @@
     "accountDetails": {
       "upiId": "Lanmd@ptyes"
     },
-    "status": "pending",
+    "status": "completed",
     "createdAt": "2026-09-14T08:59:39.666Z",
-    "type": "withdrawal"
+    "type": "withdrawal",
+    "approvedAt": "2026-09-14T08:59:52.794Z",
+    "updatedAt": "2026-09-14T08:59:52.794Z"
   }
 }
