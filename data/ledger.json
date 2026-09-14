@@ -83,8 +83,10 @@
     "accountDetails": {
       "upiId": "lxdb@patym"
     },
-    "status": "pending",
+    "status": "completed",
     "createdAt": "2026-09-14T12:35:58.897Z",
-    "type": "withdrawal"
+    "type": "withdrawal",
+    "approvedAt": "2026-09-14T12:36:09.884Z",
+    "updatedAt": "2026-09-14T12:36:09.884Z"
   }
 }
