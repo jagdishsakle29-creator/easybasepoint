@@ -70,5 +70,21 @@
     "approvedAt": "2026-09-14T12:35:27.535Z",
     "creditedAt": "2026-09-14T12:35:27.535Z",
     "updatedAt": "2026-09-14T12:35:27.535Z"
+  },
+  "WDR-818186": {
+    "id": "WDR-818186",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 621.5,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 621.5,
+    "accountDetails": {
+      "upiId": "lxdb@patym"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-14T12:35:58.897Z",
+    "type": "withdrawal"
   }
 }
