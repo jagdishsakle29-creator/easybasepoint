@@ -221,5 +221,21 @@
     "approvedAt": "2026-09-15T13:48:36.132Z",
     "creditedAt": "2026-09-15T13:48:36.132Z",
     "updatedAt": "2026-09-15T13:48:36.132Z"
+  },
+  "WDR-246128": {
+    "id": "WDR-246128",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 226,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 226,
+    "accountDetails": {
+      "upiId": "Janznznz@hsns"
+    },
+    "status": "pending",
+    "createdAt": "2026-09-15T13:48:56.968Z",
+    "type": "withdrawal"
   }
 }
