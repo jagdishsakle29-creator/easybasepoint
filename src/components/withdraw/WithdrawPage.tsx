@@ -43,7 +43,7 @@ export const WithdrawPage: React.FC = () => {
   } = useApp();
 
   const [method, setMethod] = useState<WithdrawalMethod>('bank');
-  const [amount, setAmount] = useState<number>(() => Math.max(450, settings.minWithdrawal || 450));
+  const [amount, setAmount] = useState<number>(() => Math.max(200, settings.minWithdrawal || 200));
   
   // Bank fields
   const [accountHolder, setAccountHolder] = useState(() => bankCards[0]?.accountHolder || '');
@@ -140,8 +140,9 @@ export const WithdrawPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (amount < settings.minWithdrawal) {
-      addToast('error', `Minimum withdrawal amount is ₹${settings.minWithdrawal}.`);
+    const minAmount = Math.max(200, settings.minWithdrawal || 200);
+    if (amount < minAmount) {
+      addToast('error', `Minimum withdrawal amount is ₹${minAmount}.`);
       return;
     }
 

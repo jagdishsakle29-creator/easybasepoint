@@ -1477,8 +1477,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     details: WithdrawalRequest['accountDetails']
   ): { success: boolean; message: string } => {
     if (!user) return { success: false, message: 'Not logged in' };
-    if (amount < settings.minWithdrawal) {
-      const msg = `Minimum withdrawal amount is ₹${settings.minWithdrawal}.`;
+    const minWithdrawal = Math.max(200, settings.minWithdrawal || 200);
+    if (amount < minWithdrawal) {
+      const msg = `Minimum withdrawal amount is ₹${minWithdrawal}.`;
       addToast('error', msg);
       return { success: false, message: msg };
     }

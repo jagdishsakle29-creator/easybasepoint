@@ -34,7 +34,7 @@ export const HistoryPage: React.FC = () => {
     if (s === 'completed' || s === 'credited' || s === 'approved' || credited === true) {
       return 'successful';
     }
-    if (s === 'pending' || s === 'processing') {
+    if (s === 'pending' || s === 'processing' || s === 'pending_verification') {
       return 'pending';
     }
     if (s === 'rejected' || s === 'cancelled' || s === 'failed') {
@@ -89,6 +89,7 @@ export const HistoryPage: React.FC = () => {
       let currentStatus: TransactionStatus = t.status;
       let currentAmount = t.amount;
       let currentNote = t.note;
+      let currentMetadata = t.metadata;
 
       if (t.referenceId) {
         // Check deposit match
@@ -99,8 +100,15 @@ export const HistoryPage: React.FC = () => {
           currentStatus = (isCompleted ? 'completed' : matchingDep.status) as TransactionStatus;
           currentAmount = matchingDep.totalInr || t.amount;
           currentNote = isCompleted
-            ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved (+Bonus)`)
+            ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit Approved`)
             : (matchingDep.status === 'rejected' ? (isUsdt ? 'USDT Deposit Rejected' : 'INR Deposit Rejected') : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending Verification)` : `INR Deposit (₹${matchingDep.amount} • Pending Verification)`));
+          currentMetadata = {
+            ...t.metadata,
+            bonusInr: matchingDep.bonusInr || 0,
+            baseAmount: matchingDep.amount,
+            method: matchingDep.method,
+            utrNumber: matchingDep.utrNumber,
+          };
         } else {
           // Check withdrawal match
           const matchingWith = myWithdrawals.find((w) => w.id === t.referenceId);
@@ -121,6 +129,7 @@ export const HistoryPage: React.FC = () => {
           status: currentStatus,
           amount: currentAmount,
           note: currentNote,
+          metadata: currentMetadata,
         });
       }
     });
@@ -148,6 +157,12 @@ export const HistoryPage: React.FC = () => {
               ? `USDT Deposit (${dep.amount} USDT • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
               : `INR Deposit (₹${dep.amount} • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`,
             referenceId: dep.id,
+            metadata: {
+              bonusInr: dep.bonusInr || 0,
+              baseAmount: dep.amount,
+              method: dep.method,
+              utrNumber: dep.utrNumber,
+            },
           });
         }
       }
@@ -216,14 +231,10 @@ export const HistoryPage: React.FC = () => {
   }, [cancelledItems]);
 
   // Filter items by status tab and search query
-  const effectiveStatusFilter = activeTab === 'deposit' && statusFilter === 'all'
-    ? (pendingItems.length > 0 ? 'pending' : 'successful')
-    : statusFilter;
-
   const displayItems = useMemo(() => {
     let list = typeFiltered;
-    if (effectiveStatusFilter !== 'all') {
-      list = list.filter((t) => getStatusCategory(t.status) === effectiveStatusFilter);
+    if (statusFilter !== 'all') {
+      list = list.filter((t) => getStatusCategory(t.status) === statusFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -235,7 +246,7 @@ export const HistoryPage: React.FC = () => {
       );
     }
     return list;
-  }, [typeFiltered, effectiveStatusFilter, searchQuery]);
+  }, [typeFiltered, statusFilter, searchQuery]);
 
   const getStatusBadge = (status: TransactionStatus) => {
     const cat = getStatusCategory(status);
@@ -308,6 +319,7 @@ export const HistoryPage: React.FC = () => {
   const renderTransactionCard = (t: (typeof combinedItems)[0]) => {
     const isCredit = t.type === 'deposit' || t.type === 'reward' || t.type === 'commission';
     const cat = getStatusCategory(t.status);
+    const bonusInr = t.metadata?.bonusInr;
 
     return (
       <div
@@ -323,8 +335,13 @@ export const HistoryPage: React.FC = () => {
         <div className="flex items-center gap-3">
           {getTypeIcon(t.type)}
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-bold text-slate-800">{t.note}</span>
+              {bonusInr && bonusInr > 0 ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                  +₹{bonusInr.toFixed(2)} Bonus
+                </span>
+              ) : null}
             </div>
             <div className="text-[11px] text-slate-400 font-mono mt-0.5">
               {t.id} • {new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -363,24 +380,19 @@ export const HistoryPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Primary Category Filter Tabs: All, Deposit, Withdrawal, Reward, Team Bonus */}
+      {/* Primary Category Filter Tabs: All Records, Deposits, Withdrawals, Rewards */}
       <div className="flex items-center gap-1.5 bg-[#0B1528] p-1.5 rounded-2xl overflow-x-auto no-scrollbar border border-orange-500/20 shadow-md">
         {[
           { id: 'all', label: 'All Records', activeBg: 'from-[#FF6B00] to-amber-500 shadow-[0_2px_10px_rgba(255,107,0,0.5)]' },
           { id: 'deposit', label: '💰 Deposits', activeBg: 'from-emerald-600 to-teal-400 shadow-[0_2px_10px_rgba(16,185,129,0.5)]' },
           { id: 'withdrawal', label: '💸 Withdrawals', activeBg: 'from-rose-600 to-pink-500 shadow-[0_2px_10px_rgba(244,63,94,0.5)]' },
           { id: 'reward', label: '🎁 Rewards', activeBg: 'from-amber-500 to-yellow-400 shadow-[0_2px_10px_rgba(245,158,11,0.5)]' },
-          { id: 'commission', label: '👥 Team Bonus', activeBg: 'from-blue-600 to-indigo-500 shadow-[0_2px_10px_rgba(59,130,246,0.5)]' },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => {
               setActiveTab(tab.id as any);
-              if (tab.id === 'deposit') {
-                setStatusFilter(pendingItems.length > 0 ? 'pending' : 'successful');
-              } else {
-                setStatusFilter('all');
-              }
+              setStatusFilter('all');
             }}
             className={`flex-1 min-w-[95px] py-2 px-3 text-center text-xs font-black font-outfit rounded-xl transition-all duration-300 ${
               activeTab === tab.id
@@ -401,7 +413,7 @@ export const HistoryPage: React.FC = () => {
         {/* 1. Successful Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'successful' && activeTab !== 'deposit' ? 'all' : 'successful')}
+          onClick={() => setStatusFilter(statusFilter === 'successful' ? 'all' : 'successful')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'successful'
               ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent border-emerald-500 ring-2 ring-emerald-400/50 shadow-md scale-[1.02]'
@@ -428,7 +440,7 @@ export const HistoryPage: React.FC = () => {
         {/* 2. Pending Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'pending' && activeTab !== 'deposit' ? 'all' : 'pending')}
+          onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'pending'
               ? 'bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border-amber-500 ring-2 ring-amber-400/50 shadow-md scale-[1.02]'
@@ -455,7 +467,7 @@ export const HistoryPage: React.FC = () => {
         {/* 3. Cancelled Card */}
         <button
           type="button"
-          onClick={() => setStatusFilter(statusFilter === 'cancelled' && activeTab !== 'deposit' ? 'all' : 'cancelled')}
+          onClick={() => setStatusFilter(statusFilter === 'cancelled' ? 'all' : 'cancelled')}
           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             statusFilter === 'cancelled'
               ? 'bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-transparent border-rose-500 ring-2 ring-rose-400/50 shadow-md scale-[1.02]'
@@ -480,51 +492,23 @@ export const HistoryPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Status Segment Filter Buttons: All (hidden on deposit) | Successful | Pending | Cancelled */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold font-outfit">
-        {activeTab !== 'deposit' && (
+      {/* Active Filter Indicator Bar */}
+      {statusFilter !== 'all' && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-outfit">
+          <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <span>Filtered by:</span>
+            <span className="font-black capitalize text-slate-900">{statusFilter} Records</span>
+          </span>
           <button
+            type="button"
             onClick={() => setStatusFilter('all')}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-              statusFilter === 'all'
-                ? 'bg-white text-slate-900 shadow-xs font-black'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+            className="text-xs font-bold text-[#FF6B00] hover:text-orange-700 flex items-center gap-1 cursor-pointer"
           >
-            All ({typeFiltered.length})
+            <X className="w-3.5 h-3.5" />
+            Show All
           </button>
-        )}
-        <button
-          onClick={() => setStatusFilter('successful')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-            statusFilter === 'successful'
-              ? 'bg-emerald-600 text-white shadow-xs font-black'
-              : 'text-emerald-700 hover:text-emerald-900'
-          }`}
-        >
-          ✅ Successful ({successfulItems.length})
-        </button>
-        <button
-          onClick={() => setStatusFilter('pending')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-            statusFilter === 'pending'
-              ? 'bg-amber-500 text-white shadow-xs font-black'
-              : 'text-amber-800 hover:text-amber-950'
-          }`}
-        >
-          ⏳ Pending ({pendingItems.length})
-        </button>
-        <button
-          onClick={() => setStatusFilter('cancelled')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-            statusFilter === 'cancelled'
-              ? 'bg-rose-600 text-white shadow-xs font-black'
-              : 'text-rose-700 hover:text-rose-900'
-          }`}
-        >
-          ❌ Cancelled ({cancelledItems.length})
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Active Pending Alert Banner (only shown when user views pending records) */}
       {pendingItems.length > 0 && statusFilter === 'pending' && (
@@ -570,8 +554,8 @@ export const HistoryPage: React.FC = () => {
           <History className="w-10 h-10 text-slate-300 mx-auto" />
           <h4 className="text-sm font-bold text-slate-700">No Transactions Found</h4>
           <p className="text-xs text-slate-400">
-            {effectiveStatusFilter !== 'all' 
-              ? `No ${effectiveStatusFilter} records found for this category.` 
+            {statusFilter !== 'all' 
+              ? `No ${statusFilter} records found for this category.` 
               : 'There are no records matching your current selection.'}
           </p>
         </div>
@@ -580,10 +564,19 @@ export const HistoryPage: React.FC = () => {
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {effectiveStatusFilter === 'all'
+              {statusFilter === 'all'
                 ? `All Records (${displayItems.length}) • Newest on top, oldest at bottom`
-                : `Showing ${displayItems.length} ${effectiveStatusFilter} records`}
+                : `Showing ${displayItems.length} ${statusFilter} records`}
             </span>
+            {statusFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className="text-xs font-bold text-[#FF6B00] hover:underline cursor-pointer"
+              >
+                Reset Filter
+              </button>
+            )}
           </div>
           {displayItems.map(renderTransactionCard)}
         </div>

@@ -199,8 +199,8 @@ async function runAudit() {
   // AUDIT 7: Withdrawal Security PIN & Limits
   // ----------------------------------------------------
   console.log('--- AUDIT 7: Withdrawal Security PIN & Limits ---');
-  const minWithdrawal = 450;
-  const requestedWithdrawal = 400;
+  const minWithdrawal = 200;
+  const requestedWithdrawal = 150;
   assert(requestedWithdrawal < minWithdrawal, 'Must enforce minimum withdrawal');
 
   const validWithdrawal = 2100;
