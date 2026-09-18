@@ -71,6 +71,7 @@ export const DepositPage: React.FC = () => {
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
+  const [qrViewMode, setQrViewMode] = useState<'dynamic' | 'official'>('dynamic');
 
   // Filtered packages
   const filteredPackages = useMemo(() => {
@@ -219,11 +220,11 @@ export const DepositPage: React.FC = () => {
   };
 
   const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
-    const upiId = settings.adminUpiId || 'basepnt@ybl';
+    const upiId = settings.adminUpiId || 'antaryami12@upi';
     const amount = topUpAmount || 200;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const payeeName = settings.adminUpiName || 'EasyBasePoint';
+    const payeeName = settings.adminUpiName || 'Krishna Dawar';
     const remark = 'cousin';
 
     const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
@@ -274,7 +275,7 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    const upiId = settings.adminUpiId || 'basepnt@ybl';
+    const upiId = settings.adminUpiId || 'antaryami12@upi';
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
@@ -1108,13 +1109,13 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-slate-400">Official UPI ID:</span>
-                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'basepnt@ybl'}</span>
+                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'antaryami12@upi'}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
-                          addToast('success', `Copied ${settings.adminUpiId || 'basepnt@ybl'} to clipboard!`);
+                          navigator.clipboard.writeText(settings.adminUpiId || 'antaryami12@upi');
+                          addToast('success', `Copied ${settings.adminUpiId || 'antaryami12@upi'} to clipboard!`);
                         }}
                         className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition"
                       >
@@ -1201,19 +1202,48 @@ export const DepositPage: React.FC = () => {
 
                   {/* QR Code and Official UPI */}
                   <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
+                    <div className="flex justify-center items-center gap-2 mb-1">
+                      <button
+                        type="button"
+                        onClick={() => setQrViewMode('dynamic')}
+                        className={`px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                          qrViewMode === 'dynamic'
+                            ? 'bg-[#FF6B00] text-white shadow'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        Auto ₹{topUpAmount} QR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQrViewMode('official')}
+                        className={`px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                          qrViewMode === 'official'
+                            ? 'bg-[#FF6B00] text-white shadow'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        Official Scanner QR
+                      </button>
+                    </div>
+
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-                        `upi://pay?pa=${settings.adminUpiId || 'basepnt@ybl'}&pn=${encodeURIComponent(settings.adminUpiName || 'EasyBasePoint')}&am=${topUpAmount}&cu=INR&tn=cousin&tr=cousin`
-                      )}`}
+                      src={
+                        qrViewMode === 'official'
+                          ? '/deposit_qr.jpg'
+                          : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                              `upi://pay?pa=${settings.adminUpiId || 'antaryami12@upi'}&pn=${encodeURIComponent(settings.adminUpiName || 'Krishna Dawar')}&am=${topUpAmount}&cu=INR&tn=cousin&tr=cousin`
+                            )}`
+                      }
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = '/deposit_qr.jpg';
                       }}
                       alt="Official Payment QR" 
-                      className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200"
+                      className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200 bg-white p-1"
                     />
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Scan with PhonePe, Paytm, or GPay to auto-fill ₹{topUpAmount}</span>
+                      <span>Scan with PhonePe, Paytm, CRED, or GPay to pay ₹{topUpAmount}</span>
                     </div>
                   </div>
 
@@ -1226,7 +1256,7 @@ export const DepositPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'basepnt@ybl');
+                          navigator.clipboard.writeText(settings.adminUpiId || 'antaryami12@upi');
                           addToast('success', 'UPI ID copied to clipboard!');
                         }}
                         className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
@@ -1236,10 +1266,10 @@ export const DepositPage: React.FC = () => {
                       </button>
                     </div>
                     <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                      {settings.adminUpiId || 'basepnt@ybl'}
+                      {settings.adminUpiId || 'antaryami12@upi'}
                     </div>
                     <div className="text-[10px] text-slate-300">
-                      Verified Payee: <strong>{settings.adminUpiName || 'EasyBasePoint Enterprise Solutions'}</strong>
+                      Verified Payee: <strong>{settings.adminUpiName || 'Krishna Dawar'}</strong>
                     </div>
                   </div>
 

@@ -64,13 +64,19 @@ const NTFY_DEPOSITS_PUB = 'https://ntfy.sh/ebp_easybasepoint_deposits';
 const NTFY_APPROVALS_SSE = 'https://ntfy.sh/ebp_easybasepoint_approvals/sse';
 const NTFY_APPROVALS_PUB = 'https://ntfy.sh/ebp_easybasepoint_approvals';
 
-const GITHUB_RAW_LEDGER = 'https://raw.githubusercontent.com/jagdishsakle29-creator/easybasepoint/ledger/data/ledger.json';
 
 const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && window.location) {
     return `${window.location.origin}/api`;
   }
   return 'https://easybasepoint.vercel.app/api';
+};
+
+const getAdminAuthToken = (): string => {
+  if (typeof sessionStorage !== 'undefined') {
+    return sessionStorage.getItem('ebp_admin_token') || sessionStorage.getItem('ebp_admin_key') || '';
+  }
+  return '';
 };
 
 export const cloudSync = {
@@ -126,11 +132,13 @@ export const cloudSync = {
   ): Promise<boolean> {
     try {
       const nowIso = new Date().toISOString();
+      const adminToken = getAdminAuthToken();
       fetch(`${getApiBaseUrl()}/bot/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-key': 'lord12',
+          'Authorization': `Bearer ${adminToken}`,
+          'x-admin-key': adminToken,
         },
         body: JSON.stringify({
           type: 'withdrawal',
@@ -141,7 +149,7 @@ export const cloudSync = {
           reason: meta.reason,
           userId: meta.userId,
           userPhone: meta.userPhone,
-          adminKey: 'lord12',
+          adminKey: adminToken,
         }),
       }).catch(() => {});
 
@@ -185,7 +193,7 @@ export const cloudSync = {
     } catch {}
 
     try {
-      const gitRes = await fetch(`${GITHUB_RAW_LEDGER}?t=${Date.now()}`, { cache: 'no-store' });
+      const gitRes = await fetch(`${getApiBaseUrl()}/bot/withdrawals?t=${Date.now()}`, { cache: 'no-store' });
       if (gitRes.ok) {
         const dataObj = await gitRes.json();
         const list = Object.values(dataObj || {})
@@ -224,13 +232,15 @@ export const cloudSync = {
       const nowIso = new Date().toISOString();
 
       // 1. Save to cloud serverless ledger with secure admin authorization
+      const adminToken = getAdminAuthToken();
       fetch(`${getApiBaseUrl()}/bot/approve`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-admin-key': 'lord12',
+          'Authorization': `Bearer ${adminToken}`,
+          'x-admin-key': adminToken,
         },
-        body: JSON.stringify({ depId, totalInr, action, userId, userPhone, adminKey: 'lord12' }),
+        body: JSON.stringify({ depId, totalInr, action, userId, userPhone, adminKey: adminToken }),
       }).catch(() => {});
 
       // 2. Broadcast directly via SSE to player game across all mobile phones & tabs instantly
@@ -274,9 +284,9 @@ export const cloudSync = {
       }
     } catch {}
 
-    // 2. High-reliability fallback: fetch from GitHub ledger directly
+    // 2. High-reliability fallback: fetch from API deposits endpoint
     try {
-      const gitRes = await fetch(`${GITHUB_RAW_LEDGER}?t=${Date.now()}`, { cache: 'no-store' });
+      const gitRes = await fetch(`${getApiBaseUrl()}/bot/deposits?t=${Date.now()}`, { cache: 'no-store' });
       if (gitRes.ok) {
         const dataObj = await gitRes.json();
         const list = Object.values(dataObj || {}).sort((a: any, b: any) => {

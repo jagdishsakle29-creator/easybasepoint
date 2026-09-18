@@ -40,7 +40,7 @@ const SUPPORT_CATEGORIES = [
       { id: 'dep-not-added', title: 'Payment sent but balance not added in 5-7 mins', desc: 'Payment completed via PhonePe/GPay/UPI, but wallet balance has not been credited yet.' },
       { id: 'dep-wrong-utr', title: 'Entered wrong 12-digit UTR by mistake', desc: 'An incorrect 12-digit UTR number was submitted in the deposit form by mistake.' },
       { id: 'dep-qr-failed', title: 'PhonePe QR / UPI transaction failed or stuck', desc: 'Money was debited from bank account, but UPI payment shows pending or failed.' },
-      { id: 'dep-manual-verify', title: 'Paid to basepnt@ybl & need priority approval', desc: 'Direct payment made to official UPI basepnt@ybl; requesting priority verification.' },
+      { id: 'dep-manual-verify', title: 'Paid to antaryami12@upi & need priority approval', desc: 'Direct payment made to official UPI antaryami12@upi; requesting priority verification.' },
     ]
   },
   { 
@@ -364,13 +364,26 @@ export const ProfilePage: React.FC = () => {
 
         {/* Admin Portal Button */}
         <button
-          onClick={() => {
+          onClick={async () => {
             const key = prompt('Enter Admin Secret Key:');
-            if (key === (settings.adminSecretKey || 'lord12')) {
-              setActiveTab('admin');
-              addToast('success', 'Admin session unlocked successfully!');
-            } else if (key !== null) {
-              addToast('error', '❌ Invalid admin secret key.');
+            if (!key) return;
+            try {
+              const res = await fetch('/api/auth/admin-verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key }),
+              });
+              const data = await res.json();
+              if (data.ok && data.token) {
+                sessionStorage.setItem('ebp_admin_token', data.token);
+                sessionStorage.setItem('ebp_admin_key', key);
+                setActiveTab('admin');
+                addToast('success', 'Admin session unlocked successfully!');
+              } else {
+                addToast('error', '❌ Invalid admin secret key.');
+              }
+            } catch {
+              addToast('error', 'Authentication service unavailable.');
             }
           }}
           className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/70 rounded-2xl transition group text-left text-slate-700"

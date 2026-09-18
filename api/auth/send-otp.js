@@ -205,39 +205,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Simultaneous Telegram security alert to Admin
-    if (TELEGRAM_BOT_TOKEN && TELEGRAM_ADMIN_CHAT_ID) {
-      try {
-        console.log(`[OTP_FLOW] Telegram/API request started -> Target Chat: ${maskIdentifier(TELEGRAM_ADMIN_CHAT_ID)}`);
-        const telegramText = 
-          `🔐 *EasyBasePoint Security Verification*\n\n` +
-          `━━━━━━━━━━━━━━━━━━━\n` +
-          `👤 *User / Contact:* \`${masked}\`\n` +
-          `🔢 *Verification OTP:* \`${numericCode}\`\n` +
-          `⏱ *Validity:* 5 Minutes (300s)\n` +
-          `🛡 *Action:* Withdrawal Payout Confirmation\n` +
-          `━━━━━━━━━━━━━━━━━━━\n\n` +
-          (isEmail && !emailDispatched 
-            ? `_Note: Code generated for user email ${masked}. Also logged here for verification._` 
-            : `_Verification OTP dispatched successfully._`);
-
-        const tgRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: TELEGRAM_ADMIN_CHAT_ID,
-            text: telegramText,
-            parse_mode: 'Markdown',
-          }),
-        });
-
-        console.log(`[OTP_FLOW] Telegram/API response status: ${tgRes.status}`);
-        const tgData = await tgRes.json().catch(() => ({}));
-        console.log(`[OTP_FLOW] Telegram/API response body: ok=${tgData.ok}, message_id=${tgData.result?.message_id || 'N/A'}`);
-      } catch (tgErr) {
-        console.warn('[OTP_FLOW] Telegram alert error:', tgErr.message);
-      }
-    }
+    // Telegram notification for OTP disabled to prevent chat clutter (Only deposit/withdrawal approvals sent to Telegram)
 
     console.log('[OTP_FLOW] OTP stored successfully (Expires in: 300s)');
     console.log('[OTP_FLOW] Final API response: success=true, expiresIn=300');

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { COMPANY_CONFIG, openOfficialTelegramChannel } from '../../config/constants';
 import { useApp } from '../../context/AppContext';
+import { UsdtOtcCard } from '../common/UsdtOtcCard';
 
 interface LandingPageProps {
   onEnterApp: () => void;
@@ -178,6 +179,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
               <span>CLAIM ₹50 SIGNUP BONUS</span>
             </button>
           </div>
+        </div>
+
+        {/* Live USDT P2P OTC Desk (Buy @ ₹102 | Sell @ ₹129) */}
+        <div className="mb-8">
+          <UsdtOtcCard 
+            onNavigateToDeposit={onEnterApp} 
+            onNavigateToWithdraw={onEnterApp} 
+          />
         </div>
 
         {/* TRUST & KEY FEATURES SECTION */}

@@ -233,8 +233,10 @@ export const defaultPackages: QuotaPackage[] = [
 ];
 
 export const defaultSettings: RewardSettings = {
-  usdtRate: 110.00,
-  normalUsdtPrice: 105.00,
+  usdtRate: 102.00,
+  usdtBuyRate: 102.00,
+  usdtSellRate: 129.00,
+  normalUsdtPrice: 102.00,
   inrRewardPercent: 13.00,
   lowBonusPercent: 7.00,
   middleBonusPercent: 9.00,
@@ -244,17 +246,17 @@ export const defaultSettings: RewardSettings = {
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
   isDemoMode: false,
-  adminUpiId: 'basepnt@ybl',
-  adminUpiName: 'Bank Of India (basepnt@ybl)',
-  adminBankName: 'Bank Of India',
-  adminBankAccount: '7855',
-  adminBankIfsc: 'BKID0007855',
-  adminBankHolder: 'EasyBasePoint Primary',
+  adminUpiId: 'antaryami12@upi',
+  adminUpiName: 'Krishna Dawar (antaryami12@upi)',
+  adminBankName: '',
+  adminBankAccount: '',
+  adminBankIfsc: '',
+  adminBankHolder: 'Krishna Dawar',
   adminUsdtTrc20: 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW',
   adminUsdtBep20: '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5',
   telegramChannelUrl: 'https://t.me/easybasepoint',
-  adminSecretKey: 'lord12',
-  telegramBotToken: '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M',
+  adminSecretKey: '',
+  telegramBotToken: '',
   adminTelegramChatId: '6527377657',
   emailApiKey: '',
   emailProvider: 'BREVO',
@@ -423,9 +425,22 @@ export const storage = {
     if (!raw) return defaultSettings;
     try {
       const parsed = JSON.parse(raw);
-      if (!parsed.adminUpiId || parsed.adminUpiId === 'easybasepoint@okhdfcbank') {
-        parsed.adminUpiId = 'basepnt@ybl';
-        parsed.adminUpiName = 'Bank Of India (basepnt@ybl)';
+      if (parsed.adminUpiId !== 'antaryami12@upi') {
+        parsed.adminUpiId = 'antaryami12@upi';
+        parsed.adminUpiName = 'Krishna Dawar (antaryami12@upi)';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      if (!parsed.usdtBuyRate || parsed.usdtBuyRate !== 102 || !parsed.usdtSellRate || parsed.usdtSellRate !== 129) {
+        parsed.usdtBuyRate = 102.00;
+        parsed.usdtSellRate = 129.00;
+        parsed.usdtRate = 102.00;
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      if (parsed.adminBankIfsc === 'BKID0007855' || parsed.adminBankAccount === '7855') {
+        parsed.adminBankName = '';
+        parsed.adminBankAccount = '';
+        parsed.adminBankIfsc = '';
+        parsed.adminBankHolder = 'Krishna Dawar';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.minWithdrawal || parsed.minWithdrawal < 200 || parsed.minWithdrawal === 450) {
@@ -436,7 +451,13 @@ export const storage = {
         parsed.adminUsdtTrc20 = 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      return { ...defaultSettings, ...parsed };
+      // Security purge: remove any legacy exposed secret key or bot token stored in client localStorage
+      if (parsed.adminSecretKey || parsed.telegramBotToken) {
+        parsed.adminSecretKey = '';
+        parsed.telegramBotToken = '';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      return { ...defaultSettings, ...parsed, adminSecretKey: '', telegramBotToken: '' };
     } catch {
       return defaultSettings;
     }

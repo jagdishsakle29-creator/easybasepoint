@@ -86,10 +86,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
               )}
             </button>
 
-            {/* Admin session indicator (Only if opened via secret link ?admin=lord12) */}
+            {/* Admin session indicator */}
             {activeTab === 'admin' && (
               <button
-                onClick={() => setActiveTab('home')}
+                onClick={() => {
+                  if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('ebp_admin_token');
+                    sessionStorage.removeItem('ebp_admin_key');
+                  }
+                  setActiveTab('home');
+                }}
                 className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-bold transition flex items-center gap-1 shadow-sm"
                 title="Exit Admin Panel"
               >

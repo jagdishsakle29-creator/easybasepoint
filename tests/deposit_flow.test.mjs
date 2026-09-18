@@ -47,7 +47,7 @@ async function runTests() {
   // ----------------------------------------------------
   console.log('--- TEST 1: Amount Selection & Paytm Remark ---');
   const selectedAmount = 2100;
-  const upiId = 'basepnt@ybl';
+  const upiId = 'antaryami12@upi';
   const remark = 'cousin';
   const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${selectedAmount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
   const paytmUrl = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${selectedAmount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;

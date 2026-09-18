@@ -15,6 +15,7 @@ import {
   Coins
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { UsdtOtcCard } from '../common/UsdtOtcCard';
 
 export const HomePage: React.FC = () => {
   const { wallet, settings, setActiveTab, deposits, transactions } = useApp();
@@ -198,6 +199,12 @@ export const HomePage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Live USDT P2P OTC Desk (Buy @ ₹102 | Sell @ ₹129) */}
+      <UsdtOtcCard 
+        onNavigateToDeposit={() => setActiveTab('deposit')}
+        onNavigateToWithdraw={() => setActiveTab('withdraw')}
+      />
 
       {/* Rates Grid: USDT Rate & INR Reward */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">

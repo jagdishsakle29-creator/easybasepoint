@@ -231,7 +231,7 @@ async function sendTelegramDepositAlert(deposit) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '⚡ 1-Click Approve (Web)', url: `${webAppOrigin}/?admin=lord12&approve_dep=${deposit.id}&total=${totalInr}` },
+          { text: '📊 Admin Portal', url: `${webAppOrigin}/?tab=admin` },
           { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}:${totalInr}` },
         ],
         [
@@ -945,31 +945,8 @@ const server = http.createServer((req, res) => {
       parse_mode: 'Markdown',
     });
 
-    return new Promise((resolve) => {
-      const req = https.request(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData),
-        },
-      }, (res) => {
-        let resBody = '';
-        res.on('data', chunk => { resBody += chunk; });
-        res.on('end', () => {
-          let parsed = {};
-          try { parsed = JSON.parse(resBody); } catch {}
-          console.log(`[OTP_FLOW] Telegram/API response status: ${res.statusCode}`);
-          console.log(`[OTP_FLOW] Telegram/API response body: ok=${parsed.ok}, message_id=${parsed.result?.message_id || 'N/A'}`);
-          resolve({ ok: res.statusCode === 200 && parsed.ok === true, data: parsed });
-        });
-      });
-      req.on('error', (err) => {
-        console.error(`[OTP_FLOW] Telegram connection error:`, err.message);
-        resolve({ ok: false, error: err.message });
-      });
-      req.write(postData);
-      req.end();
-    });
+    // Disabled to prevent spamming Telegram admin chat; only approval/rejection alerts are sent
+    return Promise.resolve({ ok: true });
   }
 
   // 7. POST /api/auth/send-otp

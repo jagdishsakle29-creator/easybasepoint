@@ -88,7 +88,7 @@ export default async function handler(req, res) {
               inline_keyboard: [
                 [
                   { text: '✅ Confirmed & Credited', callback_data: `credited_info:${depId}` },
-                  { text: '📊 Open Admin Portal', url: 'https://easybasepoint.vercel.app/?admin=lord12' },
+                  { text: '📊 Open Admin Portal', url: 'https://easybasepoint.vercel.app/?tab=admin' },
                 ]
               ]
             }
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
               inline_keyboard: [
                 [
                   { text: '✅ Payout Completed', callback_data: `payout_info:${wdrId}` },
-                  { text: '📊 Open Admin Portal', url: 'https://easybasepoint.vercel.app/?admin=lord12' },
+                  { text: '📊 Open Admin Portal', url: 'https://easybasepoint.vercel.app/?tab=admin' },
                 ]
               ]
             }
@@ -230,7 +230,7 @@ export default async function handler(req, res) {
           text: `👋 *Welcome to EasyBasePoint Admin Bot!*\n\n` +
             `⚡ *Real-time Deposit & Withdrawal Control*\n` +
             `Interactive approval buttons will appear here whenever a player submits a deposit.\n\n` +
-            `🔗 *Admin Portal:* https://easybasepoint.vercel.app/?admin=lord12`,
+            `🔗 *Admin Portal:* https://easybasepoint.vercel.app/?tab=admin`,
           parse_mode: 'Markdown',
         });
       }

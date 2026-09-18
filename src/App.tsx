@@ -46,60 +46,93 @@ const AppContent: React.FC = () => {
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
-  // Check URL for secret admin link: ?admin=lord12 or direct 1-click approvals
+  // Check URL or Session for secure admin access
   const adminUnlockedRef = React.useRef(false);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const adminKey = params.get('admin');
-    const tabParam = params.get('tab');
-    if (
-      adminKey === (settings.adminSecretKey || 'lord12') || 
-      adminKey === 'lord12' || 
-      adminKey === 'true' || 
-      adminKey === '' || 
-      params.has('admin') || 
-      tabParam === 'admin'
-    ) {
-      setActiveTab('admin');
-      if (!adminUnlockedRef.current) {
-        adminUnlockedRef.current = true;
-        addToast('success', 'Admin session unlocked successfully!');
+    const checkAdminAuth = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const adminParam = params.get('admin') || params.get('admin_key') || params.get('admin_token');
+      const tabParam = params.get('tab');
+      const existingToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ebp_admin_token') : null;
+
+      let isAuthorized = Boolean(existingToken);
+
+      if (adminParam) {
+        try {
+          const res = await fetch('/api/auth/admin-verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: adminParam }),
+          });
+          const data = await res.json();
+          if (data.ok && data.token) {
+            sessionStorage.setItem('ebp_admin_token', data.token);
+            sessionStorage.setItem('ebp_admin_key', adminParam);
+            isAuthorized = true;
+            // Clean sensitive admin parameters from browser address bar
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('admin');
+            cleanUrl.searchParams.delete('admin_key');
+            cleanUrl.searchParams.delete('admin_token');
+            window.history.replaceState({}, '', cleanUrl.toString());
+          } else {
+            addToast('error', '❌ Unauthorized admin access key.');
+          }
+        } catch {
+          // If serverless endpoint is unreachable, block access
+        }
       }
-    }
 
-    const approveDepParam = params.get('approve_dep');
-    const totalParam = params.get('total');
-    if (approveDepParam) {
-      approveDeposit(approveDepParam, totalParam ? parseFloat(totalParam) : undefined);
-    }
+      if (isAuthorized) {
+        if (tabParam === 'admin' || adminParam) {
+          setActiveTab('admin');
+          if (!adminUnlockedRef.current) {
+            adminUnlockedRef.current = true;
+            addToast('success', 'Admin session unlocked successfully!');
+          }
+        }
 
-    const rejectDepParam = params.get('reject_dep');
-    if (rejectDepParam) {
-      rejectDeposit(rejectDepParam, 'Rejected via Admin Link');
-    }
+        // Only process approvals if strictly authorized as admin
+        const approveDepParam = params.get('approve_dep');
+        const totalParam = params.get('total');
+        if (approveDepParam) {
+          approveDeposit(approveDepParam, totalParam ? parseFloat(totalParam) : undefined);
+        }
 
-    const approveWdrParam = params.get('approve_wdr');
-    if (approveWdrParam) {
-      approveWithdrawal(approveWdrParam);
-    }
+        const rejectDepParam = params.get('reject_dep');
+        if (rejectDepParam) {
+          rejectDeposit(rejectDepParam, 'Rejected via Admin Link');
+        }
 
-    const rejectWdrParam = params.get('reject_wdr');
-    const reasonParam = params.get('reason');
-    if (rejectWdrParam) {
-      rejectWithdrawal(rejectWdrParam, reasonParam || 'Rejected via Admin Link');
-    }
+        const approveWdrParam = params.get('approve_wdr');
+        if (approveWdrParam) {
+          approveWithdrawal(approveWdrParam);
+        }
 
-    if (approveDepParam || rejectDepParam || approveWdrParam || rejectWdrParam) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('approve_dep');
-      url.searchParams.delete('total');
-      url.searchParams.delete('reject_dep');
-      url.searchParams.delete('approve_wdr');
-      url.searchParams.delete('reject_wdr');
-      url.searchParams.delete('reason');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, [settings.adminSecretKey, approveDeposit, rejectDeposit, approveWithdrawal, rejectWithdrawal, setActiveTab, addToast]);
+        const rejectWdrParam = params.get('reject_wdr');
+        const reasonParam = params.get('reason');
+        if (rejectWdrParam) {
+          rejectWithdrawal(rejectWdrParam, reasonParam || 'Rejected via Admin Link');
+        }
+      } else if (tabParam === 'admin') {
+        // Tab was requested as admin but user has not authenticated
+        addToast('error', 'Admin credentials required to view Admin Portal.');
+        setActiveTab('home');
+      }
+      if (params.get('approve_dep') || params.get('reject_dep') || params.get('approve_wdr') || params.get('reject_wdr')) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('approve_dep');
+        cleanUrl.searchParams.delete('total');
+        cleanUrl.searchParams.delete('reject_dep');
+        cleanUrl.searchParams.delete('approve_wdr');
+        cleanUrl.searchParams.delete('reject_wdr');
+        cleanUrl.searchParams.delete('reason');
+        window.history.replaceState({}, '', cleanUrl.toString());
+      }
+    };
+
+    checkAdminAuth();
+  }, [approveDeposit, rejectDeposit, approveWithdrawal, rejectWithdrawal, setActiveTab, addToast]);
 
   // Show community popup only once after successful login/registration, never while signing up or if previously dismissed
   useEffect(() => {

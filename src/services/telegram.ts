@@ -1,5 +1,12 @@
 import { DepositOrder, WithdrawalRequest, RewardSettings } from '../types';
 
+const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location) {
+    return `${window.location.origin}/api`;
+  }
+  return 'https://easybasepoint.vercel.app/api';
+};
+
 export const telegramService = {
   // Mask phone for strict privacy
   maskPhone(phone: string): string {
@@ -9,12 +16,8 @@ export const telegramService = {
     return `${clean.slice(0, 4)}****${clean.slice(-3)}`;
   },
 
-  // Test Telegram Bot Connection
-  async testConnection(botToken: string, chatId: string): Promise<{ success: boolean; message: string }> {
-    if (!botToken || !chatId) {
-      return { success: false, message: 'Please provide both Bot Token and Chat ID.' };
-    }
-
+  // Test Telegram Bot Connection via secure serverless endpoint
+  async testConnection(botToken?: string, chatId?: string): Promise<{ success: boolean; message: string }> {
     try {
       const text = `🤖 *EasyBasePoint Admin Bot Connected!*\n\n` +
         `✅ Connection Status: Active\n` +
@@ -22,13 +25,12 @@ export const telegramService = {
         `⚡ Real-time Payment Approvals are ready.\n\n` +
         `_Whenever a user submits a deposit or withdrawal, you will receive interactive alert buttons here to Approve or Reject._`;
 
-      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      const response = await fetch(`${getApiBaseUrl()}/bot/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
+          customChatId: chatId,
           text,
-          parse_mode: 'Markdown',
         }),
       });
 
@@ -44,11 +46,7 @@ export const telegramService = {
   },
 
   // Send Deposit Alert with [Approve] and [Reject] Inline Buttons
-  async sendDepositAlert(deposit: DepositOrder, userName: string, userPhone: string, settings: RewardSettings): Promise<boolean> {
-    const token = settings.telegramBotToken;
-    const chatId = settings.adminTelegramChatId;
-    if (!token || !chatId) return false;
-
+  async sendDepositAlert(deposit: DepositOrder, userName: string, userPhone: string, settings?: RewardSettings): Promise<boolean> {
     try {
       const maskedPhone = this.maskPhone(userPhone);
       const isUsdt = deposit.method === 'USDT' || deposit.id.startsWith('USDT');
@@ -72,19 +70,18 @@ export const telegramService = {
         `_Click below to Approve or Reject this payment:_`;
 
       const webBaseUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://easybasepoint.vercel.app';
-      const webApproveUrl = `${webBaseUrl}/?admin=lord12&approve_dep=${deposit.id}&total=${deposit.totalInr}`;
+      const webPortalUrl = `${webBaseUrl}/?tab=admin`;
 
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      const res = await fetch(`${getApiBaseUrl()}/bot/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
+          customChatId: settings?.adminTelegramChatId,
           text,
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚡ 1-Click Approve (Web)', url: webApproveUrl },
+                { text: '📊 Admin Portal', url: webPortalUrl },
                 { text: '✅ Approve (Bot)', callback_data: `approve_dep:${deposit.id}:${deposit.totalInr}` },
               ],
               [
@@ -94,18 +91,15 @@ export const telegramService = {
           },
         }),
       });
-      return true;
+      const data = await res.json();
+      return Boolean(data.ok);
     } catch {
       return false;
     }
   },
 
   // Send Withdrawal Alert with [Approve] and [Reject] Inline Buttons
-  async sendWithdrawalAlert(withdrawal: WithdrawalRequest, settings: RewardSettings): Promise<boolean> {
-    const token = settings.telegramBotToken;
-    const chatId = settings.adminTelegramChatId;
-    if (!token || !chatId) return false;
-
+  async sendWithdrawalAlert(withdrawal: WithdrawalRequest, settings?: RewardSettings): Promise<boolean> {
     try {
       const text = `📤 *NEW WITHDRAWAL REQUEST*\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
@@ -121,13 +115,12 @@ export const telegramService = {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payout:_`;
 
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      const res = await fetch(`${getApiBaseUrl()}/bot/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
+          customChatId: settings?.adminTelegramChatId,
           text,
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
@@ -138,7 +131,8 @@ export const telegramService = {
           },
         }),
       });
-      return true;
+      const data = await res.json();
+      return Boolean(data.ok);
     } catch {
       return false;
     }

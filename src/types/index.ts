@@ -147,7 +147,9 @@ export interface TeamMember {
 }
 
 export interface RewardSettings {
-  usdtRate: number; // e.g. 110.00
+  usdtRate: number; // e.g. 102.00
+  usdtBuyRate: number; // 102.00
+  usdtSellRate: number; // 129.00
   normalUsdtPrice: number; // e.g. 105.00
   inrRewardPercent: number; // e.g. 9.00
   lowBonusPercent: number; // e.g. 5

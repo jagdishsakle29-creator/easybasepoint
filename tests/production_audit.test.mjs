@@ -70,7 +70,7 @@ async function runAudit() {
   // ----------------------------------------------------
   console.log('--- AUDIT 2: Deposit Flow & Mandatory Screenshot & Paytm Remark ---');
   const depAmount = 2100;
-  const upiId = 'basepnt@ybl';
+  const upiId = 'antaryami12@upi';
   const remark = 'cousin';
   const paytmUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=EasyBasePoint&am=${depAmount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
   assert(paytmUrl.includes('am=2100'), 'Selected amount ₹2,100 must be in URL');
@@ -181,7 +181,7 @@ async function runAudit() {
   // AUDIT 6: Direct Payment App Schemes & Intent URLs
   // ----------------------------------------------------
   console.log('--- AUDIT 6: Payment Apps Deep Linking & Intents ---');
-  const upiPayee = 'basepnt@ybl';
+  const upiPayee = 'antaryami12@upi';
   const phonepeIntent = `intent://pay?pa=${encodeURIComponent(upiPayee)}&pn=EasyBasePoint&am=2100&cu=INR&tn=cousin&tr=cousin#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
   assert(phonepeIntent.includes('com.phonepe.app'));
   assert(phonepeIntent.includes('am=2100'));
