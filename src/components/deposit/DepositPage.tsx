@@ -336,14 +336,14 @@ export const DepositPage: React.FC = () => {
         >
           <span className="flex items-center justify-center gap-1.5">
             <Coins className="w-3.5 h-3.5" />
-            <span>Crypto USDT Deposit</span>
+            <span>Crypto USDT (Maintenance)</span>
           </span>
         </button>
       </div>
 
       {/* If USDT Mode is selected, render UsdtDepositTab */}
       {depositMode === 'USDT' ? (
-        <UsdtDepositTab />
+        <UsdtDepositTab onSwitchToInr={() => setDepositMode('INR')} />
       ) : (
         /* INR Mode */
         <div className="space-y-4">
