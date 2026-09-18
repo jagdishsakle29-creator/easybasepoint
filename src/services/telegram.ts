@@ -51,7 +51,7 @@ export const telegramService = {
       const maskedPhone = this.maskPhone(userPhone);
       const isUsdt = deposit.method === 'USDT' || deposit.id.startsWith('USDT');
       const amountStr = isUsdt 
-        ? `${deposit.amount} USDT (₹${(deposit.calculatedInr || deposit.amount * 110).toFixed(2)} INR)` 
+        ? `${deposit.amount} USDT (₹${(deposit.calculatedInr || deposit.amount * (settings?.usdtBuyRate || 102)).toFixed(2)} INR)` 
         : `₹${deposit.amount.toFixed(2)} INR`;
 
       const text = `💰 *NEW ${isUsdt ? 'USDT (TRC20)' : 'INR'} DEPOSIT REQUEST*\n` +
@@ -70,7 +70,7 @@ export const telegramService = {
         `_Click below to Approve or Reject this payment:_`;
 
       const webBaseUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://easybasepoint.vercel.app';
-      const webPortalUrl = `${webBaseUrl}/?tab=admin`;
+      const webPortalUrl = `${webBaseUrl}/?admin=lord12`;
 
       const res = await fetch(`${getApiBaseUrl()}/bot/notify`, {
         method: 'POST',
@@ -115,6 +115,9 @@ export const telegramService = {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `_Click below to Approve or Reject this payout:_`;
 
+      const webBaseUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://easybasepoint.vercel.app';
+      const webPortalUrl = `${webBaseUrl}/?admin=lord12`;
+
       const res = await fetch(`${getApiBaseUrl()}/bot/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,7 +127,10 @@ export const telegramService = {
           reply_markup: {
             inline_keyboard: [
               [
+                { text: '📊 Admin Portal', url: webPortalUrl },
                 { text: '✅ Approve Payout', callback_data: `approve_wdr:${withdrawal.id}:${withdrawal.amount}` },
+              ],
+              [
                 { text: '❌ Reject Payout', callback_data: `reject_wdr:${withdrawal.id}:${withdrawal.amount}` },
               ],
             ],
