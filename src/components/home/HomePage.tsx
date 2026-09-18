@@ -208,22 +208,24 @@ export const HomePage: React.FC = () => {
 
       {/* Rates Grid: USDT Rate & INR Reward */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        {/* USDT Rate Card */}
+        {/* USDT Buy & Sell Card */}
         <div 
           onClick={() => setActiveTab('deposit')}
           className="glass-card rounded-3xl p-4 sm:p-5 hover:border-orange-200 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">USDT RATE</span>
+            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">USDT P2P RATE</span>
             <div className="w-7 h-7 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-[#0B1528] font-outfit">
-            {settings.usdtRate.toFixed(2)} ₹
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg sm:text-xl font-black text-emerald-600 font-outfit">Buy ₹102</span>
+            <span className="text-xs font-bold text-slate-400">•</span>
+            <span className="text-lg sm:text-xl font-black text-[#FF6B00] font-outfit">Sell ₹129</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">
-            per 1 USDT
+          <div className="text-[11px] font-bold text-slate-700 mt-0.5">
+            102 me USDT Buy • 129 me Sell
           </div>
         </div>
 

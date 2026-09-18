@@ -146,8 +146,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
               </p>
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Platform USDT Rate:</span>
-                  <span className="font-semibold text-slate-800">₹{settings.usdtRate.toFixed(2)}</span>
+                  <span className="text-slate-500">USDT Rate:</span>
+                  <span className="font-semibold text-slate-800">Buy ₹102 / Sell ₹129</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Active INR Reward:</span>
