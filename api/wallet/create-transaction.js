@@ -37,15 +37,19 @@ export default async function handler(req, res) {
 
     if (isUsdt) {
       const calculatedInr = numAmount * 110;
-      bonusInr = calculatedInr * 0.06;
+      bonusInr = (calculatedInr * 22) / 100;
       activityRewardInr = numAmount >= 100 ? (calculatedInr * 0.03) : 0;
       totalInr = calculatedInr + bonusInr + activityRewardInr;
     } else {
-      bonusInr = (numAmount * 13) / 100;
+      bonusInr = (numAmount * 22) / 100;
       if (numAmount >= 50000) activityRewardInr = 5000;
       else if (numAmount >= 20000) activityRewardInr = 1000;
       else if (numAmount >= 5000) activityRewardInr = 100;
       totalInr = numAmount + bonusInr + activityRewardInr;
+    }
+    if (body.bonusInr !== undefined && body.bonusInr !== null && !isNaN(Number(body.bonusInr))) {
+      bonusInr = Number(body.bonusInr);
+      totalInr = (isUsdt ? numAmount * 110 : numAmount) + bonusInr + activityRewardInr;
     }
 
     const screenshot = body.paymentScreenshot || proofUrl || '';

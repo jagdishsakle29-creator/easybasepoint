@@ -628,7 +628,7 @@ export const DepositPage: React.FC = () => {
                   Up to ₹1.5L
                 </div>
                 <div className="text-sm font-extrabold text-purple-600 font-outfit mt-0.5">
-                  12% - 14%
+                  +{settings.highBonusPercent}%
                 </div>
                 <div className="text-[9px] text-slate-400 mt-0.5">Max High Yield</div>
               </button>

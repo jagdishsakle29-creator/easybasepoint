@@ -59,7 +59,7 @@ export const telegramService = {
         `🆔 *Deposit ID:* \`${deposit.id}\`\n` +
         `👤 *User:* ${userName} (${maskedPhone})\n` +
         `💵 *Deposit Amount:* ${amountStr}\n` +
-        `🎁 *13% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
+        `🎁 *${settings?.inrRewardPercent || 22}% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
         `📈 *Total Receivable:* *₹${deposit.totalInr.toFixed(2)} INR*\n` +
         `💳 *Method:* ${deposit.method} ${isUsdt ? '(TRON Network)' : '(UPI Transfer)'}\n` +
         `🔢 *Ref / UTR / TxID:* \`${deposit.utrNumber || 'Pending'}\`\n` +

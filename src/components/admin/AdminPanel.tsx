@@ -60,7 +60,7 @@ export const AdminPanel: React.FC = () => {
   const [isPkgModalOpen, setIsPkgModalOpen] = useState(false);
   const [editingPkgId, setEditingPkgId] = useState<string | null>(null);
   const [pkgPrice, setPkgPrice] = useState(1000);
-  const [pkgIncomePercent, setPkgIncomePercent] = useState(7);
+  const [pkgIncomePercent, setPkgIncomePercent] = useState(22);
   const [pkgLevel, setPkgLevel] = useState<QuotaLevel>('MIDDLE');
 
   // Rejection reason prompt state
@@ -460,7 +460,7 @@ export const AdminPanel: React.FC = () => {
               onClick={() => {
                 setEditingPkgId(null);
                 setPkgPrice(1000);
-                setPkgIncomePercent(7);
+                setPkgIncomePercent(22);
                 setPkgLevel('MIDDLE');
                 setIsPkgModalOpen(true);
               }}

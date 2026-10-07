@@ -73,7 +73,7 @@ export const JoinCommunityModal: React.FC<JoinCommunityModalProps> = ({ isOpen, 
           <div className="space-y-2 text-xs text-slate-600">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span><strong>13% Guaranteed Rewards:</strong> Daily tasks & quota signals</span>
+              <span><strong>22% Guaranteed Rewards:</strong> Daily tasks & quota signals</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />

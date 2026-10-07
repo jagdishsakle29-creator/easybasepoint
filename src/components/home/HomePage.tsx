@@ -23,7 +23,7 @@ export const HomePage: React.FC = () => {
 
   // Calculate today's pure commission & profits earned (STRICTLY EXCLUDING deposit principal)
   const todayCommissionEarned = React.useMemo(() => {
-    // 1. Extra bonus/commission from approved deposits (e.g. 13% bonus)
+    // 1. Extra bonus/commission from approved deposits (e.g. 22% bonus)
     const depositCommission = (deposits || [])
       .filter((d) => d.status === 'completed' || d.status === 'approved')
       .reduce((sum, d) => sum + (Number(d.bonusInr) || 0) + (Number(d.activityRewardInr) || 0), 0);
@@ -60,10 +60,10 @@ export const HomePage: React.FC = () => {
   const banners = [
     {
       id: 0,
-      badge: '🔥 DAILY 13% - 14% INCOME',
+      badge: '🔥 DAILY 22% RETURN',
       badgeColor: 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white',
-      title: 'Earn Up to 14% Daily Quota Profit',
-      desc: 'Choose Low, Medium, or High Risk Quotas & multiply your cash daily. 0% withdrawal fees!',
+      title: 'Earn 22% Daily Quota Profit',
+      desc: 'Choose Low, Medium, or High Risk Quotas & multiply your cash with 22% daily return. 0% withdrawal fees!',
       cta: 'PLAY NOW',
       action: () => setActiveTab('deposit'),
       bgClass: 'from-[#0B1528] via-[#121F38] to-[#1E3052]',
