@@ -24,5 +24,13 @@
     "credited": false,
     "approvedAt": "2026-10-11T15:37:52.053Z",
     "updatedAt": "2026-10-11T15:37:52.654Z"
+  },
+  "DEP-248152": {
+    "id": "DEP-248152",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-11T15:37:53.252Z",
+    "updatedAt": "2026-10-11T15:37:53.790Z"
   }
 }
