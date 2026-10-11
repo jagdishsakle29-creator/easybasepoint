@@ -93,5 +93,23 @@
     "updatedAt": "2026-10-11T15:48:17.888Z",
     "action": "approved",
     "credited": false
+  },
+  "WDR-112248": {
+    "amount": 477,
+    "totalInr": 477,
+    "method": "upi",
+    "userPhone": "9881892223",
+    "utrNumber": "",
+    "createdAt": "2026-10-11T16:01:43.338Z",
+    "id": "WDR-112248",
+    "userId": "usr-1791734313493",
+    "userName": "Manoj tembe",
+    "fee": 0,
+    "netAmount": 477,
+    "accountDetails": {
+      "upiId": "paytm.s2vw1k6@pty"
+    },
+    "status": "pending",
+    "updatedAt": "2026-10-11T16:01:44.592Z"
   }
 }
