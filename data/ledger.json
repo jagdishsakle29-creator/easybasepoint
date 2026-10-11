@@ -4,10 +4,15 @@
     "status": "completed",
     "action": "approved",
     "credited": true,
-    "totalInr": 24301.14,
+    "totalInr": 24201.14,
     "approvedAt": "2026-10-11T14:02:50.270Z",
     "creditedAt": "2026-10-11T14:02:50.270Z",
-    "updatedAt": "2026-10-11T14:02:52.115Z"
+    "updatedAt": "2026-10-11T14:02:52.115Z",
+    "amount": 19837,
+    "method": "INR",
+    "userPhone": "6263803359",
+    "utrNumber": "949494949494",
+    "createdAt": "2026-10-11T08:37:37.000Z"
   },
   "DEP-311215": {
     "id": "DEP-311215",
@@ -15,7 +20,13 @@
     "action": "rejected",
     "credited": false,
     "approvedAt": "2026-10-11T15:37:50.519Z",
-    "updatedAt": "2026-10-11T15:37:51.023Z"
+    "updatedAt": "2026-10-11T15:37:51.023Z",
+    "amount": 500,
+    "totalInr": 610,
+    "method": "INR",
+    "userPhone": "9876543210",
+    "utrNumber": "316637704529",
+    "createdAt": "2026-10-11T15:47:54.476Z"
   },
   "DEP-933265": {
     "id": "DEP-933265",
@@ -23,7 +34,13 @@
     "action": "rejected",
     "credited": false,
     "approvedAt": "2026-10-11T15:37:52.053Z",
-    "updatedAt": "2026-10-11T15:37:52.654Z"
+    "updatedAt": "2026-10-11T15:37:52.654Z",
+    "amount": 500,
+    "totalInr": 610,
+    "method": "INR",
+    "userPhone": "9876543210",
+    "utrNumber": "316637704529",
+    "createdAt": "2026-10-11T15:47:54.480Z"
   },
   "DEP-248152": {
     "id": "DEP-248152",
@@ -31,7 +48,13 @@
     "action": "rejected",
     "credited": false,
     "approvedAt": "2026-10-11T15:37:53.252Z",
-    "updatedAt": "2026-10-11T15:37:53.790Z"
+    "updatedAt": "2026-10-11T15:37:53.790Z",
+    "amount": 500,
+    "totalInr": 610,
+    "method": "INR",
+    "userPhone": "9876543210",
+    "utrNumber": "316637704529",
+    "createdAt": "2026-10-11T15:47:54.480Z"
   },
   "DEP-802945": {
     "id": "DEP-802945",
@@ -39,49 +62,13 @@
     "action": "rejected",
     "credited": false,
     "approvedAt": "2026-10-11T15:37:54.419Z",
-    "updatedAt": "2026-10-11T15:37:54.946Z"
-  },
-  "WDR_TG_REJ_1791697175374": {
-    "id": "WDR_TG_REJ_1791697175374",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:29.820Z"
-  },
-  "WDR_TG_APP_1791697172495": {
-    "id": "WDR_TG_APP_1791697172495",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:31.889Z"
-  },
-  "WDR_TEST_1791697169904": {
-    "id": "WDR_TEST_1791697169904",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:32.874Z"
-  },
-  "WDR_TG_REJ_1791697040839": {
-    "id": "WDR_TG_REJ_1791697040839",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:34.906Z"
-  },
-  "WDR_TEST_1791697035235": {
-    "id": "WDR_TEST_1791697035235",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:37.770Z"
-  },
-  "WDR_TEST_1791696985065": {
-    "id": "WDR_TEST_1791696985065",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:40.662Z"
-  },
-  "WDR_TG_APP_1791696987573": {
-    "id": "WDR_TG_APP_1791696987573",
-    "status": "completed",
-    "action": "approved",
-    "updatedAt": "2026-10-11T15:39:42.200Z"
+    "updatedAt": "2026-10-11T15:37:54.946Z",
+    "amount": 500,
+    "totalInr": 610,
+    "method": "INR",
+    "userPhone": "9876543210",
+    "utrNumber": "316637704529",
+    "createdAt": "2026-10-11T15:47:54.480Z"
   },
   "WDR-246128": {
     "id": "WDR-246128",
