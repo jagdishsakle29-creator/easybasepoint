@@ -77,7 +77,7 @@ export const DepositPage: React.FC = () => {
   // Instant image preloading for zero-latency switching
   useEffect(() => {
     const imgAuto = new Image();
-    imgAuto.src = '/deposit_qr.png?v=fam_v4';
+    imgAuto.src = '/deposit_qr.png?v=easybase_brand_v1';
   }, []);
 
   // Filtered packages
@@ -582,7 +582,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr.png?v=fam_v4" 
+                            src="/deposit_qr.png?v=easybase_brand_v1" 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1296,7 +1296,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="relative mx-auto w-56 h-56 flex items-center justify-center p-2 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src="/deposit_qr.png?v=fam_v4" 
+                        src="/deposit_qr.png?v=easybase_brand_v1" 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1311,7 +1311,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href="/deposit_qr.png?v=fam_v4"
+                        href="/deposit_qr.png?v=easybase_brand_v1"
                         download="easybase_payment_qr.png"
                         className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition active:scale-95"
                       >
