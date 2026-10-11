@@ -40,5 +40,11 @@
     "credited": false,
     "approvedAt": "2026-10-11T15:37:54.419Z",
     "updatedAt": "2026-10-11T15:37:54.946Z"
+  },
+  "WDR_TG_REJ_1791697175374": {
+    "id": "WDR_TG_REJ_1791697175374",
+    "status": "completed",
+    "action": "approved",
+    "updatedAt": "2026-10-11T15:39:29.820Z"
   }
 }
