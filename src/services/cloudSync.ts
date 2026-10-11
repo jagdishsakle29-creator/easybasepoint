@@ -68,21 +68,51 @@ const GITHUB_REPO = 'jagdishsakle29-creator/easybasepoint';
 const GITHUB_LEDGER_RAW = 'https://raw.githubusercontent.com/jagdishsakle29-creator/easybasepoint/ledger/data/ledger.json';
 const GITHUB_TOKEN = ['ghp_', 'YpRCYUUe', 'Vcj4P7Qh', 'NhsdVuNz', 'Vc9nur2oQaAZ'].join('');
 
+function base64ToUtf8(b64: string): string {
+  try {
+    const clean = (b64 || '').replace(/\s/g, '');
+    const binString = atob(clean);
+    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0) || 0);
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return atob((b64 || '').replace(/\s/g, ''));
+  }
+}
+
+function utf8ToBase64(str: string): string {
+  try {
+    const bytes = new TextEncoder().encode(str);
+    const binString = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
+    return btoa(binString);
+  } catch {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+}
+
 async function saveToGitHubLedger(entry: any): Promise<boolean> {
   if (!entry || !entry.id) return false;
   try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger`, {
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-      cache: 'no-store',
-    });
-    if (!res.ok) return false;
-    const json = await res.json();
-    const sha = json.sha;
-    const rawContent = atob(json.content.replace(/\s/g, ''));
-    const ledger = JSON.parse(rawContent || '{}');
+    let sha = '';
+    let ledger: any = {};
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger&t=${Date.now()}`, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        sha = json.sha;
+        const rawContent = base64ToUtf8(json.content);
+        ledger = JSON.parse(rawContent || '{}');
+        break;
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if (!sha) return false;
+
     ledger[entry.id] = {
       ...(ledger[entry.id] || {}),
       ...entry,
@@ -114,7 +144,7 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
       }
     }
     const updatedRaw = JSON.stringify(ledger, null, 2);
-    const b64 = btoa(encodeURIComponent(updatedRaw).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+    const b64 = utf8ToBase64(updatedRaw);
     const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
       method: 'PUT',
       headers: {
@@ -169,7 +199,7 @@ export const cloudSync = {
       if (ledger[id]) {
         delete ledger[id];
         const updatedRaw = JSON.stringify(ledger, null, 2);
-        const b64 = btoa(encodeURIComponent(updatedRaw).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+        const b64 = utf8ToBase64(updatedRaw);
         const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
           method: 'PUT',
           headers: {
@@ -196,14 +226,19 @@ export const cloudSync = {
   async broadcastDeposit(deposit: CloudDepositPayload): Promise<boolean> {
     try {
       // 1. Post to Serverless API
+      fetch(`${getApiBaseUrl()}/deposits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deposit),
+      }).catch(() => {});
       fetch(`${getApiBaseUrl()}/bot/deposits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deposit),
       }).catch(() => {});
 
-      // 2. Direct Permanent GitHub Ledger Persistence
-      saveToGitHubLedger(deposit).catch(() => {});
+      // 2. Direct Permanent GitHub Ledger Persistence (awaited)
+      const saved = await saveToGitHubLedger(deposit);
 
       // 3. Broadcast via high-speed pub/sub for instant 0.01s Admin Panel reception
       fetch(NTFY_DEPOSITS_PUB, {
@@ -323,7 +358,7 @@ export const cloudSync = {
         if (apiRes.ok) {
           const json = await apiRes.json();
           if (json && json.content) {
-            const rawContent = atob(json.content.replace(/\s/g, ''));
+            const rawContent = base64ToUtf8(json.content);
             ghData = JSON.parse(rawContent || '{}');
           }
         }
@@ -489,7 +524,7 @@ export const cloudSync = {
         if (apiRes.ok) {
           const json = await apiRes.json();
           if (json && json.content) {
-            const rawContent = atob(json.content.replace(/\s/g, ''));
+            const rawContent = base64ToUtf8(json.content);
             ghData = JSON.parse(rawContent || '{}');
           }
         }

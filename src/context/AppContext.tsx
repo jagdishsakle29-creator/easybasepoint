@@ -59,7 +59,7 @@ interface AppContextType {
   
   // Transactions & Flows
   buyQuota: (pkgOrId: QuotaPackage | string, idempotencyKey?: string) => { success: boolean; message: string; transaction?: Transaction };
-  submitInrDeposit: (amount: number, refNumber: string, screenshotUrl?: string, remark?: string) => { success: boolean; message: string };
+  submitInrDeposit: (amount: number, refNumber: string, screenshotUrl?: string, remark?: string) => Promise<{ success: boolean; message: string }>;
   submitUsdtDeposit: (usdtAmount: number, network: string, txHash: string) => { success: boolean; message: string };
   submitWithdrawal: (
     amount: number, 
@@ -1262,17 +1262,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Submitting INR Deposit
-  const submitInrDeposit = (
+  const submitInrDeposit = async (
     amount: number, 
     refNumber: string, 
     screenshotUrl?: string, 
     remark?: string
-  ): { success: boolean; message: string } => {
+  ): Promise<{ success: boolean; message: string }> => {
     if (!user) {
       addToast('error', 'Please log in to your account first.');
       return { success: false, message: 'Authentication required' };
     }
-    const minDeposit = settings.minDeposit || 390;
+    const minDeposit = settings.minDeposit || 350;
     if (amount < minDeposit) {
       addToast('error', `Minimum deposit amount is ₹${minDeposit}.`);
       return { success: false, message: `Minimum deposit amount is ₹${minDeposit}.` };
@@ -1336,7 +1336,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
-    cloudSync.broadcastDeposit({
+    await cloudSync.broadcastDeposit({
       id: newDeposit.id,
       userId: activeUser.id,
       userPhone: activeUser.phone,

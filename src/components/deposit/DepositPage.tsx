@@ -118,8 +118,7 @@ export const DepositPage: React.FC = () => {
 
   const processScreenshotFile = (file: File) => {
     setScreenshotError(null);
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-    if (!validTypes.includes(file.type.toLowerCase())) {
+    if (file.type && !file.type.toLowerCase().startsWith('image/')) {
       const err = 'Unsupported file type. Please upload JPG, PNG, or WebP.';
       setScreenshotError(err);
       addToast('error', err);
@@ -190,7 +189,7 @@ export const DepositPage: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleConfirmTopUp = () => {
+  const handleConfirmTopUp = async () => {
     const minDep = settings.minDeposit || 350;
     if (topUpAmount <= 0 || topUpAmount < minDep) {
       addToast('error', `Minimum deposit amount is ₹${minDep}.`);
@@ -206,16 +205,19 @@ export const DepositPage: React.FC = () => {
       return;
     }
     setIsProcessingTopUp(true);
-    setTimeout(() => {
-      const res = submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl, 'cousin');
-      setIsProcessingTopUp(false);
+    try {
+      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl, 'cousin');
       if (res && res.success) {
         setIsTopUpModalOpen(false);
         setUtrRef('');
         setScreenshotFile(null);
         setScreenshotUrl('');
       }
-    }, 150);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to submit payment. Please try again.');
+    } finally {
+      setIsProcessingTopUp(false);
+    }
   };
 
   const isMobileDevice = () => {
@@ -1439,7 +1441,7 @@ export const DepositPage: React.FC = () => {
                             <span>Replace Screenshot</span>
                             <input
                               type="file"
-                              accept="image/jpeg,image/png,image/webp,image/jpg"
+                              accept="image/*"
                               className="hidden"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
@@ -1473,7 +1475,7 @@ export const DepositPage: React.FC = () => {
                           </div>
                           <input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            accept="image/*"
                             className="hidden"
                             disabled={isUploadingScreenshot}
                             onChange={(e) => {
