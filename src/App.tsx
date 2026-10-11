@@ -14,7 +14,6 @@ import { HistoryPage } from './components/history/HistoryPage';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/auth/AuthModal';
 import { LandingPage } from './components/landing/LandingPage';
-import { FloatingTimer } from './components/common/FloatingTimer';
 import { openOfficialTelegramChannel } from './config/constants';
 import { 
   Home, 
@@ -247,7 +246,6 @@ const AppContent: React.FC = () => {
           onEnterApp={() => setIsAuthOpen(true)}
           onOpenRegister={() => setIsAuthOpen(true)}
         />
-        <FloatingTimer />
         <AuthModal
           isOpen={isAuthOpen}
           isForced={false}
@@ -359,9 +357,6 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Floating Live Timer Widget */}
-      <FloatingTimer />
 
       {/* Global Toast Alerts */}
       <ToastContainer />

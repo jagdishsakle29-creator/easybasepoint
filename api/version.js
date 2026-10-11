@@ -1,4 +1,4 @@
-export const BUILD_TIME = 1791708298458;
+export const BUILD_TIME = 1791708412446;
 
 export default function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
