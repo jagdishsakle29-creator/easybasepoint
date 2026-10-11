@@ -46,30 +46,30 @@ const AppContent: React.FC = () => {
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
-  // Auto-Update Detection: Automatically detects new deployments and updates client
+  // Auto-Update Detection: Detects new deployments by bundle hash and auto-reloads
   useEffect(() => {
     let isReloading = false;
 
+    // Find currently running index script tag
+    const currentScript = document.querySelector('script[src*="assets/index-"]');
+    const currentScriptSrc = currentScript?.getAttribute('src') || '';
+
     const checkAppVersion = async () => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined' || !currentScriptSrc || isReloading) return;
       try {
-        const res = await fetch(`/api/version?_t=${Date.now()}`, {
+        const res = await fetch(`/?_nocache=${Date.now()}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
         });
         if (!res.ok) return;
-        const data = await res.json();
-        if (!data || !data.buildTime) return;
+        const html = await res.text();
+        const match = html.match(/\/assets\/index-[a-zA-Z0-9_\-]+\.js/);
+        if (!match) return;
 
-        const currentBuild = data.buildTime;
-        const savedBuild = localStorage.getItem('ebp_app_build');
-
-        if (!savedBuild) {
-          localStorage.setItem('ebp_app_build', String(currentBuild));
-        } else if (Number(savedBuild) !== currentBuild && !isReloading) {
+        const latestScriptSrc = match[0];
+        // If current running bundle hash differs from latest deployed bundle hash:
+        if (latestScriptSrc !== currentScriptSrc) {
           isReloading = true;
-          localStorage.setItem('ebp_app_build', String(currentBuild));
-          // Transparently reload to fetch the latest production bundle
           window.location.reload();
         }
       } catch {}
