@@ -574,23 +574,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const map = new Map();
         prev.forEach((d) => map.set(d.id, d));
         backendDeps.forEach((bd: any) => {
+          if (!bd || !bd.id) return;
           const existingDep = map.get(bd.id);
           const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
           const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
+          const validAmount = Number(bd.amount) || Number(bd.totalInr) || (existingDep ? existingDep.amount : 0);
+          const validTotalInr = Number(bd.totalInr) || validAmount || (existingDep ? existingDep.totalInr : 0);
+          const validBonus = Number(bd.bonusInr) || (existingDep ? existingDep.bonusInr : 0);
+          const validMethod = bd.method || (existingDep ? existingDep.method : (isUsdt ? 'USDT' : 'INR'));
+          const validCreatedAt = bd.createdAt || (existingDep ? existingDep.createdAt : new Date().toISOString());
+
           if (!existingDep) {
             map.set(bd.id, {
               id: bd.id,
               userId: bd.userId || 'player',
               userPhone: bd.userPhone || '',
-              amount: bd.amount,
-              method: isUsdt ? 'USDT' : 'INR',
-              calculatedInr: bd.calculatedInr || bd.amount,
-              bonusInr: bd.bonusInr || 0,
-              activityRewardInr: bd.activityRewardInr || 0,
-              totalInr: bd.totalInr || bd.amount,
+              amount: validAmount,
+              method: validMethod,
+              calculatedInr: Number(bd.calculatedInr) || validAmount,
+              bonusInr: validBonus,
+              activityRewardInr: Number(bd.activityRewardInr) || 0,
+              totalInr: validTotalInr,
               status: isCompleted ? 'approved' : (bd.status || 'pending_verification'),
               credited: isCompleted,
-              createdAt: bd.createdAt || new Date().toISOString(),
+              createdAt: validCreatedAt,
               utrNumber: bd.utrNumber || '',
               proofUrl: bd.paymentScreenshot || bd.proofUrl || bd.utrNumber || '',
               paymentScreenshot: bd.paymentScreenshot || bd.proofUrl || '',
@@ -602,6 +609,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const newStatus = isCompleted ? 'approved' : (bd.status || existingDep.status);
             map.set(bd.id, {
               ...existingDep,
+              amount: validAmount || existingDep.amount,
+              totalInr: validTotalInr || existingDep.totalInr,
+              method: validMethod || existingDep.method,
               status: newStatus,
               credited: isCompleted || existingDep.credited,
               creditedAt: isCompleted ? (bd.creditedAt || existingDep.creditedAt || new Date().toISOString()) : existingDep.creditedAt,

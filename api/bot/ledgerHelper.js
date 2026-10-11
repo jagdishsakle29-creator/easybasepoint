@@ -231,7 +231,7 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
     depId,
     depositId: depId,
     action: isApproved ? 'approved' : 'rejected',
-    status: finalStatus,
+    status: 'completed',
     credited: isApproved,
     totalInr: data[depId].totalInr,
     amount: data[depId].amount,

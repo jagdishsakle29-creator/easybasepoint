@@ -113,8 +113,15 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
     }
     if (!sha) return false;
 
+    const existing = ledger[entry.id] || {};
     ledger[entry.id] = {
-      ...(ledger[entry.id] || {}),
+      amount: existing.amount || entry.amount || 0,
+      totalInr: existing.totalInr || entry.totalInr || entry.amount || 0,
+      method: existing.method || entry.method || (entry.id?.startsWith('USDT') ? 'USDT' : 'INR'),
+      userPhone: existing.userPhone || entry.userPhone || '',
+      utrNumber: existing.utrNumber || entry.utrNumber || '',
+      createdAt: existing.createdAt || entry.createdAt || new Date().toISOString(),
+      ...existing,
       ...entry,
       updatedAt: new Date().toISOString(),
     };
@@ -373,7 +380,7 @@ export const cloudSync = {
 
       if (ghData && typeof ghData === 'object') {
         Object.values(ghData).forEach((item: any) => {
-          if (item && item.id && (item.id.startsWith('WDR-') || item.type === 'withdrawal')) {
+          if (item && item.id && (item.id.startsWith('WDR') || item.type === 'withdrawal')) {
             collectedMap.set(item.id, item);
           }
         });
@@ -384,7 +391,9 @@ export const cloudSync = {
 
     // 2. Fetch from Ntfy Topic
     try {
-      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store' });
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 2000);
+      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(tid));
       if (ntfyRes.ok) {
         const text = await ntfyRes.text();
         const lines = text.trim().split('\n');
@@ -540,7 +549,7 @@ export const cloudSync = {
 
       if (ghData && typeof ghData === 'object') {
         Object.values(ghData).forEach((item: any) => {
-          if (item && item.id && !item.id.startsWith('WDR-') && item.type !== 'withdrawal') {
+          if (item && item.id && !item.id.startsWith('WDR') && item.type !== 'withdrawal') {
             collectedMap.set(item.id, item);
           }
         });
@@ -551,7 +560,9 @@ export const cloudSync = {
 
     // 2. Secondary Real-time Feed: Ntfy Cloud Topic (Stores all deposits + attachments)
     try {
-      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store' });
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 2000);
+      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(tid));
       if (ntfyRes.ok) {
         const text = await ntfyRes.text();
         const lines = text.trim().split('\n');

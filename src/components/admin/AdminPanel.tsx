@@ -754,11 +754,11 @@ export const AdminPanel: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2.5 text-xs">
                         <span className="text-lg font-black text-emerald-600 font-outfit">
-                          {dep.amount} USDT
+                          {Number(dep.amount || 0)} USDT
                         </span>
                         <span className="text-slate-400">→</span>
                         <span className="font-black text-slate-800">
-                          ₹{dep.totalInr.toLocaleString('en-IN')} INR
+                          ₹{Number(dep.totalInr || 0).toLocaleString('en-IN')} INR
                         </span>
                         <span className="text-[11px] text-slate-400 font-mono">
                           (Chain: {dep.network || 'TRC20'})
@@ -775,7 +775,7 @@ export const AdminPanel: React.FC = () => {
                         className="flex-1 sm:flex-initial py-2.5 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
                       >
                         <Check className="w-4 h-4" />
-                        <span>Approve & Credit ₹{dep.totalInr}</span>
+                        <span>Approve & Credit ₹{Number(dep.totalInr || 0)}</span>
                       </button>
                       <button
                         onClick={() => rejectDeposit(dep.id, 'Invalid USDT TxID or payment unconfirmed')}
@@ -878,10 +878,10 @@ export const AdminPanel: React.FC = () => {
                             </td>
                             <td className="py-3.5 px-3.5">
                               <div className="font-black text-emerald-600 font-outfit text-sm">
-                                {dep.amount} USDT
+                                {Number(dep.amount || 0)} USDT
                               </div>
                               <div className="text-[10px] text-slate-500 font-sans">
-                                ₹{dep.totalInr.toLocaleString('en-IN')} INR
+                                ₹{Number(dep.totalInr || 0).toLocaleString('en-IN')} INR
                               </div>
                             </td>
                             <td className="py-3.5 px-3.5 font-bold text-slate-800 font-mono">
@@ -896,7 +896,7 @@ export const AdminPanel: React.FC = () => {
                               {statusBadge()}
                             </td>
                             <td className="py-3.5 px-3.5 text-slate-500 text-[11px] font-sans">
-                              {new Date(dep.createdAt).toLocaleString('en-IN')}
+                              {dep.createdAt ? new Date(dep.createdAt).toLocaleString('en-IN') : '—'}
                             </td>
                             <td className="py-3.5 px-3.5 text-slate-500 text-[11px] font-sans">
                               {dep.approvedAt ? new Date(dep.approvedAt).toLocaleTimeString('en-IN') : (dep.status === 'credited' ? 'Credited' : '—')}
@@ -1006,10 +1006,10 @@ export const AdminPanel: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-extrabold text-slate-900 font-outfit text-base">
-                          ₹{dep.totalInr.toLocaleString('en-IN')} via {dep.method.toUpperCase()}
+                          ₹{Number(dep.totalInr || dep.amount || 0).toLocaleString('en-IN')} via {(dep.method || 'INR').toUpperCase()}
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          Base: ₹{dep.amount.toLocaleString('en-IN')} {dep.bonusInr > 0 ? `+ Bonus: ₹${dep.bonusInr}` : ''}
+                          Base: ₹{Number(dep.amount || 0).toLocaleString('en-IN')} {Number(dep.bonusInr || 0) > 0 ? `+ Bonus: ₹${dep.bonusInr}` : ''}
                         </div>
                       </div>
 
@@ -1030,12 +1030,12 @@ export const AdminPanel: React.FC = () => {
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1.5 text-slate-700 font-mono">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 font-sans">User Phone:</span>
-                        <span className="font-bold text-slate-900">{dep.userPhone}</span>
+                        <span className="font-bold text-slate-900">{dep.userPhone || '—'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 font-sans">12-Digit UTR:</span>
                         <span className="font-black text-[#FF6B00] bg-orange-50 px-2 py-0.5 rounded tracking-wider text-[13px]">
-                          {dep.utrNumber}
+                          {dep.utrNumber || '—'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -1053,7 +1053,7 @@ export const AdminPanel: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 font-sans">Submitted At:</span>
                         <span className="text-slate-500 text-[11px] font-sans">
-                          {new Date(dep.createdAt).toLocaleString('en-IN')}
+                          {dep.createdAt ? new Date(dep.createdAt).toLocaleString('en-IN') : 'Recent'}
                         </span>
                       </div>
                     </div>
