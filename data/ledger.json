@@ -40,5 +40,15 @@
     "remark": "cousin",
     "isDemo": false,
     "updatedAt": "2026-10-11T14:10:42.643Z"
+  },
+  "TEST-VERIFY-1": {
+    "id": "TEST-VERIFY-1",
+    "amount": 350,
+    "method": "INR",
+    "userPhone": "9999999999",
+    "status": "pending_verification",
+    "remark": "cousin",
+    "createdAt": "2026-10-11T15:25:34.728Z",
+    "updatedAt": "2026-10-11T15:25:34.865Z"
   }
 }
