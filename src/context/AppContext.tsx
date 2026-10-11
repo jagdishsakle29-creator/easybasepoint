@@ -16,7 +16,7 @@ import {
   SavedUpi,
   SavedUsdtAddress
 } from '../types';
-import { storage, defaultWallet } from '../services/storage';
+import { storage, defaultWallet, RegisteredAccount } from '../services/storage';
 import { telegramService } from '../services/telegram';
 import { cloudSync } from '../services/cloudSync';
 import confetti from 'canvas-confetti';
@@ -52,8 +52,8 @@ interface AppContextType {
   setIsMobilePreview: (val: boolean) => void;
   
   // Auth
-  login: (emailOrPhone: string, pass: string) => { success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean };
-  register: (name: string, email: string, phone: string, pass: string, refCode?: string, pin?: string) => { success: boolean; message: string; alreadyExists?: boolean };
+  login: (emailOrPhone: string, pass: string) => Promise<{ success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean }>;
+  register: (name: string, email: string, phone: string, pass: string, refCode?: string, pin?: string) => Promise<{ success: boolean; message: string; alreadyExists?: boolean }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   
@@ -997,21 +997,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Auth Functions
-  const login = (emailOrPhone: string, pass: string): { success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean } => {
+  // Auth Functions
+  const login = async (emailOrPhone: string, pass: string): Promise<{ success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean }> => {
     if (!emailOrPhone) {
       addToast('error', 'Please enter your mobile number or email.');
       return { success: false, message: 'Missing credentials' };
     }
 
-    const existingAccount = storage.findAccount(emailOrPhone);
+    // 1. Check local storage first
+    let existingAccount = storage.findAccount(emailOrPhone);
+
+    // 2. If not found locally, fetch from Cloud Account registry / GitHub Ledger
+    if (!existingAccount) {
+      const cloudAcc = await cloudSync.fetchCloudAccount(emailOrPhone);
+      if (cloudAcc) {
+        existingAccount = cloudAcc;
+        storage.saveAccount(cloudAcc);
+      }
+    }
+
     if (!existingAccount) {
       addToast('error', '❌ Account not found! Please register an account first.');
       return { success: false, notFound: true, message: 'Account not found. Please Sign Up first.' };
     }
 
     const cleanPass = (pass || '').trim();
-    const validPassword = (existingAccount.password || '').trim();
+    let validPassword = (existingAccount.password || '').trim();
     const validPin = (existingAccount.transactionPin || existingAccount.user.transactionPin || '').trim();
+
+    // If initial password was not set (e.g. reconstructed from ledger for existing user like Manoj tembe)
+    if (existingAccount.allowInitialPasswordSet || (!validPassword && !validPin)) {
+      validPassword = cleanPass;
+      existingAccount.password = cleanPass;
+      existingAccount.allowInitialPasswordSet = false;
+      storage.saveAccount(existingAccount);
+      cloudSync.saveCloudAccount(existingAccount);
+    }
 
     // Verify against password OR 6-digit permanent PIN (allows seamless login if user entered PIN)
     const isPasswordMatch = validPassword && cleanPass === validPassword;
@@ -1043,12 +1064,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Load account-specific transactions strictly for this user
     let userTx: Transaction[] = [];
-    if (existingAccount.transactions && Array.isArray(existingAccount.transactions)) {
+    if (existingAccount.transactions && Array.isArray(existingAccount.transactions) && existingAccount.transactions.length > 0) {
       userTx = existingAccount.transactions;
     } else {
       userTx = storage.getUserTransactions(userWithPin.id, userWithPin.phone);
     }
     setTransactions(userTx);
+
+    // Sync account to cloud
+    cloudSync.saveCloudAccount(existingAccount);
 
     addToast('success', `Welcome back, ${userWithPin.name}!`);
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
@@ -1056,29 +1080,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Login successful' };
   };
 
-  const register = (
+  const register = async (
     name: string, 
     email: string, 
     phone: string, 
     pass: string, 
     refCode?: string,
     pin?: string
-  ): { success: boolean; message: string; alreadyExists?: boolean } => {
+  ): Promise<{ success: boolean; message: string; alreadyExists?: boolean }> => {
     if (!name || !phone) {
       addToast('error', 'Please fill in your name and mobile phone.');
       return { success: false, message: 'Required fields missing' };
     }
 
-    const existingPhone = storage.findAccount(phone);
-    const existingEmail = email ? storage.findAccount(email) : null;
-    if (existingPhone || existingEmail) {
-      addToast('info', 'An account already exists with this phone or email! Please Sign In.');
-      return { success: false, alreadyExists: true, message: 'Account already exists. Please Sign In.' };
-    }
-
     const cleanPhone = phone.trim();
     const cleanEmail = (email && email.trim()) || `${cleanPhone.replace(/[^0-9]/g, '')}@ebp.com`;
     const cleanPin = pin ? pin.trim() : undefined;
+    const cleanPass = pass.trim();
+
+    // Check if account already exists locally or in cloud
+    let existingAccount = storage.findAccount(phone) || (email ? storage.findAccount(email) : null);
+    if (!existingAccount) {
+      const cloudAcc = await cloudSync.fetchCloudAccount(phone);
+      if (cloudAcc) {
+        existingAccount = cloudAcc;
+      }
+    }
+
+    // IF ACCOUNT ALREADY EXISTS (prevent duplicate block / claim account seamlessly):
+    if (existingAccount) {
+      const updatedUser: User = {
+        ...existingAccount.user,
+        name: name.trim() || existingAccount.user.name,
+        email: cleanEmail || existingAccount.user.email,
+        phone: cleanPhone || existingAccount.user.phone,
+        transactionPin: cleanPin || existingAccount.transactionPin || existingAccount.user.transactionPin,
+      };
+
+      const updatedAccount: RegisteredAccount = {
+        ...existingAccount,
+        user: updatedUser,
+        password: cleanPass || existingAccount.password,
+        transactionPin: cleanPin || existingAccount.transactionPin,
+        allowInitialPasswordSet: false,
+      };
+
+      storage.saveAccount(updatedAccount);
+      cloudSync.saveCloudAccount(updatedAccount);
+
+      setUser(updatedUser);
+      setWallet(updatedAccount.wallet || defaultWallet);
+      storage.setUser(updatedUser);
+      storage.setWallet(updatedAccount.wallet || defaultWallet);
+      if (updatedAccount.transactions && updatedAccount.transactions.length > 0) {
+        setTransactions(updatedAccount.transactions);
+      }
+
+      addToast('success', `Welcome back, ${updatedUser.name}! Account connected successfully.`);
+      window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
+      return { success: true, message: 'Account connected successfully' };
+    }
 
     const newUser: User = {
       id: `usr-${Date.now()}`,
@@ -1118,21 +1179,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       note: '₹50 Signup Welcome Cash Bonus',
     };
 
-    // Save registered account to local persistence with its isolated transaction history
-    storage.saveAccount({
+    const newAccount: RegisteredAccount = {
       user: newUser,
-      password: pass.trim(),
+      password: cleanPass,
       transactionPin: cleanPin,
       wallet: initialWallet,
       transactions: [welcomeTx],
-    });
+    };
+
+    // Save registered account to local persistence AND cloud
+    storage.saveAccount(newAccount);
+    cloudSync.saveCloudAccount(newAccount);
 
     setUser(newUser);
     setWallet(initialWallet);
     storage.setUser(newUser);
     storage.setWallet(initialWallet);
 
-    // Initial state strictly has only the welcome bonus transaction
     setTransactions([welcomeTx]);
     addToast('success', 'Account registered! ₹50 Welcome Bonus credited to your wallet!');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));

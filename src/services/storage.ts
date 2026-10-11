@@ -38,6 +38,9 @@ export interface RegisteredAccount {
   transactionPin?: string;
   wallet: Wallet;
   transactions?: Transaction[];
+  allowInitialPasswordSet?: boolean;
+  isReconstructedFromLedger?: boolean;
+  updatedAt?: string;
 }
 
 export const defaultUser: User | null = null;
@@ -588,16 +591,19 @@ export const storage = {
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
   },
   saveAccount(account: RegisteredAccount): void {
+    if (!account || !account.user) return;
     const accounts = this.getAccounts();
-    const cleanPhone = account.user.phone.replace(/[^0-9]/g, '');
+    const cleanPhone = (account.user.phone || '').replace(/[^0-9]/g, '');
     const cleanEmail = (account.user.email || '').toLowerCase().trim();
 
     const index = accounts.findIndex((a) => {
-      const aPhone = a.user.phone.replace(/[^0-9]/g, '');
+      if (!a || !a.user) return false;
+      const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
       return (
-        (cleanPhone && aPhone.endsWith(cleanPhone.slice(-10))) ||
-        (cleanEmail && aEmail === cleanEmail)
+        (cleanPhone.length >= 10 && aPhone.endsWith(cleanPhone.slice(-10))) ||
+        (cleanEmail && aEmail === cleanEmail) ||
+        (account.user.id && a.user.id === account.user.id)
       );
     });
 
@@ -617,16 +623,17 @@ export const storage = {
     const cleanDigits = emailOrPhoneOrId.replace(/[^0-9]/g, '');
 
     // 1. Check direct ID match
-    const byId = accounts.find((a) => a.user.id && a.user.id === emailOrPhoneOrId.trim());
+    const byId = accounts.find((a) => a?.user?.id && a.user.id.trim() === emailOrPhoneOrId.trim());
     if (byId) return byId;
 
     // 2. Check phone or email match
     const byPhoneOrEmail = accounts.find((a) => {
-      const aPhone = a.user.phone.replace(/[^0-9]/g, '');
+      if (!a || !a.user) return false;
+      const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
       
-      // Check phone match
-      if (cleanDigits.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) {
+      // Check phone match (10 digits)
+      if (cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) {
         return true;
       }
       // Check email match
@@ -636,11 +643,6 @@ export const storage = {
       return false;
     });
     if (byPhoneOrEmail) return byPhoneOrEmail;
-
-    // 3. Fallback: if only 1 account exists on this device/browser, return it
-    if (accounts.length === 1) {
-      return accounts[0];
-    }
 
     return undefined;
   },

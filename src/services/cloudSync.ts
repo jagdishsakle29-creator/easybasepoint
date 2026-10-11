@@ -7,6 +7,8 @@
  * 3. Bidirectional real-time syncing between Player Game Wallets, Telegram Bot, and Admin Panel.
  */
 
+import { RegisteredAccount } from './storage';
+
 export interface CloudDepositPayload {
   id: string;
   userId: string;
@@ -866,6 +868,156 @@ export const cloudSync = {
       };
     } catch {
       return () => {};
+    }
+  },
+
+  /**
+   * Cloud Account Registry & Cross-Device Account Recovery
+   */
+  async fetchCloudAccount(query: string): Promise<RegisteredAccount | null> {
+    if (!query) return null;
+    const cleanQ = query.trim().toLowerCase();
+    const cleanDigits = query.replace(/[^0-9]/g, '');
+
+    // 1. Try serverless /api/auth/account endpoint
+    try {
+      const res = await fetch(`/api/auth/account?query=${encodeURIComponent(query)}&t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok && json.found && json.account) {
+          return json.account;
+        }
+      }
+    } catch {}
+
+    // 2. Direct GitHub data/accounts.json fallback (bypasses cold starts)
+    try {
+      const ghRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/accounts.json?t=${Date.now()}`);
+      if (ghRes.ok) {
+        const accounts = await ghRes.json();
+        const accountList: RegisteredAccount[] = Object.values(accounts || {});
+        const matched = accountList.find((acc) => {
+          if (!acc || !acc.user) return false;
+          const aPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+          const aEmail = (acc.user.email || '').toLowerCase().trim();
+          const aId = (acc.user.id || '').trim();
+
+          if (cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) return true;
+          if (cleanQ.includes('@') && aEmail === cleanQ) return true;
+          if (aId && aId === cleanQ) return true;
+          return false;
+        });
+        if (matched) return matched;
+      }
+    } catch {}
+
+    // 3. Fallback: reconstruct from ledger.json if user has existing deposits or withdrawals
+    try {
+      const ledgerRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/ledger.json?t=${Date.now()}`);
+      if (ledgerRes.ok) {
+        const ledger = await ledgerRes.json();
+        for (const [id, item] of Object.entries(ledger || {})) {
+          const it = item as any;
+          if (!it) continue;
+          const itPhone = (it.userPhone || '').replace(/[^0-9]/g, '');
+          if (cleanDigits.length >= 10 && itPhone.length >= 10 && itPhone.endsWith(cleanDigits.slice(-10))) {
+            const reconstructed: RegisteredAccount = {
+              user: {
+                id: it.userId || `usr-${Date.now()}`,
+                name: it.userName || 'Member',
+                phone: it.userPhone || cleanDigits.slice(-10),
+                email: `${cleanDigits.slice(-10)}@ebp.com`,
+                referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
+                isGoogleAuthEnabled: false,
+                role: 'user',
+                status: 'active',
+                createdAt: it.createdAt || new Date().toISOString(),
+              },
+              wallet: {
+                userId: it.userId || `usr-${Date.now()}`,
+                balance: 50.00,
+                quota: 0.00,
+                referralBalance: 0.00,
+                todayReceive: 0.00,
+                teamCommission: 0.00,
+                todayTeamRecharge: 0.00,
+                todayTeamMembers: 0,
+                totalTeamRecharge: 0.00,
+                totalTeamMembers: 0,
+                creditedDepositIds: [],
+              },
+              transactions: [],
+              allowInitialPasswordSet: true,
+              isReconstructedFromLedger: true,
+            };
+            return reconstructed;
+          }
+        }
+      }
+    } catch {}
+
+    return null;
+  },
+
+  async saveCloudAccount(account: RegisteredAccount): Promise<boolean> {
+    if (!account || !account.user) return false;
+    const phone = (account.user.phone || '').replace(/[^0-9]/g, '').slice(-10) || account.user.email;
+    if (!phone) return false;
+
+    // 1. Try serverless API
+    try {
+      fetch('/api/auth/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account }),
+      }).catch(() => {});
+    } catch {}
+
+    // 2. Direct GitHub save to data/accounts.json with token
+    try {
+      let sha = '';
+      let accounts: any = {};
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json?ref=ledger&t=${Date.now()}`, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        sha = json.sha;
+        const rawContent = base64ToUtf8(json.content);
+        accounts = JSON.parse(rawContent || '{}');
+      }
+
+      accounts[phone] = {
+        ...(accounts[phone] || {}),
+        ...account,
+        user: {
+          ...(accounts[phone]?.user || {}),
+          ...account.user,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      const contentBase64 = utf8ToBase64(JSON.stringify(accounts, null, 2));
+      const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Sync account ${phone} ${Date.now()}`,
+          content: contentBase64,
+          sha: sha || undefined,
+          branch: 'ledger',
+        }),
+      });
+      return putRes.ok;
+    } catch {
+      return false;
     }
   },
 };

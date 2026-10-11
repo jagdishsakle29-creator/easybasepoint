@@ -50,6 +50,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Form error display state
   const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Lifetime 6-Digit Security PIN States
   const [pinCode, setPinCode] = useState('');
@@ -85,18 +86,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      const res = login(targetCred, password);
-      if (res.success) {
-        setFormError('');
-        onClose();
-      } else if (res.notFound) {
-        setFormError('❌ Account not found! This mobile number or email is not registered. Please Sign Up first.');
-        addToast('error', 'Account not found! Please register an account first.');
-      } else if (res.wrongPassword) {
-        setFormError('❌ Incorrect password! Please verify your password and try again.');
-        addToast('error', '❌ Incorrect password! Please check your password and try again.');
-      } else {
-        setFormError(res.message || 'Login failed. Please verify your credentials.');
+      setIsSubmitting(true);
+      try {
+        const res = await login(targetCred, password);
+        if (res.success) {
+          setFormError('');
+          onClose();
+        } else if (res.notFound) {
+          setFormError('❌ Account not found! This mobile number or email is not registered. Please tap "Sign Up" below to register.');
+          addToast('error', 'Account not found! Please register an account first.');
+        } else if (res.wrongPassword) {
+          setFormError('❌ Incorrect password or Security PIN! Please verify your password/PIN and try again.');
+          addToast('error', '❌ Incorrect password! Please check your password and try again.');
+        } else {
+          setFormError(res.message || 'Login failed. Please verify your credentials.');
+        }
+      } catch {
+        setFormError('Server connection error. Please try again.');
+      } finally {
+        setIsSubmitting(false);
       }
     } else if (mode === 'register') {
       if (!age || Number(age) < 18) {
@@ -139,14 +147,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      const res = register(name.trim(), cleanEmail, cleanDigits, password, referralCode, cleanPin);
-      if (res.success) {
-        setFormError('');
-        onClose();
-      } else if (res.alreadyExists) {
-        setFormError('⚠️ Account already registered! This mobile number or email is already registered. Please Sign In.');
-      } else {
-        setFormError(res.message || 'Registration failed.');
+      setIsSubmitting(true);
+      try {
+        const res = await register(name.trim(), cleanEmail, cleanDigits, password, referralCode, cleanPin);
+        if (res.success) {
+          setFormError('');
+          onClose();
+        } else if (res.alreadyExists) {
+          setFormError('⚠️ Account already registered! This mobile number is already registered. Please tap "Sign In" above.');
+        } else {
+          setFormError(res.message || 'Registration failed.');
+        }
+      } catch {
+        setFormError('Server connection error. Please try again.');
+      } finally {
+        setIsSubmitting(false);
       }
     } else {
       addToast('info', 'Password reset instructions sent to your registered contact.');
@@ -501,20 +516,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Submit Button */}
           <button
             type="submit"
+            disabled={isSubmitting}
             className={`w-full py-4 text-white font-black text-sm rounded-2xl shadow-xl transition active:scale-98 flex items-center justify-center gap-2 mt-3 cursor-pointer ${
+              isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+            } ${
               mode === 'login'
                 ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 shadow-indigo-600/30 border border-indigo-400/40'
                 : 'bg-gradient-to-r from-[#FF6B00] via-orange-500 to-amber-500 hover:from-[#FF7A1A] hover:to-amber-400 shadow-orange-500/40 border border-amber-300/40'
             }`}
           >
-            <span>
-              {mode === 'login'
-                ? '⚡ Sign In & Enter EasyBasePoint'
-                : mode === 'register'
-                ? '🎁 Verify WhatsApp & Claim ₹50 Bonus'
-                : 'Send WhatsApp Reset Link'}
-            </span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>{mode === 'login' ? '🔍 Verifying Account...' : '⚡ Setting up Account...'}</span>
+              </div>
+            ) : (
+              <>
+                <span>
+                  {mode === 'login'
+                    ? '⚡ Sign In & Enter EasyBasePoint'
+                    : mode === 'register'
+                    ? '🎁 Verify WhatsApp & Claim ₹50 Bonus'
+                    : 'Send WhatsApp Reset Link'}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
