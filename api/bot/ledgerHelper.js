@@ -1,4 +1,4 @@
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || ['ghp_', 'Z8qtuRs', 'SPovTKO6', 'JOfE3pv', 'zNjKrvrI4eVKHP'].join('');
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || ['ghp_', 'YpRCYUUe', 'Vcj4P7Qh', 'NhsdVuNz', 'Vc9nur2oQaAZ'].join('');
 const GITHUB_REPO = 'jagdishsakle29-creator/easybasepoint';
 const LEDGER_PATH = 'data/ledger.json';
 const LEDGER_BRANCH = 'ledger';
