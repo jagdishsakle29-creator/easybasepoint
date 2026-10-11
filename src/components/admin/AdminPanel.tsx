@@ -72,12 +72,12 @@ export const AdminPanel: React.FC = () => {
   const [normalPrice, setNormalPrice] = useState(settings.normalUsdtPrice);
   const [inrReward, setInrReward] = useState(settings.inrRewardPercent);
   const [feePercent, setFeePercent] = useState(settings.withdrawalFeePercent);
-  const [minDeposit, setMinDeposit] = useState(settings.minDeposit || 390);
+  const [minDeposit, setMinDeposit] = useState(settings.minDeposit || 350);
   const [minWithdraw, setMinWithdraw] = useState(settings.minWithdrawal);
 
   // Gateway form state
-  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || '9630020989@apl');
-  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'Amazon Pay');
+  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || 'manishkey@fam');
+  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'UPI (manishkey@fam)');
   const [adminBankName, setAdminBankName] = useState(settings.adminBankName || 'HDFC Bank Ltd');
   const [adminBankAccount, setAdminBankAccount] = useState(settings.adminBankAccount || '50200088991234');
   const [adminBankIfsc, setAdminBankIfsc] = useState(settings.adminBankIfsc || 'HDFC0001234');

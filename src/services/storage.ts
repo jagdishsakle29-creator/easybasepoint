@@ -57,19 +57,7 @@ export const defaultWallet: Wallet = {
 };
 
 export const defaultPackages: QuotaPackage[] = [
-  // --- LOW TIER (LOW RISK, 22% return, starting from 200 INR) ---
-  {
-    id: 'pkg-1',
-    price: 200.00,
-    income: 44.00,
-    incomePercent: 22.00,
-    quota: 244.00,
-    level: 'LOW',
-    riskLevel: 'LOW RISK',
-    durationDays: 1,
-    isActive: true,
-    sortOrder: 1,
-  },
+  // --- LOW TIER (LOW RISK, 22% return, starting from 350 INR) ---
   {
     id: 'pkg-2',
     price: 350.00,
@@ -80,7 +68,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     id: 'pkg-3',
@@ -92,7 +80,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     id: 'pkg-4',
@@ -241,14 +229,14 @@ export const defaultSettings: RewardSettings = {
   lowBonusPercent: 22.00,
   middleBonusPercent: 22.00,
   highBonusPercent: 22.00,
-  minDeposit: 390.00,
+  minDeposit: 350.00,
   minWithdrawal: 200.00,
   withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,
   isDemoMode: false,
-  adminUpiId: 'antaryami12@upi',
-  adminUpiName: 'Krishna Dawar (antaryami12@upi)',
+  adminUpiId: 'manishkey@fam',
+  adminUpiName: 'UPI (manishkey@fam)',
   adminBankName: '',
   adminBankAccount: '',
   adminBankIfsc: '',
@@ -312,7 +300,7 @@ export const storage = {
     if (!raw) return defaultPackages;
     try {
       const parsed: QuotaPackage[] = JSON.parse(raw);
-      if (!parsed || parsed.length === 0 || parsed[0].price !== 200 || parsed[0].incomePercent !== 22.00) {
+      if (!parsed || parsed.length === 0 || parsed[0].price !== 350 || parsed.some(p => p.price === 200)) {
         localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(defaultPackages));
         return defaultPackages;
       }
@@ -443,13 +431,13 @@ export const storage = {
         parsed.highBonusPercent = 22.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      if (!parsed.adminUpiId) {
-        parsed.adminUpiId = 'antaryami12@upi';
-        parsed.adminUpiName = 'Krishna Dawar (antaryami12@upi)';
+      if (!parsed.adminUpiId || parsed.adminUpiId === 'antaryami12@upi' || parsed.adminUpiId === '9630020989@apl') {
+        parsed.adminUpiId = 'manishkey@fam';
+        parsed.adminUpiName = 'UPI (manishkey@fam)';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      if (!parsed.minDeposit || parsed.minDeposit < 390) {
-        parsed.minDeposit = 390.00;
+      if (!parsed.minDeposit || parsed.minDeposit < 350 || parsed.minDeposit === 390 || parsed.minDeposit === 200) {
+        parsed.minDeposit = 350.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.usdtBuyRate || parsed.usdtBuyRate !== 102 || !parsed.usdtSellRate || parsed.usdtSellRate !== 129) {

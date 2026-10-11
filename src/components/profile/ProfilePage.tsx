@@ -40,7 +40,7 @@ const SUPPORT_CATEGORIES = [
       { id: 'dep-not-added', title: 'Payment sent but balance not added in 5-7 mins', desc: 'Payment completed via PhonePe/GPay/UPI, but wallet balance has not been credited yet.' },
       { id: 'dep-wrong-utr', title: 'Entered wrong 12-digit UTR by mistake', desc: 'An incorrect 12-digit UTR number was submitted in the deposit form by mistake.' },
       { id: 'dep-qr-failed', title: 'PhonePe QR / UPI transaction failed or stuck', desc: 'Money was debited from bank account, but UPI payment shows pending or failed.' },
-      { id: 'dep-manual-verify', title: 'Paid to 9630020989@apl & need priority approval', desc: 'Direct payment made to official UPI 9630020989@apl; requesting priority verification.' },
+      { id: 'dep-manual-verify', title: 'Paid to manishkey@fam & need priority approval', desc: 'Direct payment made to official UPI manishkey@fam; requesting priority verification.' },
     ]
   },
   { 
