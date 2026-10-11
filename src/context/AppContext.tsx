@@ -79,6 +79,7 @@ interface AppContextType {
   refreshDeposits: () => Promise<void>;
   approveDeposit: (id: string, fallbackTotalInr?: number) => void;
   rejectDeposit: (id: string, reason?: string) => void;
+  deleteDeposit: (id: string) => void;
   approveWithdrawal: (id: string) => void;
   rejectWithdrawal: (id: string, reason: string) => void;
   addQuotaPackage: (pkg: Omit<QuotaPackage, 'id'>) => void;
@@ -1705,15 +1706,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('success', `🎉 Payment Approved! ₹${addBal.toFixed(2)} has been added to game wallet!`);
   };
 
+  const deleteDeposit = (id: string) => {
+    const updatedDeposits = deposits.filter((d) => d.id !== id);
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
+    cloudSync.deleteFromGitHubLedger(id);
+    addToast('info', `🗑️ Deposit ${id} deleted.`);
+  };
+
   const rejectDeposit = (id: string, reason?: string) => {
     const deposit = deposits.find((d) => d.id === id);
     if (!deposit) return;
 
-    const updatedDeposits = deposits.map((d) => (d.id === id ? { ...d, status: 'rejected' as const } : d));
+    // Instantly remove and delete from active deposits list
+    const updatedDeposits = deposits.filter((d) => d.id !== id);
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
+    // Delete from GitHub cloud database immediately
     cloudSync.broadcastApproval(id, 'rejected');
+    cloudSync.deleteFromGitHubLedger(id);
 
     setTransactions((prev) => {
       const updatedTx = prev.map((t) =>
@@ -1725,8 +1737,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updatedTx;
     });
 
-    logAudit('REJECT_DEPOSIT', `Rejected deposit ${id}: ${reason || 'Invalid UTR'}`, deposit.userId);
-    addToast('error', `❌ Deposit ${id} rejected: ${reason || 'Invalid UTR'}`);
+    logAudit('REJECT_DEPOSIT', `Rejected & permanently deleted deposit ${id}: ${reason || 'Invalid UTR'}`, deposit.userId);
+    addToast('info', `🗑️ Deposit ${id} rejected & deleted immediately!`);
   };
 
   // Admin Actions
@@ -1934,6 +1946,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshDeposits: syncWithBackend,
         approveDeposit,
         rejectDeposit,
+        deleteDeposit,
         approveWithdrawal,
         rejectWithdrawal,
         addQuotaPackage,

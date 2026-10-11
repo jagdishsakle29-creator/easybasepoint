@@ -187,7 +187,24 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
     return { ...existing, alreadyCredited: true };
   }
 
-  const finalStatus = isApproved ? 'completed' : 'rejected';
+  if (!isApproved) {
+    // Immediate deletion of rejected deposit from cloud database
+    delete data[depId];
+    await saveLedgerToGitHub(data);
+
+    const rejectionEvent = {
+      type: 'DEPOSIT_REJECTED',
+      depId,
+      depositId: depId,
+      action: 'rejected',
+      status: 'rejected',
+      timestamp: nowIso,
+    };
+    if (process.env.NODE_ENV !== 'test') {
+      await broadcastToNtfy(NTFY_APPROVALS_TOPIC, rejectionEvent);
+    }
+    return { id: depId, status: 'rejected', deleted: true };
+  }
 
   data[depId] = {
     ...existing,
@@ -199,10 +216,10 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
     userPhone: existing.userPhone || meta.userPhone || '',
     remark: existing.remark || meta.remark || 'cousin',
     paymentScreenshot: existing.paymentScreenshot || existing.proofUrl || meta.paymentScreenshot || 'VERIFIED_BY_ADMIN',
-    status: finalStatus,
-    credited: isApproved,
+    status: 'completed',
+    credited: true,
     approvedAt: nowIso,
-    creditedAt: isApproved ? nowIso : undefined,
+    creditedAt: nowIso,
     updatedAt: nowIso,
     createdAt: existing.createdAt || nowIso,
   };

@@ -38,6 +38,7 @@ export const AdminPanel: React.FC = () => {
     user, 
     approveDeposit,
     rejectDeposit,
+    deleteDeposit,
     refreshDeposits,
     approveWithdrawal, 
     rejectWithdrawal, 
@@ -515,7 +516,7 @@ export const AdminPanel: React.FC = () => {
                         className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95"
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Reject</span>
+                        <span>Reject & Delete</span>
                       </button>
                     </div>
                   </div>
@@ -781,7 +782,7 @@ export const AdminPanel: React.FC = () => {
                         className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1"
                       >
                         <X className="w-4 h-4" />
-                        <span>Reject</span>
+                        <span>Reject & Delete</span>
                       </button>
                     </div>
                   </div>
@@ -921,7 +922,7 @@ export const AdminPanel: React.FC = () => {
                                     className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1"
                                   >
                                     <X className="w-3 h-3" />
-                                    <span>Reject</span>
+                                    <span>Reject & Delete</span>
                                   </button>
                                 </div>
                               ) : (
@@ -1138,7 +1139,7 @@ export const AdminPanel: React.FC = () => {
                           className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                         >
                           <X className="w-4 h-4" />
-                          <span>Reject</span>
+                          <span>Reject & Delete</span>
                         </button>
                       </div>
                     )}

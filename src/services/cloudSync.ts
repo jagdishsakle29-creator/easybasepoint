@@ -150,6 +150,48 @@ const getAdminAuthToken = (): string => {
 };
 
 export const cloudSync = {
+  // Delete a deposit immediately from GitHub Cloud Ledger (when rejected by Admin)
+  async deleteFromGitHubLedger(id: string): Promise<boolean> {
+    if (!id) return false;
+    try {
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger`, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-store',
+      });
+      if (!res.ok) return false;
+      const json = await res.json();
+      const sha = json.sha;
+      const rawContent = atob(json.content.replace(/\s/g, ''));
+      const ledger = JSON.parse(rawContent || '{}');
+      if (ledger[id]) {
+        delete ledger[id];
+        const updatedRaw = JSON.stringify(ledger, null, 2);
+        const b64 = btoa(encodeURIComponent(updatedRaw).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+        const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `Delete rejected deposit ${id}`,
+            content: b64,
+            sha,
+            branch: 'ledger',
+          }),
+        });
+        return putRes.ok;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[CLOUD_SYNC] Failed to delete deposit from GitHub ledger:', err);
+      return false;
+    }
+  },
+
   // Broadcast a new deposit submission to Backend & Admin Panel in real time
   async broadcastDeposit(deposit: CloudDepositPayload): Promise<boolean> {
     try {
