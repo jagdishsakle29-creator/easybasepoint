@@ -576,6 +576,38 @@ export const DepositPage: React.FC = () => {
                       </button>
                     </div>
 
+                    {/* Live Active QR Banner Preview */}
+                    <div 
+                      onClick={() => setIsTopUpModalOpen(true)}
+                      className="p-3 bg-black/40 hover:bg-black/50 rounded-2xl border border-amber-500/30 flex items-center justify-between gap-3 cursor-pointer transition hover:border-amber-400"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
+                          <img 
+                            src="/auto_deposit_qr.png?v=20261011_02" 
+                            alt="Amazon Pay QR" 
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black text-amber-300 font-outfit truncate">
+                              Amazon Pay QR (9630020989@apl)
+                            </span>
+                            <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase">
+                              Active
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-300 truncate">
+                            Scan with PhonePe, Paytm, GPay, or Amazon Pay
+                          </div>
+                          <div className="text-[10px] text-amber-400 font-bold">
+                            Tap to Open Full Scanner QR ➔
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Scan QR / Other UPI Button */}
                     <button
                       type="button"
@@ -1283,9 +1315,9 @@ export const DepositPage: React.FC = () => {
 
                     <div className="relative mx-auto w-52 h-52 flex items-center justify-center p-2 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src={qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png'}
+                        src={qrViewMode === 'official' ? '/deposit_qr.jpg?v=20261011_02' : '/auto_deposit_qr.png?v=20261011_02'}
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png';
+                          (e.currentTarget as HTMLImageElement).src = qrViewMode === 'official' ? '/deposit_qr.jpg?v=20261011_02' : '/auto_deposit_qr.png?v=20261011_02';
                         }}
                         alt={qrViewMode === 'official' ? "Official Platform Scanner QR (Old)" : "Auto Amazon Pay QR (New)"} 
                         loading="eager"
@@ -1305,7 +1337,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href={qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png'}
+                        href={qrViewMode === 'official' ? '/deposit_qr.jpg?v=20261011_02' : '/auto_deposit_qr.png?v=20261011_02'}
                         download={qrViewMode === 'official' ? 'official_scanner_qr.jpg' : 'amazon_pay_auto_qr.png'}
                         className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition active:scale-95"
                       >
