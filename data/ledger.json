@@ -32,5 +32,13 @@
     "credited": false,
     "approvedAt": "2026-10-11T15:37:53.252Z",
     "updatedAt": "2026-10-11T15:37:53.790Z"
+  },
+  "DEP-802945": {
+    "id": "DEP-802945",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-11T15:37:54.419Z",
+    "updatedAt": "2026-10-11T15:37:54.946Z"
   }
 }
