@@ -1,1 +1,31 @@
-{}
+{
+  "9881892223": {
+    "user": {
+      "id": "usr-1791734313493",
+      "name": "Manoj tembe",
+      "email": "manoj988189@gmail.com",
+      "phone": "9881892223",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-11T15:40:00.000Z"
+    },
+    "wallet": {
+      "userId": "usr-1791734313493",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0,
+      "creditedDepositIds": [
+        "DEP-740728"
+      ]
+    },
+    "allowInitialPasswordSet": true,
+    "isReconstructedFromLedger": true,
+    "updatedAt": "2026-10-11T16:31:30.375Z"
+  }
+}
