@@ -180,34 +180,59 @@ export const cloudSync = {
     }
   },
 
-  // Fetch all withdrawals from backend database (with GitHub ledger fallback)
+  // Fetch all withdrawals from backend database (with rock-solid ntfy & serverless fallback)
   async fetchAllWithdrawals(): Promise<any[]> {
+    const collectedMap = new Map<string, any>();
+
+    // 1. Fetch from Ntfy Topic
     try {
-      const res = await fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
-        cache: 'no-store',
-      });
+      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store' });
+      if (ntfyRes.ok) {
+        const text = await ntfyRes.text();
+        const lines = text.trim().split('\n');
+        for (const line of lines) {
+          if (!line) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (obj.attachment && obj.attachment.url) {
+              const attRes = await fetch(obj.attachment.url);
+              if (attRes.ok) {
+                const attJson = await attRes.json();
+                const wdr = attJson.withdrawal || (attJson.type === 'NEW_WITHDRAWAL' ? attJson.withdrawal : (attJson.id && attJson.id.startsWith('WDR-') ? attJson : null));
+                if (wdr && wdr.id) collectedMap.set(wdr.id, wdr);
+              }
+            } else if (obj.message) {
+              try {
+                const msg = JSON.parse(obj.message);
+                const wdr = msg.withdrawal || (msg.type === 'NEW_WITHDRAWAL' ? msg.withdrawal : (msg.id && msg.id.startsWith('WDR-') ? msg : null));
+                if (wdr && wdr.id) collectedMap.set(wdr.id, wdr);
+              } catch {}
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 2. Try Vercel Serverless Endpoint
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/bot/withdrawals`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) return data;
-      }
-    } catch {}
-
-    try {
-      const gitRes = await fetch(`${getApiBaseUrl()}/bot/withdrawals?t=${Date.now()}`, { cache: 'no-store' });
-      if (gitRes.ok) {
-        const dataObj = await gitRes.json();
-        const list = Object.values(dataObj || {})
-          .filter((item: any) => item.type === 'withdrawal' || (item.id && item.id.startsWith('WDR-')))
-          .sort((a: any, b: any) => {
-            const tA = new Date(a.createdAt || 0).getTime();
-            const tB = new Date(b.createdAt || 0).getTime();
-            return tB - tA;
+        if (Array.isArray(data)) {
+          data.forEach((w) => {
+            if (w && w.id) collectedMap.set(w.id, w);
           });
-        return list;
+        }
       }
     } catch {}
 
-    return [];
+    const list = Array.from(collectedMap.values()).sort((a: any, b: any) => {
+      const tA = new Date(a.createdAt || 0).getTime();
+      const tB = new Date(b.createdAt || 0).getTime();
+      return tB - tA;
+    });
+
+    return list;
   },
 
   // Broadcast an approval or rejection
@@ -271,34 +296,65 @@ export const cloudSync = {
     }
   },
 
-  // Fetch all deposits from the backend database (with rock-solid GitHub ledger fallback)
+  // Fetch all deposits from the backend database (with rock-solid ntfy & serverless fallback)
   async fetchAllDeposits(): Promise<any[]> {
-    // 1. Try Vercel Serverless Endpoint
+    const collectedMap = new Map<string, any>();
+
+    // 1. Primary Real-time Feed: Ntfy Cloud Topic (Stores all deposits + attachments)
     try {
-      const res = await fetch(`${getApiBaseUrl()}/bot/deposits`, {
-        cache: 'no-store',
-      });
+      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store' });
+      if (ntfyRes.ok) {
+        const text = await ntfyRes.text();
+        const lines = text.trim().split('\n');
+        for (const line of lines) {
+          if (!line) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (obj.attachment && obj.attachment.url) {
+              const attRes = await fetch(obj.attachment.url);
+              if (attRes.ok) {
+                const attJson = await attRes.json();
+                const dep = attJson.deposit || (attJson.type === 'NEW_DEPOSIT' ? attJson.deposit : (attJson.id ? attJson : null));
+                if (dep && dep.id) {
+                  collectedMap.set(dep.id, dep);
+                }
+              }
+            } else if (obj.message) {
+              try {
+                const msg = JSON.parse(obj.message);
+                const dep = msg.deposit || (msg.type === 'NEW_DEPOSIT' ? msg.deposit : (msg.id ? msg : null));
+                if (dep && dep.id) {
+                  collectedMap.set(dep.id, dep);
+                }
+              } catch {}
+            }
+          } catch {}
+        }
+      }
+    } catch (e) {
+      console.warn('[CLOUD_SYNC] ntfy deposit fetch error:', e);
+    }
+
+    // 2. Secondary: Try Vercel Serverless Endpoint
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/bot/deposits`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) return data;
+        if (Array.isArray(data)) {
+          data.forEach((d) => {
+            if (d && d.id) collectedMap.set(d.id, d);
+          });
+        }
       }
     } catch {}
 
-    // 2. High-reliability fallback: fetch from API deposits endpoint
-    try {
-      const gitRes = await fetch(`${getApiBaseUrl()}/bot/deposits?t=${Date.now()}`, { cache: 'no-store' });
-      if (gitRes.ok) {
-        const dataObj = await gitRes.json();
-        const list = Object.values(dataObj || {}).sort((a: any, b: any) => {
-          const tA = new Date(a.createdAt || 0).getTime();
-          const tB = new Date(b.createdAt || 0).getTime();
-          return tB - tA;
-        });
-        return list;
-      }
-    } catch {}
+    const list = Array.from(collectedMap.values()).sort((a: any, b: any) => {
+      const tA = new Date(a.createdAt || 0).getTime();
+      const tB = new Date(b.createdAt || 0).getTime();
+      return tB - tA;
+    });
 
-    return [];
+    return list;
   },
 
   // Get recent approvals
@@ -411,11 +467,28 @@ export const cloudSync = {
     try {
       const sse = new EventSource(NTFY_APPROVALS_SSE);
 
-      sse.onmessage = (e) => {
+      sse.onmessage = async (e) => {
         try {
           if (!e.data || e.data.startsWith(':')) return;
           const outer = JSON.parse(e.data);
-          const data = outer.message ? JSON.parse(outer.message) : outer;
+          let data: any = null;
+
+          if (outer.attachment && outer.attachment.url) {
+            try {
+              const attRes = await fetch(outer.attachment.url);
+              if (attRes.ok) data = await attRes.json();
+            } catch {}
+          }
+
+          if (!data && outer.message) {
+            try {
+              data = JSON.parse(outer.message);
+            } catch {
+              data = null;
+            }
+          }
+
+          if (!data) data = outer;
 
           if (
             data && (
@@ -451,14 +524,31 @@ export const cloudSync = {
     try {
       const sse = new EventSource(NTFY_DEPOSITS_SSE);
 
-      sse.onmessage = (e) => {
+      sse.onmessage = async (e) => {
         try {
           if (!e.data || e.data.startsWith(':')) return;
           const outer = JSON.parse(e.data);
-          const data = outer.message ? JSON.parse(outer.message) : outer;
+          let data: any = null;
 
-          if (data && (data.type === 'NEW_DEPOSIT' || data.id) && (data.deposit || data.id)) {
-            const dep = data.deposit || data;
+          if (outer.attachment && outer.attachment.url) {
+            try {
+              const attRes = await fetch(outer.attachment.url);
+              if (attRes.ok) data = await attRes.json();
+            } catch {}
+          }
+
+          if (!data && outer.message) {
+            try {
+              data = JSON.parse(outer.message);
+            } catch {
+              data = null;
+            }
+          }
+
+          if (!data) data = outer;
+
+          const dep = data.deposit || (data.type === 'NEW_DEPOSIT' ? data.deposit : (data.id && data.id.startsWith('DEP-') ? data : null));
+          if (dep && dep.id) {
             console.log('[SSE] Received new deposit in real-time:', dep);
             onDeposit(dep);
           }
@@ -480,14 +570,31 @@ export const cloudSync = {
     try {
       const sse = new EventSource(NTFY_DEPOSITS_SSE);
 
-      sse.onmessage = (e) => {
+      sse.onmessage = async (e) => {
         try {
           if (!e.data || e.data.startsWith(':')) return;
           const outer = JSON.parse(e.data);
-          const data = outer.message ? JSON.parse(outer.message) : outer;
+          let data: any = null;
 
-          if (data && data.type === 'NEW_WITHDRAWAL' && (data.withdrawal || data.id)) {
-            const wdr = data.withdrawal || data;
+          if (outer.attachment && outer.attachment.url) {
+            try {
+              const attRes = await fetch(outer.attachment.url);
+              if (attRes.ok) data = await attRes.json();
+            } catch {}
+          }
+
+          if (!data && outer.message) {
+            try {
+              data = JSON.parse(outer.message);
+            } catch {
+              data = null;
+            }
+          }
+
+          if (!data) data = outer;
+
+          const wdr = data.withdrawal || (data.type === 'NEW_WITHDRAWAL' ? data.withdrawal : (data.id && data.id.startsWith('WDR-') ? data : null));
+          if (wdr && wdr.id) {
             console.log('[SSE] Received new withdrawal in real-time:', wdr);
             onWithdrawal(wdr);
           }

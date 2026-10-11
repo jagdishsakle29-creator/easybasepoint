@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
   LayoutDashboard, 
@@ -52,6 +52,29 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
+  // Auto-sync incoming deposits from players in real-time
+  useEffect(() => {
+    refreshDeposits();
+    const timer = setInterval(() => {
+      refreshDeposits();
+    }, 3500);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshDeposits();
+      }
+    };
+    window.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [refreshDeposits]);
+
   const [activeAdminTab, setActiveAdminTab] = useState<
     'overview' | 'usdt' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
   >('overview');

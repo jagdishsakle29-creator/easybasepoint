@@ -595,13 +595,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               paymentScreenshot: bd.paymentScreenshot || bd.proofUrl || '',
               remark: bd.remark || 'cousin',
             });
-          } else if (isCompleted && existingDep.status !== 'completed' && existingDep.status !== 'approved') {
+          } else {
+            const updatedScreenshot = bd.paymentScreenshot || bd.proofUrl || existingDep.paymentScreenshot || existingDep.proofUrl || '';
+            const updatedProof = bd.proofUrl || bd.paymentScreenshot || existingDep.proofUrl || '';
+            const newStatus = isCompleted ? 'approved' : (bd.status || existingDep.status);
             map.set(bd.id, {
               ...existingDep,
-              status: 'approved',
-              credited: true,
-              creditedAt: bd.creditedAt || existingDep.creditedAt || new Date().toISOString(),
-              approvedAt: bd.approvedAt || existingDep.approvedAt || new Date().toISOString(),
+              status: newStatus,
+              credited: isCompleted || existingDep.credited,
+              creditedAt: isCompleted ? (bd.creditedAt || existingDep.creditedAt || new Date().toISOString()) : existingDep.creditedAt,
+              approvedAt: isCompleted ? (bd.approvedAt || existingDep.approvedAt || new Date().toISOString()) : existingDep.approvedAt,
+              paymentScreenshot: updatedScreenshot,
+              proofUrl: updatedProof,
+              utrNumber: bd.utrNumber || existingDep.utrNumber,
+              userPhone: bd.userPhone || existingDep.userPhone,
             });
           }
         });
@@ -859,8 +866,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribeDeposits = cloudSync.subscribeToDeposits((incoming) => {
       setDeposits((prev) => {
-        if (prev.some((d) => d.id === incoming.id)) return prev;
         const isUsdt = incoming.method === 'USDT' || incoming.id.startsWith('USDT');
+        const existing = prev.find((d) => d.id === incoming.id);
+        if (existing) {
+          const updated = prev.map((d) => {
+            if (d.id !== incoming.id) return d;
+            return {
+              ...d,
+              paymentScreenshot: incoming.paymentScreenshot || incoming.proofUrl || d.paymentScreenshot,
+              proofUrl: incoming.proofUrl || incoming.paymentScreenshot || d.proofUrl,
+              utrNumber: incoming.utrNumber || d.utrNumber,
+              userPhone: incoming.userPhone || d.userPhone,
+              status: incoming.status ? (incoming.status as any) : d.status,
+            };
+          });
+          storage.setDeposits(updated);
+          return updated;
+        }
+
         const newDep: DepositOrder = {
           id: incoming.id,
           userId: incoming.userId,
