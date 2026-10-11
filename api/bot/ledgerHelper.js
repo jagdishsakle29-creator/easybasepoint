@@ -59,6 +59,30 @@ export async function saveLedgerToGitHub(updatedData) {
       lastSha = fresh.sha;
     }
 
+    // 7-Day Auto Purge & Screenshot Archive
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    for (const [id, item] of Object.entries(updatedData || {})) {
+      if (!item) continue;
+      const createdTime = item.createdAt ? new Date(item.createdAt).getTime() : now;
+      if (now - createdTime > SEVEN_DAYS_MS) {
+        delete updatedData[id];
+        continue;
+      }
+      if ((item.status === 'completed' || item.status === 'rejected') && (now - createdTime > TWO_DAYS_MS)) {
+        if (item.paymentScreenshot && item.paymentScreenshot.length > 200) {
+          item.paymentScreenshot = 'ARCHIVED_CLOSED';
+        }
+        if (item.proofUrl && item.proofUrl.length > 200) {
+          item.proofUrl = item.utrNumber || 'ARCHIVED_CLOSED';
+        }
+      }
+      if (item.proofUrl && item.paymentScreenshot && item.proofUrl === item.paymentScreenshot) {
+        item.proofUrl = item.utrNumber || 'SCREENSHOT_ATTACHED';
+      }
+    }
+
     const contentBase64 = Buffer.from(JSON.stringify(updatedData, null, 2)).toString('base64');
     let updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${LEDGER_PATH}`, {
       method: 'PUT',

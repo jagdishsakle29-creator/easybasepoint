@@ -362,8 +362,42 @@ export const storage = {
     }
   },
   setDeposits(deposits: DepositOrder[]): void {
-    const sorted = [...deposits].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(sorted));
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    
+    // Auto-prune records older than 7 days & strip heavy screenshots for old closed records
+    const cleaned = (deposits || [])
+      .filter((d) => {
+        if (!d) return false;
+        const t = d.createdAt ? new Date(d.createdAt).getTime() : now;
+        return now - t <= SEVEN_DAYS_MS;
+      })
+      .map((d) => {
+        const t = d.createdAt ? new Date(d.createdAt).getTime() : now;
+        const isClosed = d.status === 'completed' || d.status === 'rejected' || d.credited === true;
+        if (isClosed && now - t > 24 * 60 * 60 * 1000) {
+          return {
+            ...d,
+            paymentScreenshot: d.paymentScreenshot && d.paymentScreenshot.length > 200 ? 'ARCHIVED' : d.paymentScreenshot,
+            proofUrl: d.proofUrl && d.proofUrl.length > 200 ? (d.utrNumber || 'ARCHIVED') : d.proofUrl,
+          };
+        }
+        return d;
+      });
+
+    const sorted = [...cleaned].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    try {
+      localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(sorted));
+    } catch (e) {
+      console.warn('[STORAGE] LocalStorage quota exceeded for deposits, archiving completed screenshots:', e);
+      try {
+        const light = sorted.map((d) => ({
+          ...d,
+          paymentScreenshot: (d.status === 'pending' || d.status === 'pending_verification') ? d.paymentScreenshot : '',
+        }));
+        localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(light));
+      } catch {}
+    }
   },
 
   getCreditedDepositIds(): string[] {

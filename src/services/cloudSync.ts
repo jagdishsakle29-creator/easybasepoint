@@ -88,6 +88,31 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
       ...entry,
       updatedAt: new Date().toISOString(),
     };
+
+    // Auto-prune entries older than 7 days & strip old screenshots
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    for (const [id, rawItem] of Object.entries(ledger)) {
+      const item = rawItem as any;
+      if (!item) continue;
+      const t = item.createdAt ? new Date(item.createdAt).getTime() : now;
+      if (now - t > SEVEN_DAYS_MS) {
+        delete ledger[id];
+        continue;
+      }
+      if ((item.status === 'completed' || item.status === 'rejected') && (now - t > TWO_DAYS_MS)) {
+        if (item.paymentScreenshot && item.paymentScreenshot.length > 200) {
+          item.paymentScreenshot = 'ARCHIVED_CLOSED';
+        }
+        if (item.proofUrl && item.proofUrl.length > 200) {
+          item.proofUrl = item.utrNumber || 'ARCHIVED_CLOSED';
+        }
+      }
+      if (item.proofUrl && item.paymentScreenshot && item.proofUrl === item.paymentScreenshot) {
+        item.proofUrl = item.utrNumber || 'SCREENSHOT_ATTACHED';
+      }
+    }
     const updatedRaw = JSON.stringify(ledger, null, 2);
     const b64 = btoa(encodeURIComponent(updatedRaw).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
     const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
@@ -242,21 +267,42 @@ export const cloudSync = {
   async fetchAllWithdrawals(): Promise<any[]> {
     const collectedMap = new Map<string, any>();
 
-    // 1. Authoritative GitHub Cloud Ledger (Immediate, Zero Rate-Limits, 100% Reliable)
+    // 1. Authoritative GitHub Cloud Ledger (Real-Time API first, with zero CDN cache lag)
     try {
-      const ghRes = await fetch(`${GITHUB_LEDGER_RAW}?t=${Date.now()}`, { cache: 'no-store' });
-      if (ghRes.ok) {
-        const ghData = await ghRes.json();
-        if (ghData && typeof ghData === 'object') {
-          Object.values(ghData).forEach((item: any) => {
-            if (item && item.id && (item.id.startsWith('WDR-') || item.type === 'withdrawal')) {
-              collectedMap.set(item.id, item);
-            }
-          });
+      let ghData: any = null;
+      try {
+        const apiRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger&t=${Date.now()}`, {
+          headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+          cache: 'no-store',
+        });
+        if (apiRes.ok) {
+          const json = await apiRes.json();
+          if (json && json.content) {
+            const rawContent = atob(json.content.replace(/\s/g, ''));
+            ghData = JSON.parse(rawContent || '{}');
+          }
+        }
+      } catch {}
+
+      if (!ghData) {
+        const ghRes = await fetch(`${GITHUB_LEDGER_RAW}?t=${Date.now()}`, { cache: 'no-store' });
+        if (ghRes.ok) {
+          ghData = await ghRes.json();
         }
       }
+
+      if (ghData && typeof ghData === 'object') {
+        Object.values(ghData).forEach((item: any) => {
+          if (item && item.id && (item.id.startsWith('WDR-') || item.type === 'withdrawal')) {
+            collectedMap.set(item.id, item);
+          }
+        });
+      }
     } catch (e) {
-      console.warn('[CLOUD_SYNC] GitHub raw ledger withdrawals fetch error:', e);
+      console.warn('[CLOUD_SYNC] GitHub ledger withdrawals fetch error:', e);
     }
 
     // 2. Fetch from Ntfy Topic
@@ -386,21 +432,44 @@ export const cloudSync = {
   async fetchAllDeposits(): Promise<any[]> {
     const collectedMap = new Map<string, any>();
 
-    // 1. Authoritative GitHub Cloud Ledger (Immediate, Zero Rate-Limits, 100% Reliable)
+    // 1. Authoritative GitHub Cloud Ledger (Real-Time API first, with zero CDN cache lag)
     try {
-      const ghRes = await fetch(`${GITHUB_LEDGER_RAW}?t=${Date.now()}`, { cache: 'no-store' });
-      if (ghRes.ok) {
-        const ghData = await ghRes.json();
-        if (ghData && typeof ghData === 'object') {
-          Object.values(ghData).forEach((item: any) => {
-            if (item && item.id && !item.id.startsWith('WDR-') && item.type !== 'withdrawal') {
-              collectedMap.set(item.id, item);
-            }
-          });
+      let ghData: any = null;
+      // Direct API fetch with token for instantaneous real-time sync
+      try {
+        const apiRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger&t=${Date.now()}`, {
+          headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+          cache: 'no-store',
+        });
+        if (apiRes.ok) {
+          const json = await apiRes.json();
+          if (json && json.content) {
+            const rawContent = atob(json.content.replace(/\s/g, ''));
+            ghData = JSON.parse(rawContent || '{}');
+          }
+        }
+      } catch {}
+
+      // Fallback to RAW if API didn't return
+      if (!ghData) {
+        const ghRes = await fetch(`${GITHUB_LEDGER_RAW}?t=${Date.now()}`, { cache: 'no-store' });
+        if (ghRes.ok) {
+          ghData = await ghRes.json();
         }
       }
+
+      if (ghData && typeof ghData === 'object') {
+        Object.values(ghData).forEach((item: any) => {
+          if (item && item.id && !item.id.startsWith('WDR-') && item.type !== 'withdrawal') {
+            collectedMap.set(item.id, item);
+          }
+        });
+      }
     } catch (e) {
-      console.warn('[CLOUD_SYNC] GitHub raw ledger fetch error:', e);
+      console.warn('[CLOUD_SYNC] GitHub ledger fetch error:', e);
     }
 
     // 2. Secondary Real-time Feed: Ntfy Cloud Topic (Stores all deposits + attachments)

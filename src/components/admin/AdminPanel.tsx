@@ -351,14 +351,31 @@ export const AdminPanel: React.FC = () => {
          ======================================================= */}
       {activeAdminTab === 'overview' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="glass-card rounded-2xl p-4 border border-slate-200/80">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Active Packages</span>
-              <div className="text-2xl font-black text-slate-900 font-outfit mt-1">
-                {packages.filter((p) => p.isActive).length}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {/* 1. Pending INR Deposits (Priority #1) */}
+            <div 
+              onClick={() => {
+                setActiveAdminTab('deposits');
+                setInrFilter('pending');
+              }}
+              className={`glass-card rounded-2xl p-4 border cursor-pointer transition ${
+                pendingInrDeposits.length > 0 
+                  ? 'border-amber-400 bg-amber-500/10 shadow-md ring-2 ring-amber-400/40 animate-pulse'
+                  : 'border-slate-200/80 hover:border-amber-300'
+              }`}
+            >
+              <span className="text-[10px] font-bold text-amber-600 uppercase flex items-center justify-between">
+                <span>Pending Deposits</span>
+                {pendingInrDeposits.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                )}
+              </span>
+              <div className="text-2xl font-black text-amber-600 font-outfit mt-1">
+                {pendingInrDeposits.length}
               </div>
             </div>
 
+            {/* 2. Pending Withdrawals */}
             <div 
               onClick={() => setActiveAdminTab('withdrawals')}
               className="glass-card rounded-2xl p-4 border border-orange-200/80 bg-orange-50/20 cursor-pointer hover:border-orange-300 transition"
@@ -366,6 +383,14 @@ export const AdminPanel: React.FC = () => {
               <span className="text-[10px] font-bold text-[#FF6B00] uppercase">Pending Withdrawals</span>
               <div className="text-2xl font-black text-[#FF6B00] font-outfit mt-1">
                 {pendingWithdrawals.length}
+              </div>
+            </div>
+
+            {/* 3. Active Packages */}
+            <div className="glass-card rounded-2xl p-4 border border-slate-200/80">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Active Packages</span>
+              <div className="text-2xl font-black text-slate-900 font-outfit mt-1">
+                {packages.filter((p) => p.isActive).length}
               </div>
             </div>
 
@@ -383,6 +408,34 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Urgent Notification Banner for Pending Deposits */}
+          {pendingInrDeposits.length > 0 && (
+            <div 
+              onClick={() => {
+                setActiveAdminTab('deposits');
+                setInrFilter('pending');
+              }}
+              className="p-4 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border-2 border-amber-400 rounded-3xl flex items-center justify-between cursor-pointer hover:scale-[1.01] transition shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow text-lg animate-bounce">
+                  📸
+                </div>
+                <div>
+                  <div className="text-sm font-black text-amber-900 font-outfit">
+                    {pendingInrDeposits.length} Payment Screenshot(s) Awaiting Review!
+                  </div>
+                  <div className="text-xs text-amber-700 font-medium font-mono">
+                    Latest: UTR {pendingInrDeposits[0]?.utrNumber} • ₹{pendingInrDeposits[0]?.amount} ({pendingInrDeposits[0]?.userPhone})
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white font-black text-xs rounded-xl shadow whitespace-nowrap">
+                Review Screenshots ➔
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions Card */}
           <div className="glass-card rounded-3xl p-5 space-y-3">
