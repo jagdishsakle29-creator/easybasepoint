@@ -53,7 +53,7 @@ const AppContent: React.FC = () => {
     const checkAppVersion = async () => {
       if (typeof window === 'undefined') return;
       try {
-        const res = await fetch(`/version.json?_t=${Date.now()}`, {
+        const res = await fetch(`/api/version?_t=${Date.now()}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
         });
