@@ -413,7 +413,7 @@ export const cloudSync = {
 
     // 3. Try Vercel Serverless Endpoint
     try {
-      const res = await fetch(`${getApiBaseUrl()}/bot/withdrawals`, { cache: 'no-store' });
+      const res = await fetch(`${getApiBaseUrl()}/withdrawals`, { cache: 'no-store' }).catch(() => fetch(`${getApiBaseUrl()}/bot/withdrawals`, { cache: 'no-store' }));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -586,7 +586,7 @@ export const cloudSync = {
 
     // 3. Tertiary: Try Vercel Serverless Endpoint
     try {
-      const res = await fetch(`${getApiBaseUrl()}/bot/deposits`, { cache: 'no-store' });
+      const res = await fetch(`${getApiBaseUrl()}/deposits`, { cache: 'no-store' }).catch(() => fetch(`${getApiBaseUrl()}/bot/deposits`, { cache: 'no-store' }));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
