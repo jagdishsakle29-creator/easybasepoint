@@ -77,7 +77,7 @@ export const DepositPage: React.FC = () => {
   // Instant image preloading for zero-latency switching
   useEffect(() => {
     const imgAuto = new Image();
-    imgAuto.src = '/deposit_qr.png?v=easybase_brand_v1';
+    imgAuto.src = '/deposit_qr.png?v=phonepe_khushi_v2';
   }, []);
 
   // Filtered packages
@@ -228,11 +228,11 @@ export const DepositPage: React.FC = () => {
   };
 
   const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'amazonpay' | 'upi') => {
-    const upiId = settings.adminUpiId || 'manishkey@fam';
+    const upiId = settings.adminUpiId || 'narwariya321@axl';
     const amount = topUpAmount || 350;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const payeeName = settings.adminUpiName || 'UPI (manishkey@fam)';
+    const payeeName = settings.adminUpiName || 'Khushi Naravriya (narwariya321@axl)';
     const txnRef = 'EBP' + Date.now();
     const remark = 'EasyBase TopUp';
 
@@ -292,7 +292,7 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    const upiId = settings.adminUpiId || 'manishkey@fam';
+    const upiId = settings.adminUpiId || 'narwariya321@axl';
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
@@ -582,7 +582,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr.png?v=easybase_brand_v1" 
+                            src="/deposit_qr.png?v=phonepe_khushi_v2" 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -590,7 +590,7 @@ export const DepositPage: React.FC = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-black text-amber-300 font-outfit truncate">
-                              UPI QR ({settings.adminUpiId || 'manishkey@fam'})
+                              UPI QR ({settings.adminUpiId || 'narwariya321@axl'})
                             </span>
                             <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase">
                               Active
@@ -1176,13 +1176,13 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-slate-400">Official UPI ID:</span>
-                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'manishkey@fam'}</span>
+                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'narwariya321@axl'}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'manishkey@fam');
-                          addToast('success', `Copied ${settings.adminUpiId || 'manishkey@fam'} to clipboard!`);
+                          navigator.clipboard.writeText(settings.adminUpiId || 'narwariya321@axl');
+                          addToast('success', `Copied ${settings.adminUpiId || 'narwariya321@axl'} to clipboard!`);
                         }}
                         className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition"
                       >
@@ -1296,7 +1296,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="relative mx-auto w-56 h-56 flex items-center justify-center p-2 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src="/deposit_qr.png?v=easybase_brand_v1" 
+                        src="/deposit_qr.png?v=phonepe_khushi_v2" 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1311,7 +1311,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href="/deposit_qr.png?v=easybase_brand_v1"
+                        href="/deposit_qr.png?v=phonepe_khushi_v2"
                         download="easybase_payment_qr.png"
                         className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition active:scale-95"
                       >
@@ -1330,7 +1330,7 @@ export const DepositPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          const copyId = settings.adminUpiId || 'manishkey@fam';
+                          const copyId = settings.adminUpiId || 'narwariya321@axl';
                           navigator.clipboard.writeText(copyId);
                           addToast('success', `Copied ${copyId} to clipboard!`);
                         }}
@@ -1341,10 +1341,10 @@ export const DepositPage: React.FC = () => {
                       </button>
                     </div>
                     <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                      {settings.adminUpiId || 'manishkey@fam'}
+                      {settings.adminUpiId || 'narwariya321@axl'}
                     </div>
                     <div className="text-[10px] text-slate-300">
-                      Verified Payee: <strong>{settings.adminUpiName || 'UPI (manishkey@fam)'}</strong>
+                      Verified Payee: <strong>{settings.adminUpiName || 'Khushi Naravriya (narwariya321@axl)'}</strong>
                     </div>
                   </div>
 

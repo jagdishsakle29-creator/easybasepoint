@@ -99,8 +99,8 @@ export const AdminPanel: React.FC = () => {
   const [minWithdraw, setMinWithdraw] = useState(settings.minWithdrawal);
 
   // Gateway form state
-  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || 'manishkey@fam');
-  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'UPI (manishkey@fam)');
+  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || 'narwariya321@axl');
+  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'UPI (narwariya321@axl)');
   const [adminBankName, setAdminBankName] = useState(settings.adminBankName || 'HDFC Bank Ltd');
   const [adminBankAccount, setAdminBankAccount] = useState(settings.adminBankAccount || '50200088991234');
   const [adminBankIfsc, setAdminBankIfsc] = useState(settings.adminBankIfsc || 'HDFC0001234');
@@ -1260,7 +1260,7 @@ export const AdminPanel: React.FC = () => {
                   required
                   value={adminUpiId}
                   onChange={(e) => setAdminUpiId(e.target.value)}
-                  placeholder="9630020989@apl"
+                  placeholder="narwariya321@axl"
                   className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
