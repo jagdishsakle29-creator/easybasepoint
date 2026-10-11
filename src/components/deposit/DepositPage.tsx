@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   RotateCw, 
   HelpCircle, 
@@ -22,6 +22,7 @@ import {
   Send,
   XCircle,
   Upload,
+  Download,
   Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -60,7 +61,7 @@ export const DepositPage: React.FC = () => {
 
   // Direct INR Wallet Top-Up Modal State
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
-  const [topUpAmount, setTopUpAmount] = useState<number>(200);
+  const [topUpAmount, setTopUpAmount] = useState<number>(390);
   const [utrRef, setUtrRef] = useState<string>('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
   const [depositStatusFilter, setDepositStatusFilter] = useState<'successful' | 'pending' | 'cancelled' | null>(null);
@@ -72,6 +73,14 @@ export const DepositPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
   const [qrViewMode, setQrViewMode] = useState<'dynamic' | 'official'>('dynamic');
+
+  // Instant image preloading for zero-latency switching
+  useEffect(() => {
+    const imgAuto = new Image();
+    imgAuto.src = '/auto_deposit_qr.png';
+    const imgOfficial = new Image();
+    imgOfficial.src = '/deposit_qr.jpg';
+  }, []);
 
   // Filtered packages
   const filteredPackages = useMemo(() => {
@@ -184,8 +193,9 @@ export const DepositPage: React.FC = () => {
   };
 
   const handleConfirmTopUp = () => {
-    if (topUpAmount <= 0) {
-      addToast('error', 'Please enter or select a valid deposit amount.');
+    const minDep = settings.minDeposit || 390;
+    if (topUpAmount <= 0 || topUpAmount < minDep) {
+      addToast('error', `Minimum deposit amount is ₹${minDep}.`);
       return;
     }
     const cleanUtr = utrRef.trim();
@@ -207,7 +217,7 @@ export const DepositPage: React.FC = () => {
         setScreenshotFile(null);
         setScreenshotUrl('');
       }
-    }, 600);
+    }, 150);
   };
 
   const isMobileDevice = () => {
@@ -219,15 +229,23 @@ export const DepositPage: React.FC = () => {
     return isMobileUa || (isTouch && isSmallScreen);
   };
 
-  const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
-    const upiId = settings.adminUpiId || 'antaryami12@upi';
-    const amount = topUpAmount || 200;
+  const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'amazonpay' | 'upi') => {
+    const upiId = settings.adminUpiId || '9630020989@apl';
+    const amount = topUpAmount || 390;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const payeeName = settings.adminUpiName || 'Krishna Dawar';
-    const remark = 'cousin';
+    const payeeName = settings.adminUpiName || 'Amazon Pay';
+    const txnRef = 'EBP' + Date.now();
+    const remark = 'EasyBase TopUp';
 
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(txnRef)}`;
+
+    if (app === 'amazonpay') {
+      if (isAndroid) {
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(txnRef)}#Intent;scheme=upi;package=in.amazon.mShop.android.shopping;action=android.intent.action.VIEW;end`;
+      }
+      return standardUpi;
+    }
 
     if (app === 'phonepe') {
       if (isAndroid) {
@@ -268,14 +286,15 @@ export const DepositPage: React.FC = () => {
     return standardUpi;
   };
 
-  const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
+  const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'amazonpay' | 'upi') => {
     e.preventDefault();
-    if (!topUpAmount || topUpAmount <= 0) {
-      addToast('error', 'Please select or enter a valid deposit amount.');
+    const minDep = settings.minDeposit || 390;
+    if (!topUpAmount || topUpAmount < minDep) {
+      addToast('error', `Minimum deposit amount is ₹${minDep}.`);
       return;
     }
 
-    const upiId = settings.adminUpiId || 'antaryami12@upi';
+    const upiId = settings.adminUpiId || '9630020989@apl';
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
@@ -428,7 +447,7 @@ export const DepositPage: React.FC = () => {
                 Select Quick Amount
               </label>
               <div className="grid grid-cols-5 gap-1.5">
-                {[200, 350, 500, 800, 1200].map((amt) => (
+                {[390, 500, 800, 1200, 2500].map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -450,11 +469,11 @@ export const DepositPage: React.FC = () => {
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
               <input
                 type="number"
-                min={100}
+                min={settings.minDeposit || 390}
                 step={50}
                 value={topUpAmount || ''}
                 onChange={(e) => setTopUpAmount(Number(e.target.value))}
-                placeholder="Or enter custom amount (Min ₹100)"
+                placeholder={`Or enter custom amount (Min ₹${settings.minDeposit || 390})`}
                 className="w-full pl-8 pr-3 py-3 bg-white/10 text-white font-bold font-outfit rounded-2xl border border-white/20 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
               />
             </div>
@@ -489,8 +508,26 @@ export const DepositPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      {/* 1. PhonePe */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {/* 1. Amazon Pay */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Amazon Pay', 'amazonpay')}
+                        className="p-3 rounded-2xl bg-gradient-to-b from-[#232f3e] to-[#131921] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-amber-950/40 border border-amber-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group relative overflow-hidden"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
+                          <span className="text-[#232f3e] font-black text-xs font-outfit">pay</span>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs font-black tracking-wide font-outfit text-amber-400">Amazon Pay</div>
+                          <div className="text-[10px] text-amber-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
+                        </div>
+                        <div className="absolute top-1 right-1 bg-[#FF6B00] text-white text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
+                          QR UPI
+                        </div>
+                      </button>
+
+                      {/* 2. PhonePe */}
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
@@ -505,7 +542,7 @@ export const DepositPage: React.FC = () => {
                         </div>
                       </button>
 
-                      {/* 2. Paytm */}
+                      {/* 3. Paytm */}
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
@@ -523,7 +560,7 @@ export const DepositPage: React.FC = () => {
                         </div>
                       </button>
 
-                      {/* 3. Google Pay */}
+                      {/* 4. Google Pay */}
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'Google Pay', 'gpay')}
@@ -1109,13 +1146,13 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-slate-400">Official UPI ID:</span>
-                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'antaryami12@upi'}</span>
+                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || '9630020989@apl'}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'antaryami12@upi');
-                          addToast('success', `Copied ${settings.adminUpiId || 'antaryami12@upi'} to clipboard!`);
+                          navigator.clipboard.writeText(settings.adminUpiId || '9630020989@apl');
+                          addToast('success', `Copied ${settings.adminUpiId || '9630020989@apl'} to clipboard!`);
                         }}
                         className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition"
                       >
@@ -1128,6 +1165,21 @@ export const DepositPage: React.FC = () => {
                     </p>
 
                     <div className="grid grid-cols-2 gap-2.5">
+                      {/* Amazon Pay */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Amazon Pay', 'amazonpay')}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#232f3e] to-[#131921] text-white flex items-center gap-2.5 shadow-lg shadow-amber-950/40 border border-amber-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#232f3e] font-black text-xs font-outfit shadow-xs flex-shrink-0">
+                          pay
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-black tracking-wide font-outfit truncate text-amber-400">Amazon Pay</div>
+                          <div className="text-[10px] text-amber-200 group-hover:text-white truncate">Open Amazon ➔</div>
+                        </div>
+                      </button>
+
                       {/* PhonePe */}
                       <button
                         type="button"
@@ -1177,14 +1229,14 @@ export const DepositPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'UPI App', 'upi')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
+                        className="col-span-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.01] active:scale-98 transition group cursor-pointer text-center"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#047857] font-black text-xs font-outfit shadow-xs flex-shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-[#047857] font-black text-xs font-outfit shadow-xs flex-shrink-0">
                           UPI
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-black tracking-wide font-outfit truncate">BHIM / Other</div>
-                          <div className="text-[10px] text-emerald-200 group-hover:text-white truncate">Open Any UPI ➔</div>
+                        <div className="min-w-0 text-left">
+                          <div className="text-xs font-black tracking-wide font-outfit">BHIM / Any Other UPI App</div>
+                          <div className="text-[10px] text-emerald-200 group-hover:text-white">Open Any Installed UPI ➔</div>
                         </div>
                       </button>
                     </div>
@@ -1201,75 +1253,92 @@ export const DepositPage: React.FC = () => {
                   </div>
 
                   {/* QR Code and Official UPI */}
-                  <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2 shadow-md">
+                  <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2.5 shadow-md">
                     <div className="flex justify-center items-center gap-2 mb-1">
                       <button
                         type="button"
                         onClick={() => setQrViewMode('dynamic')}
-                        className={`px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                        className={`px-3 py-1.5 text-[11px] font-black rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                           qrViewMode === 'dynamic'
-                            ? 'bg-[#FF6B00] text-white shadow'
+                            ? 'bg-[#FF6B00] text-white shadow-md scale-[1.02]'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        Auto ₹{topUpAmount} QR
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Auto ₹{topUpAmount} QR (Amazon Pay)</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setQrViewMode('official')}
-                        className={`px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                        className={`px-3 py-1.5 text-[11px] font-black rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                           qrViewMode === 'official'
-                            ? 'bg-[#FF6B00] text-white shadow'
+                            ? 'bg-slate-900 text-white shadow-md scale-[1.02]'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        Official Scanner QR
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Official Scanner QR (Old)</span>
                       </button>
                     </div>
 
-                    <img 
-                      src={
-                        qrViewMode === 'official'
-                          ? '/deposit_qr.jpg'
-                          : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-                              `upi://pay?pa=${settings.adminUpiId || 'antaryami12@upi'}&pn=${encodeURIComponent(settings.adminUpiName || 'Krishna Dawar')}&am=${topUpAmount}&cu=INR&tn=cousin&tr=cousin`
-                            )}`
-                      }
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/deposit_qr.jpg';
-                      }}
-                      alt="Official Payment QR" 
-                      className="w-44 h-44 object-contain rounded-xl mx-auto border border-slate-200 bg-white p-1"
-                    />
+                    <div className="relative mx-auto w-52 h-52 flex items-center justify-center p-2 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
+                      <img 
+                        src={qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png'}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png';
+                        }}
+                        alt={qrViewMode === 'official' ? "Official Platform Scanner QR (Old)" : "Auto Amazon Pay QR (New)"} 
+                        loading="eager"
+                        decoding="sync"
+                        className="w-full h-full object-contain rounded-xl transition-all duration-150"
+                      />
+                    </div>
+
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Scan with PhonePe, Paytm, CRED, or GPay to pay ₹{topUpAmount}</span>
+                      <span>
+                        {qrViewMode === 'official'
+                          ? `Scan with Any UPI App to pay ₹${topUpAmount}`
+                          : `Scan with Amazon Pay, PhonePe, Paytm or GPay (₹${topUpAmount})`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-center pt-0.5">
+                      <a
+                        href={qrViewMode === 'official' ? '/deposit_qr.jpg' : '/auto_deposit_qr.png'}
+                        download={qrViewMode === 'official' ? 'official_scanner_qr.jpg' : 'amazon_pay_auto_qr.png'}
+                        className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition active:scale-95"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Save {qrViewMode === 'official' ? 'Official' : 'Auto Amazon'} QR to Gallery</span>
+                      </a>
                     </div>
                   </div>
 
-                  {/* Official UPI ID Box */}
+                  {/* Dynamic UPI ID Box according to QR mode */}
                   <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-                        OFFICIAL PLATFORM UPI ID
+                        {qrViewMode === 'official' ? 'OFFICIAL PLATFORM UPI ID' : 'AUTO QR (AMAZON PAY) UPI ID'}
                       </span>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'antaryami12@upi');
-                          addToast('success', 'UPI ID copied to clipboard!');
+                          const copyId = qrViewMode === 'official' ? (settings.adminUpiId || 'antaryami12@upi') : '9630020989@apl';
+                          navigator.clipboard.writeText(copyId);
+                          addToast('success', `Copied ${copyId} to clipboard!`);
                         }}
-                        className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer active:scale-95"
                       >
                         <Copy className="w-3 h-3" />
                         <span>Copy UPI</span>
                       </button>
                     </div>
                     <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                      {settings.adminUpiId || 'antaryami12@upi'}
+                      {qrViewMode === 'official' ? (settings.adminUpiId || 'antaryami12@upi') : '9630020989@apl'}
                     </div>
                     <div className="text-[10px] text-slate-300">
-                      Verified Payee: <strong>{settings.adminUpiName || 'Krishna Dawar'}</strong>
+                      Verified Payee: <strong>{qrViewMode === 'official' ? (settings.adminUpiName || 'Krishna Dawar') : 'Amazon Pay (9630020989@apl)'}</strong>
                     </div>
                   </div>
 

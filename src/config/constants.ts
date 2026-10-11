@@ -19,7 +19,7 @@ export const COMPANY_CONFIG = {
   officialTelegram: TELEGRAM_CHANNEL_URL,
   supportTelegram: 'https://t.me/easybasepoint',
   welcomeBonusInr: 50.00,
-  minDepositInr: 500,
+  minDepositInr: 390,
   minWithdrawalInr: 200,
 };
 

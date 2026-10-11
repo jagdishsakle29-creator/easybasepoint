@@ -241,6 +241,7 @@ export const defaultSettings: RewardSettings = {
   lowBonusPercent: 22.00,
   middleBonusPercent: 22.00,
   highBonusPercent: 22.00,
+  minDeposit: 390.00,
   minWithdrawal: 200.00,
   withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
@@ -274,7 +275,12 @@ export const defaultUsdts: SavedUsdtAddress[] = [];
 export const storage = {
   getUser(): User | null {
     const raw = localStorage.getItem(STORAGE_KEYS.USER);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   },
   setUser(user: User | null): void {
     if (user) {
@@ -437,9 +443,13 @@ export const storage = {
         parsed.highBonusPercent = 22.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      if (parsed.adminUpiId !== 'antaryami12@upi') {
+      if (!parsed.adminUpiId) {
         parsed.adminUpiId = 'antaryami12@upi';
         parsed.adminUpiName = 'Krishna Dawar (antaryami12@upi)';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      if (!parsed.minDeposit || parsed.minDeposit < 390) {
+        parsed.minDeposit = 390.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.usdtBuyRate || parsed.usdtBuyRate !== 102 || !parsed.usdtSellRate || parsed.usdtSellRate !== 129) {
@@ -480,7 +490,12 @@ export const storage = {
 
   getBankCards(): SavedBankCard[] {
     const raw = localStorage.getItem(STORAGE_KEYS.BANK_CARDS);
-    return raw ? JSON.parse(raw) : defaultBankCards;
+    if (!raw) return defaultBankCards;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return defaultBankCards;
+    }
   },
   setBankCards(cards: SavedBankCard[]): void {
     localStorage.setItem(STORAGE_KEYS.BANK_CARDS, JSON.stringify(cards));
@@ -488,7 +503,12 @@ export const storage = {
 
   getUpis(): SavedUpi[] {
     const raw = localStorage.getItem(STORAGE_KEYS.UPIS);
-    return raw ? JSON.parse(raw) : defaultUpis;
+    if (!raw) return defaultUpis;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return defaultUpis;
+    }
   },
   setUpis(upis: SavedUpi[]): void {
     localStorage.setItem(STORAGE_KEYS.UPIS, JSON.stringify(upis));
@@ -496,7 +516,12 @@ export const storage = {
 
   getUsdts(): SavedUsdtAddress[] {
     const raw = localStorage.getItem(STORAGE_KEYS.USDTS);
-    return raw ? JSON.parse(raw) : defaultUsdts;
+    if (!raw) return defaultUsdts;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return defaultUsdts;
+    }
   },
   setUsdts(usdts: SavedUsdtAddress[]): void {
     localStorage.setItem(STORAGE_KEYS.USDTS, JSON.stringify(usdts));
@@ -504,7 +529,12 @@ export const storage = {
 
   getTickets(): SupportTicket[] {
     const raw = localStorage.getItem(STORAGE_KEYS.TICKETS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
   },
   setTickets(tickets: SupportTicket[]): void {
     localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
@@ -512,7 +542,12 @@ export const storage = {
 
   getAuditLogs(): AuditLog[] {
     const raw = localStorage.getItem(STORAGE_KEYS.LOGS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
   },
   setAuditLogs(logs: AuditLog[]): void {
     localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
@@ -520,7 +555,12 @@ export const storage = {
 
   getAccounts(): RegisteredAccount[] {
     const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
   },
   setAccounts(accounts: RegisteredAccount[]): void {
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));

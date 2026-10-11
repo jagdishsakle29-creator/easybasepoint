@@ -1248,7 +1248,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast('error', 'Please log in to your account first.');
       return { success: false, message: 'Authentication required' };
     }
-    if (amount <= 0) return { success: false, message: 'Invalid amount' };
+    const minDeposit = settings.minDeposit || 390;
+    if (amount < minDeposit) {
+      addToast('error', `Minimum deposit amount is ₹${minDeposit}.`);
+      return { success: false, message: `Minimum deposit amount is ₹${minDeposit}.` };
+    }
 
     // MANDATORY SCREENSHOT VALIDATION (Unless demo mode)
     if (!settings.isDemoMode && (!screenshotUrl || screenshotUrl.trim().length === 0)) {

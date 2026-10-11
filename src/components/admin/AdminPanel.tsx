@@ -72,11 +72,12 @@ export const AdminPanel: React.FC = () => {
   const [normalPrice, setNormalPrice] = useState(settings.normalUsdtPrice);
   const [inrReward, setInrReward] = useState(settings.inrRewardPercent);
   const [feePercent, setFeePercent] = useState(settings.withdrawalFeePercent);
+  const [minDeposit, setMinDeposit] = useState(settings.minDeposit || 390);
   const [minWithdraw, setMinWithdraw] = useState(settings.minWithdrawal);
 
   // Gateway form state
-  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || 'antaryami12@upi');
-  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'Krishna Dawar');
+  const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || '9630020989@apl');
+  const [adminUpiName, setAdminUpiName] = useState(settings.adminUpiName || 'Amazon Pay');
   const [adminBankName, setAdminBankName] = useState(settings.adminBankName || 'HDFC Bank Ltd');
   const [adminBankAccount, setAdminBankAccount] = useState(settings.adminBankAccount || '50200088991234');
   const [adminBankIfsc, setAdminBankIfsc] = useState(settings.adminBankIfsc || 'HDFC0001234');
@@ -192,8 +193,10 @@ export const AdminPanel: React.FC = () => {
       normalUsdtPrice: normalPrice,
       inrRewardPercent: inrReward,
       withdrawalFeePercent: feePercent,
+      minDeposit,
       minWithdrawal: minWithdraw,
     });
+    addToast('success', 'Platform reward & deposit/withdrawal settings updated!');
   };
 
   const handleSaveGateways = (e: React.FormEvent) => {
@@ -1234,7 +1237,7 @@ export const AdminPanel: React.FC = () => {
                   required
                   value={adminUpiId}
                   onChange={(e) => setAdminUpiId(e.target.value)}
-                  placeholder="antaryami12@upi"
+                  placeholder="9630020989@apl"
                   className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
@@ -1496,6 +1499,18 @@ export const AdminPanel: React.FC = () => {
                 step={0.5}
                 value={feePercent}
                 onChange={(e) => setFeePercent(Number(e.target.value))}
+                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500">
+                Minimum Deposit (INR)
+              </label>
+              <input
+                type="number"
+                value={minDeposit}
+                onChange={(e) => setMinDeposit(Number(e.target.value))}
                 className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
               />
             </div>
