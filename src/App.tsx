@@ -46,6 +46,55 @@ const AppContent: React.FC = () => {
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
+  // Auto-Update Detection: Automatically detects new deployments and updates client
+  useEffect(() => {
+    let isReloading = false;
+
+    const checkAppVersion = async () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const res = await fetch(`/version.json?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.buildTime) return;
+
+        const currentBuild = data.buildTime;
+        const savedBuild = localStorage.getItem('ebp_app_build');
+
+        if (!savedBuild) {
+          localStorage.setItem('ebp_app_build', String(currentBuild));
+        } else if (Number(savedBuild) !== currentBuild && !isReloading) {
+          isReloading = true;
+          localStorage.setItem('ebp_app_build', String(currentBuild));
+          // Transparently reload to fetch the latest production bundle
+          window.location.reload();
+        }
+      } catch {}
+    };
+
+    // 1. Check immediately on mount
+    checkAppVersion();
+
+    // 2. Check whenever user switches tabs / unlocks phone
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkAppVersion();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // 3. Periodic background check every 30 seconds
+    const timer = setInterval(checkAppVersion, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(timer);
+    };
+  }, []);
+
   // Check URL or Session for secure admin access
   const adminUnlockedRef = React.useRef(false);
   useEffect(() => {
