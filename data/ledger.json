@@ -16,5 +16,13 @@
     "credited": false,
     "approvedAt": "2026-10-11T15:37:50.519Z",
     "updatedAt": "2026-10-11T15:37:51.023Z"
+  },
+  "DEP-933265": {
+    "id": "DEP-933265",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-11T15:37:52.053Z",
+    "updatedAt": "2026-10-11T15:37:52.654Z"
   }
 }
