@@ -46,6 +46,25 @@ const AppContent: React.FC = () => {
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
 
+  // Force global refresh & cache bust for all devices
+  useEffect(() => {
+    const SYNC_TAG = 'ebp_sync_20261011_v3';
+    if (typeof window !== 'undefined' && localStorage.getItem('ebp_last_forced_sync') !== SYNC_TAG) {
+      localStorage.setItem('ebp_last_forced_sync', SYNC_TAG);
+      // Invalidate old settings in localStorage
+      try {
+        const raw = localStorage.getItem('ebp_settings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          parsed.adminUpiId = 'narwariya321@axl';
+          parsed.adminUpiName = 'Khushi Naravriya (narwariya321@axl)';
+          localStorage.setItem('ebp_settings', JSON.stringify(parsed));
+        }
+      } catch {}
+      window.location.reload();
+    }
+  }, []);
+
   // Auto-Update Detection: Detects new deployments by bundle hash and auto-reloads
   useEffect(() => {
     let isReloading = false;
@@ -86,8 +105,8 @@ const AppContent: React.FC = () => {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // 3. Periodic background check every 30 seconds
-    const timer = setInterval(checkAppVersion, 30000);
+    // 3. Periodic background check every 10 seconds for rapid sync
+    const timer = setInterval(checkAppVersion, 10000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
