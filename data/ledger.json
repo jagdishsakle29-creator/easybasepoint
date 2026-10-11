@@ -8,5 +8,13 @@
     "approvedAt": "2026-10-11T14:02:50.270Z",
     "creditedAt": "2026-10-11T14:02:50.270Z",
     "updatedAt": "2026-10-11T14:02:52.115Z"
+  },
+  "DEP-311215": {
+    "id": "DEP-311215",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-11T15:37:50.519Z",
+    "updatedAt": "2026-10-11T15:37:51.023Z"
   }
 }
