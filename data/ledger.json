@@ -160,5 +160,20 @@
     "credited": false,
     "approvedAt": "2026-10-12T14:21:11.348Z",
     "updatedAt": "2026-10-12T14:21:12.334Z"
+  },
+  "DEP-185257": {
+    "amount": 0,
+    "totalInr": 32474.78,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-12T14:21:15.567Z",
+    "id": "DEP-185257",
+    "status": "completed",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-12T14:21:14.276Z",
+    "creditedAt": "2026-10-12T14:21:14.276Z",
+    "updatedAt": "2026-10-12T14:21:15.567Z"
   }
 }
