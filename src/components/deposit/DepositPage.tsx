@@ -506,7 +506,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr.png?v=phonepe_khushi_v3_reload" 
+                            src="/deposit_qr_clean.png?v=clean_large_v2" 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1115,9 +1115,9 @@ export const DepositPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="relative mx-auto w-56 h-56 flex items-center justify-center p-2 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
+                    <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src="/deposit_qr.png?v=phonepe_khushi_v3_reload" 
+                        src="/deposit_qr_clean.png?v=clean_large_v2" 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1132,9 +1132,9 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href="/deposit_qr.png?v=phonepe_khushi_v3_reload"
+                        href="/deposit_qr_clean.png?v=clean_large_v2"
                         download="easybase_payment_qr.png"
-                        className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition active:scale-95"
+                        className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg border border-orange-200 transition active:scale-95"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Save Payment QR to Gallery</span>
@@ -1142,30 +1142,16 @@ export const DepositPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Official UPI ID Box */}
-                  <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-                        OFFICIAL UPI ID
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const copyId = settings.adminUpiId || 'narwariya321@axl';
-                          navigator.clipboard.writeText(copyId);
-                          addToast('success', `Copied ${copyId} to clipboard!`);
-                        }}
-                        className="text-xs font-black text-[#FF6B00] bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer active:scale-95"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>Copy UPI</span>
-                      </button>
-                    </div>
-                    <div className="font-mono text-sm font-black text-amber-300 select-all tracking-wide break-all">
-                      {settings.adminUpiId || 'narwariya321@axl'}
-                    </div>
-                    <div className="text-[10px] text-slate-300">
-                      Verified Payee: <strong>{settings.adminUpiName || 'Khushi Naravriya (narwariya321@axl)'}</strong>
+                  {/* Bank Account Safety Notice */}
+                  <div className="p-3 bg-amber-500/15 rounded-2xl border border-amber-400/40 text-amber-200 text-xs font-semibold flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-300 text-xs">
+                        ⚠️ Bank Account Safety Notice:
+                      </p>
+                      <p className="text-[11px] text-amber-100/90 mt-0.5 leading-relaxed">
+                        Isme account ka risk 10% rahega. Use 3 bank accounts for not freeze or any issue on bank account.
+                      </p>
                     </div>
                   </div>
 
