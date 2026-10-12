@@ -1104,20 +1104,25 @@ export const DepositPage: React.FC = () => {
                   </div>
 
                   {/* QR Code and Official UPI */}
-                  <div id="deposit-qr-section" className="bg-white rounded-2xl p-3 text-center space-y-2.5 shadow-md">
-                    <div className="flex justify-center items-center gap-1.5 mb-1">
-                      <span className="text-xs font-black text-slate-800 flex items-center gap-1.5 font-outfit">
-                        <Sparkles className="w-3.5 h-3.5 text-[#FF6B00]" />
-                        Official Payment QR Code
-                      </span>
-                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                        Live & Active
+                  <div id="deposit-qr-section" className="bg-white rounded-3xl p-3.5 sm:p-4 text-center space-y-3 shadow-xl border-2 border-orange-400/30 overflow-hidden relative">
+                    {/* EASYBASE POINT Header Bar */}
+                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#FF6B00] to-amber-500 flex items-center justify-center text-white shadow-xs">
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-black text-slate-900 tracking-wider font-outfit uppercase">
+                          EASYBASE POINT PAY
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase">
+                        ✓ Verified Merchant
                       </span>
                     </div>
 
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src="/deposit_qr_clean.png?v=clean_large_v2" 
+                        src="/deposit_qr_clean.png?v=clean_large_v3" 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1125,16 +1130,16 @@ export const DepositPage: React.FC = () => {
                       />
                     </div>
 
-                    <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1">
+                    <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1 font-outfit">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Scan with PhonePe, Paytm, GPay or Any UPI App (₹{topUpAmount})</span>
+                      <span>Scan & Pay with Any UPI App (₹{topUpAmount})</span>
                     </div>
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href="/deposit_qr_clean.png?v=clean_large_v2"
-                        download="easybase_payment_qr.png"
-                        className="text-[11px] font-bold text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg border border-orange-200 transition active:scale-95"
+                        href="/deposit_qr_clean.png?v=clean_large_v3"
+                        download="easybase_point_payment_qr.png"
+                        className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Save Payment QR to Gallery</span>
@@ -1142,18 +1147,6 @@ export const DepositPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Bank Account Safety Notice */}
-                  <div className="p-3 bg-amber-500/15 rounded-2xl border border-amber-400/40 text-amber-200 text-xs font-semibold flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-amber-300 text-xs">
-                        ⚠️ Bank Account Safety Notice:
-                      </p>
-                      <p className="text-[11px] text-amber-100/90 mt-0.5 leading-relaxed">
-                        Isme account ka risk 10% rahega. Use 3 bank accounts for not freeze or any issue on bank account.
-                      </p>
-                    </div>
-                  </div>
 
                   {/* 12-Digit Numeric UTR Input */}
                   <div className="space-y-1.5">
