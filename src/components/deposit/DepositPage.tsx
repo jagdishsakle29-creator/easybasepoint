@@ -496,90 +496,12 @@ export const DepositPage: React.FC = () => {
                     <span>Total Wallet: <strong className="text-amber-300 font-black">₹{totalRec.toFixed(0)}</strong></span>
                   </div>
 
-                  {/* Three Direct Payment Options: PhonePe, Paytm, Google Pay */}
+                  {/* Clean QR & Official UPI Gateway Section (Direct external app intents removed to eliminate Danger warnings) */}
                   <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
-                        <span>Direct Pay via App (Select & Pay)</span>
-                      </label>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Auto-Fills ₹{topUpAmount}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {/* 1. Amazon Pay */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Amazon Pay', 'amazonpay')}
-                        className="p-3 rounded-2xl bg-gradient-to-b from-[#232f3e] to-[#131921] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-amber-950/40 border border-amber-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group relative overflow-hidden"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
-                          <span className="text-[#232f3e] font-black text-xs font-outfit">pay</span>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs font-black tracking-wide font-outfit text-amber-400">Amazon Pay</div>
-                          <div className="text-[10px] text-amber-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
-                        </div>
-                        <div className="absolute top-1 right-1 bg-[#FF6B00] text-white text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
-                          QR UPI
-                        </div>
-                      </button>
-
-                      {/* 2. PhonePe */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
-                        className="p-3 rounded-2xl bg-gradient-to-b from-[#5f259f] to-[#421774] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-purple-950/40 border border-purple-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#5f259f] font-black text-base font-outfit shadow">
-                          पे
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs font-black tracking-wide font-outfit">PhonePe</div>
-                          <div className="text-[10px] text-purple-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
-                        </div>
-                      </button>
-
-                      {/* 3. Paytm */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
-                        className="p-3 rounded-2xl bg-gradient-to-b from-[#002970] to-[#001c4e] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-cyan-950/40 border border-cyan-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group relative overflow-hidden"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#002970] font-black text-xs font-outfit shadow">
-                          Pay
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs font-black tracking-wide font-outfit">Paytm</div>
-                          <div className="text-[10px] text-cyan-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
-                        </div>
-                        <div className="absolute top-1 right-1 bg-amber-400 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
-                          cousin
-                        </div>
-                      </button>
-
-                      {/* 4. Google Pay */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Google Pay', 'gpay')}
-                        className="p-3 rounded-2xl bg-gradient-to-b from-[#1e3a8a] to-[#172554] text-white flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-blue-950/40 border border-blue-400/40 hover:scale-[1.02] active:scale-95 transition cursor-pointer group"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#2563eb] font-black text-base font-outfit shadow">
-                          G
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs font-black tracking-wide font-outfit">Google Pay</div>
-                          <div className="text-[10px] text-blue-200 group-hover:text-white">Pay ₹{topUpAmount} ➔</div>
-                        </div>
-                      </button>
-                    </div>
-
                     {/* Live Active QR Banner Preview */}
                     <div 
                       onClick={() => setIsTopUpModalOpen(true)}
-                      className="p-3 bg-black/40 hover:bg-black/50 rounded-2xl border border-amber-500/30 flex items-center justify-between gap-3 cursor-pointer transition hover:border-amber-400"
+                      className="p-3 bg-black/40 hover:bg-black/50 rounded-2xl border border-amber-500/30 flex items-center justify-between gap-3 cursor-pointer transition hover:border-amber-400 group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
@@ -592,7 +514,7 @@ export const DepositPage: React.FC = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-black text-amber-300 font-outfit truncate">
-                              UPI QR ({settings.adminUpiId || 'narwariya321@axl'})
+                              Official UPI QR ({settings.adminUpiId || 'narwariya321@axl'})
                             </span>
                             <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase">
                               Active
@@ -601,8 +523,8 @@ export const DepositPage: React.FC = () => {
                           <div className="text-[10px] text-slate-300 truncate">
                             Scan with PhonePe, Paytm, GPay, or Any UPI App
                           </div>
-                          <div className="text-[10px] text-amber-400 font-bold">
-                            Tap to Open Full Scanner QR ➔
+                          <div className="text-[10px] text-amber-400 font-bold group-hover:underline">
+                            Tap to Open QR Scanner & Pay ₹{topUpAmount} ➔
                           </div>
                         </div>
                       </div>
@@ -612,10 +534,10 @@ export const DepositPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsTopUpModalOpen(true)}
-                      className="w-full py-3 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <QrCode className="w-4 h-4" />
-                      <span>Scan QR Code / Open Universal UPI Gateway (₹{topUpAmount}) ➔</span>
+                      <span>Scan QR Code & Deposit ₹{topUpAmount} ➔</span>
                     </button>
                   </div>
                 </div>
@@ -652,7 +574,7 @@ export const DepositPage: React.FC = () => {
                   🛡️ LOW RISK
                 </div>
                 <div className="text-xs font-black text-slate-800 font-outfit mt-0.5">
-                  Up to ₹29k
+                  Up to ₹15k
                 </div>
                 <div className="text-sm font-extrabold text-emerald-600 font-outfit mt-0.5">
                   +{settings.lowBonusPercent}%
@@ -673,12 +595,12 @@ export const DepositPage: React.FC = () => {
                   ⚖️ MEDIUM RISK
                 </div>
                 <div className="text-xs font-black text-slate-800 font-outfit mt-0.5">
-                  ₹28k - ₹47k
+                  ₹15k - ₹29k
                 </div>
                 <div className="text-sm font-extrabold text-[#FF6B00] font-outfit mt-0.5">
-                  +{settings.middleBonusPercent}%
+                  +{settings.middleBonusPercent || 25}%
                 </div>
-                <div className="text-[9px] text-slate-400 mt-0.5">Balanced Growth</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">25% High Growth</div>
               </button>
 
               <button
@@ -694,12 +616,12 @@ export const DepositPage: React.FC = () => {
                   🚀 HIGH RISK VIP
                 </div>
                 <div className="text-xs font-black text-slate-800 font-outfit mt-0.5">
-                  Up to ₹1.5L
+                  ₹37k - ₹55k
                 </div>
                 <div className="text-sm font-extrabold text-purple-600 font-outfit mt-0.5">
-                  +{settings.highBonusPercent}%
+                  +{settings.highBonusPercent || 30}%
                 </div>
-                <div className="text-[9px] text-slate-400 mt-0.5">Max High Yield</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">30% Max Yield</div>
               </button>
             </div>
 
@@ -1162,125 +1084,22 @@ export const DepositPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* 1-Tap Direct UPI App Launcher (PhonePe, Paytm, Google Pay, BHIM) */}
-                  <div className="space-y-2 p-3 bg-white/5 rounded-2xl border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Smartphone className="w-4 h-4 text-[#FF6B00]" />
-                        <span>⚡ 1-Tap Pay via App (Direct Open)</span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Auto-Fill ₹{topUpAmount}
-                      </span>
+                  {/* Official UPI ID 1-Tap Copy Bar */}
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-400">Official UPI ID:</span>
+                      <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'narwariya321@axl'}</span>
                     </div>
-
-                    {/* Official UPI ID 1-Tap Copy Bar */}
-                    <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-slate-400">Official UPI ID:</span>
-                        <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'narwariya321@axl'}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(settings.adminUpiId || 'narwariya321@axl');
-                          addToast('success', `Copied ${settings.adminUpiId || 'narwariya321@axl'} to clipboard!`);
-                        }}
-                        className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition"
-                      >
-                        Copy UPI
-                      </button>
-                    </div>
-
-                    <p className="text-[11px] text-slate-300">
-                      Tap any app below to open directly with ₹{topUpAmount} pre-filled and remark <strong>"cousin"</strong>:
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {/* Amazon Pay */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Amazon Pay', 'amazonpay')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#232f3e] to-[#131921] text-white flex items-center gap-2.5 shadow-lg shadow-amber-950/40 border border-amber-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#232f3e] font-black text-xs font-outfit shadow-xs flex-shrink-0">
-                          pay
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-black tracking-wide font-outfit truncate text-amber-400">Amazon Pay</div>
-                          <div className="text-[10px] text-amber-200 group-hover:text-white truncate">Open Amazon ➔</div>
-                        </div>
-                      </button>
-
-                      {/* PhonePe */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#7b32c6] text-white flex items-center gap-2.5 shadow-lg shadow-purple-900/40 border border-purple-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#5f259f] font-black text-sm font-outfit shadow-xs flex-shrink-0">
-                          पे
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-black tracking-wide font-outfit truncate">PhonePe</div>
-                          <div className="text-[10px] text-purple-200 group-hover:text-white truncate">Open PhonePe ➔</div>
-                        </div>
-                      </button>
-
-                      {/* Paytm */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#002970] to-[#00b9f1] text-white flex items-center gap-2.5 shadow-lg shadow-cyan-900/40 border border-cyan-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#002970] font-black text-xs font-outfit shadow-xs flex-shrink-0">
-                          Pay
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-black tracking-wide font-outfit truncate">Paytm</div>
-                          <div className="text-[10px] text-cyan-200 group-hover:text-white truncate">Open Paytm ➔</div>
-                        </div>
-                      </button>
-
-                      {/* Google Pay */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'Google Pay', 'gpay')}
-                        className="p-3 rounded-2xl bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] text-white flex items-center gap-2.5 shadow-lg shadow-blue-900/40 border border-blue-400/30 hover:scale-[1.02] active:scale-98 transition group cursor-pointer text-left"
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#2563eb] font-black text-sm font-outfit shadow-xs flex-shrink-0">
-                          G
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-black tracking-wide font-outfit truncate">Google Pay</div>
-                          <div className="text-[10px] text-blue-200 group-hover:text-white truncate">Open GPay ➔</div>
-                        </div>
-                      </button>
-
-                      {/* BHIM / Other UPI */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleLaunchUpi(e, 'UPI App', 'upi')}
-                        className="col-span-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#047857] to-[#10b981] text-white flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-900/40 border border-emerald-400/30 hover:scale-[1.01] active:scale-98 transition group cursor-pointer text-center"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-[#047857] font-black text-xs font-outfit shadow-xs flex-shrink-0">
-                          UPI
-                        </div>
-                        <div className="min-w-0 text-left">
-                          <div className="text-xs font-black tracking-wide font-outfit">BHIM / Any Other UPI App</div>
-                          <div className="text-[10px] text-emerald-200 group-hover:text-white">Open Any Installed UPI ➔</div>
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Universal Chooser Button */}
                     <button
                       type="button"
-                      onClick={(e) => handleLaunchUpi(e, 'UPI Payment App', 'upi')}
-                      className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-98 transition text-xs font-black font-outfit cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(settings.adminUpiId || 'narwariya321@axl');
+                        addToast('success', `Copied ${settings.adminUpiId || 'narwariya321@axl'} to clipboard!`);
+                      }}
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
                     >
-                      <Sparkles className="w-4 h-4 text-yellow-200 animate-pulse" />
-                      <span>⚡ Open Any Installed UPI App (Auto-Detect)</span>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy UPI</span>
                     </button>
                   </div>
 

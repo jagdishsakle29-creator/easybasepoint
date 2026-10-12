@@ -60,7 +60,7 @@ export const defaultWallet: Wallet = {
 };
 
 export const defaultPackages: QuotaPackage[] = [
-  // --- LOW TIER (LOW RISK, 22% return, starting from 350 INR) ---
+  // --- LOW TIER (LOW RISK, 22% return, up to 15,000 INR) ---
   {
     id: 'pkg-2',
     price: 350.00,
@@ -95,7 +95,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 4,
+    sortOrder: 3,
   },
   {
     id: 'pkg-5',
@@ -107,7 +107,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 5,
+    sortOrder: 4,
   },
   {
     id: 'pkg-6',
@@ -119,7 +119,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 6,
+    sortOrder: 5,
   },
   {
     id: 'pkg-7',
@@ -131,7 +131,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 7,
+    sortOrder: 6,
   },
   {
     id: 'pkg-8',
@@ -143,7 +143,7 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 8,
+    sortOrder: 7,
   },
   {
     id: 'pkg-9',
@@ -155,16 +155,28 @@ export const defaultPackages: QuotaPackage[] = [
     riskLevel: 'LOW RISK',
     durationDays: 1,
     isActive: true,
-    sortOrder: 9,
+    sortOrder: 8,
   },
-
-  // --- MIDDLE TIER (MEDIUM RISK, 22% return, 12,000 to 25,000 INR) ---
   {
     id: 'pkg-10',
     price: 12000.00,
     income: 2640.00,
     incomePercent: 22.00,
     quota: 14640.00,
+    level: 'LOW',
+    riskLevel: 'LOW RISK',
+    durationDays: 1,
+    isActive: true,
+    sortOrder: 9,
+  },
+
+  // --- MIDDLE TIER (MEDIUM RISK, 25% return, 15,000 to 29,000 INR) ---
+  {
+    id: 'pkg-11',
+    price: 15000.00,
+    income: 3750.00,
+    incomePercent: 25.00,
+    quota: 18750.00,
     level: 'MIDDLE',
     riskLevel: 'MEDIUM RISK',
     durationDays: 2,
@@ -172,11 +184,11 @@ export const defaultPackages: QuotaPackage[] = [
     sortOrder: 10,
   },
   {
-    id: 'pkg-11',
-    price: 18000.00,
-    income: 3960.00,
-    incomePercent: 22.00,
-    quota: 21960.00,
+    id: 'pkg-12',
+    price: 20000.00,
+    income: 5000.00,
+    incomePercent: 25.00,
+    quota: 25000.00,
     level: 'MIDDLE',
     riskLevel: 'MEDIUM RISK',
     durationDays: 2,
@@ -184,42 +196,66 @@ export const defaultPackages: QuotaPackage[] = [
     sortOrder: 11,
   },
   {
-    id: 'pkg-12',
+    id: 'pkg-13',
     price: 25000.00,
-    income: 5500.00,
-    incomePercent: 22.00,
-    quota: 30500.00,
+    income: 6250.00,
+    incomePercent: 25.00,
+    quota: 31250.00,
     level: 'MIDDLE',
     riskLevel: 'MEDIUM RISK',
     durationDays: 2,
     isActive: true,
     sortOrder: 12,
   },
-
-  // --- HIGH TIER / VIP (HIGH RISK, 22% return, 35,000 to 50,000 INR) ---
   {
-    id: 'pkg-13',
-    price: 35000.00,
-    income: 7700.00,
-    incomePercent: 22.00,
-    quota: 42700.00,
-    level: 'HIGH',
-    riskLevel: 'HIGH RISK',
-    durationDays: 3,
+    id: 'pkg-14',
+    price: 29000.00,
+    income: 7250.00,
+    incomePercent: 25.00,
+    quota: 36250.00,
+    level: 'MIDDLE',
+    riskLevel: 'MEDIUM RISK',
+    durationDays: 2,
     isActive: true,
     sortOrder: 13,
   },
+
+  // --- HIGH TIER / VIP (HIGH RISK, 30% return, 37,000 to 55,000 INR) ---
   {
-    id: 'pkg-14',
-    price: 50000.00,
-    income: 11000.00,
-    incomePercent: 22.00,
-    quota: 61000.00,
+    id: 'pkg-15',
+    price: 37000.00,
+    income: 11100.00,
+    incomePercent: 30.00,
+    quota: 48100.00,
     level: 'HIGH',
     riskLevel: 'HIGH RISK',
     durationDays: 3,
     isActive: true,
     sortOrder: 14,
+  },
+  {
+    id: 'pkg-16',
+    price: 45000.00,
+    income: 13500.00,
+    incomePercent: 30.00,
+    quota: 58500.00,
+    level: 'HIGH',
+    riskLevel: 'HIGH RISK',
+    durationDays: 3,
+    isActive: true,
+    sortOrder: 15,
+  },
+  {
+    id: 'pkg-17',
+    price: 55000.00,
+    income: 16500.00,
+    incomePercent: 30.00,
+    quota: 71500.00,
+    level: 'HIGH',
+    riskLevel: 'HIGH RISK',
+    durationDays: 3,
+    isActive: true,
+    sortOrder: 16,
   },
 ];
 
@@ -230,8 +266,8 @@ export const defaultSettings: RewardSettings = {
   normalUsdtPrice: 102.00,
   inrRewardPercent: 22.00,
   lowBonusPercent: 22.00,
-  middleBonusPercent: 22.00,
-  highBonusPercent: 22.00,
+  middleBonusPercent: 25.00,
+  highBonusPercent: 30.00,
   minDeposit: 350.00,
   minWithdrawal: 200.00,
   withdrawalFeePercent: 0.00,
@@ -303,7 +339,7 @@ export const storage = {
     if (!raw) return defaultPackages;
     try {
       const parsed: QuotaPackage[] = JSON.parse(raw);
-      if (!parsed || parsed.length === 0 || parsed[0].price !== 350 || parsed.some(p => p.price === 200)) {
+      if (!parsed || parsed.length === 0 || parsed[0].price !== 350 || !parsed.some(p => p.price === 29000 && p.incomePercent === 25)) {
         localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(defaultPackages));
         return defaultPackages;
       }
@@ -459,13 +495,13 @@ export const storage = {
       if (
         parsed.inrRewardPercent !== 22.00 ||
         parsed.lowBonusPercent !== 22.00 ||
-        parsed.middleBonusPercent !== 22.00 ||
-        parsed.highBonusPercent !== 22.00
+        parsed.middleBonusPercent !== 25.00 ||
+        parsed.highBonusPercent !== 30.00
       ) {
         parsed.inrRewardPercent = 22.00;
         parsed.lowBonusPercent = 22.00;
-        parsed.middleBonusPercent = 22.00;
-        parsed.highBonusPercent = 22.00;
+        parsed.middleBonusPercent = 25.00;
+        parsed.highBonusPercent = 30.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.adminUpiId || parsed.adminUpiId !== 'narwariya321@axl') {
