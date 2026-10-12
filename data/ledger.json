@@ -215,5 +215,23 @@
     "credited": true,
     "approvedAt": "2026-10-12T15:30:42.125Z",
     "creditedAt": "2026-10-12T15:30:42.125Z"
+  },
+  "WDR-866047": {
+    "amount": 1514,
+    "totalInr": 1514,
+    "method": "upi",
+    "userPhone": "9876543210",
+    "utrNumber": "",
+    "createdAt": "2026-10-12T15:31:53.251Z",
+    "id": "WDR-866047",
+    "userId": "usr-1791815021235",
+    "userName": "LORD",
+    "fee": 0,
+    "netAmount": 1514,
+    "accountDetails": {
+      "upiId": "lbhgf@axl"
+    },
+    "status": "pending",
+    "updatedAt": "2026-10-12T15:31:54.016Z"
   }
 }
