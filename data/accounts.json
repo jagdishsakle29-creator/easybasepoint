@@ -60,6 +60,28 @@
     },
     "transactions": [
       {
+        "id": "TXN-504256",
+        "userId": "usr-1791780128094",
+        "type": "withdrawal",
+        "amount": 250,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-12T15:51:23.158Z",
+        "note": "Withdrawal via BANK (Net: ₹250.00)",
+        "referenceId": "WDR-368357"
+      },
+      {
+        "id": "TXN-898875",
+        "userId": "usr-1791780128094",
+        "type": "withdrawal",
+        "amount": 200,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-12T15:49:38.537Z",
+        "note": "Withdrawal via BANK (Net: ₹200.00)",
+        "referenceId": "WDR-640956"
+      },
+      {
         "id": "TXN-171053",
         "userId": "usr-1791780128094",
         "type": "withdrawal",
@@ -92,7 +114,7 @@
         "note": "₹50 Signup Welcome Cash Bonus"
       }
     ],
-    "updatedAt": "2026-10-12T15:47:33.568Z"
+    "updatedAt": "2026-10-12T16:05:53.875Z"
   },
   "9876543210": {
     "user": {
