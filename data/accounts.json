@@ -27,5 +27,46 @@
     "allowInitialPasswordSet": true,
     "isReconstructedFromLedger": true,
     "updatedAt": "2026-10-11T16:31:30.375Z"
+  },
+  "9179588609": {
+    "user": {
+      "id": "usr-1791780128094",
+      "name": "Sonu",
+      "email": "mukesjbheel@gmail.com",
+      "phone": "9179588609",
+      "referralCode": "EBP-31833",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "143143",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-12T04:42:08.096Z"
+    },
+    "password": "jituu143",
+    "transactionPin": "143143",
+    "wallet": {
+      "userId": "usr-1791780128094",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-850327",
+        "userId": "usr-1791780128094",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-12T04:42:08.124Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-12T04:42:09.323Z"
   }
 }
