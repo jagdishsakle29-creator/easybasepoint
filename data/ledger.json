@@ -293,5 +293,26 @@
     },
     "status": "pending",
     "updatedAt": "2026-10-12T15:49:41.587Z"
+  },
+  "WDR-368357": {
+    "amount": 250,
+    "totalInr": 250,
+    "method": "bank",
+    "userPhone": "9179588609",
+    "utrNumber": "",
+    "createdAt": "2026-10-12T15:51:23.143Z",
+    "id": "WDR-368357",
+    "userId": "usr-1791780128094",
+    "userName": "Sonu",
+    "fee": 0,
+    "netAmount": 250,
+    "accountDetails": {
+      "accountHolder": "Jeetendra",
+      "bankName": "State Bank of India",
+      "accountNumber": "34247294178",
+      "ifscCode": "SBIN0010847"
+    },
+    "status": "pending",
+    "updatedAt": "2026-10-12T15:51:25.653Z"
   }
 }
