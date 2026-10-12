@@ -45,17 +45,42 @@
     "transactionPin": "143143",
     "wallet": {
       "userId": "usr-1791780128094",
-      "balance": 50,
-      "quota": 0,
+      "balance": 477,
+      "quota": 350,
       "referralBalance": 0,
-      "todayReceive": 0,
+      "todayReceive": 427,
       "teamCommission": 0,
       "todayTeamRecharge": 0,
       "todayTeamMembers": 0,
       "totalTeamRecharge": 0,
-      "totalTeamMembers": 0
+      "totalTeamMembers": 0,
+      "creditedDepositIds": [
+        "DEP-484411"
+      ]
     },
     "transactions": [
+      {
+        "id": "TXN-171053",
+        "userId": "usr-1791780128094",
+        "type": "withdrawal",
+        "amount": 477,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-12T14:36:58.867Z",
+        "note": "Withdrawal via UPI (Net: ₹477.00)",
+        "referenceId": "WDR-197807"
+      },
+      {
+        "id": "TXN-415828",
+        "userId": "usr-1791780128094",
+        "type": "deposit",
+        "amount": 427,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-12T14:28:11.948Z",
+        "note": "INR Deposit Approved (+₹427.00)",
+        "referenceId": "DEP-484411"
+      },
       {
         "id": "TXN-850327",
         "userId": "usr-1791780128094",
@@ -67,7 +92,7 @@
         "note": "₹50 Signup Welcome Cash Bonus"
       }
     ],
-    "updatedAt": "2026-10-12T14:21:25.684Z"
+    "updatedAt": "2026-10-12T15:47:33.568Z"
   },
   "9876543210": {
     "user": {
