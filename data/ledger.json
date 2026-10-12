@@ -231,7 +231,8 @@
     "accountDetails": {
       "upiId": "lbhgf@axl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-12T15:31:54.016Z"
+    "status": "completed",
+    "updatedAt": "2026-10-12T15:33:12.975Z",
+    "action": "approved"
   }
 }
