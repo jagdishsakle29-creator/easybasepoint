@@ -60,6 +60,17 @@
     },
     "transactions": [
       {
+        "id": "TXN-278393",
+        "userId": "usr-1791780128094",
+        "type": "withdrawal",
+        "amount": 477,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-13T01:00:33.568Z",
+        "note": "Withdrawal via UPI (Net: ₹477.00)",
+        "referenceId": "WDR-769301"
+      },
+      {
         "id": "TXN-496067",
         "userId": "usr-1791780128094",
         "type": "withdrawal",
@@ -147,7 +158,7 @@
         "note": "₹50 Signup Welcome Cash Bonus"
       }
     ],
-    "updatedAt": "2026-10-13T00:59:25.298Z"
+    "updatedAt": "2026-10-13T01:28:13.681Z"
   },
   "9876543210": {
     "user": {
