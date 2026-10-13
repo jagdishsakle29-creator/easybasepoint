@@ -332,5 +332,26 @@
     },
     "status": "pending",
     "updatedAt": "2026-10-12T16:07:39.440Z"
+  },
+  "WDR-726036": {
+    "amount": 250,
+    "totalInr": 250,
+    "method": "bank",
+    "userPhone": "9179588609",
+    "utrNumber": "",
+    "createdAt": "2026-10-13T00:05:17.759Z",
+    "id": "WDR-726036",
+    "userId": "usr-1791780128094",
+    "userName": "Sonu",
+    "fee": 0,
+    "netAmount": 250,
+    "accountDetails": {
+      "accountHolder": "Jeetendra bhil",
+      "bankName": "Indian Post payment bank",
+      "accountNumber": "028110088786",
+      "ifscCode": "IPOS0000001"
+    },
+    "status": "pending",
+    "updatedAt": "2026-10-13T00:05:26.166Z"
   }
 }
