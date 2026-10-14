@@ -423,8 +423,10 @@
     "accountDetails": {
       "upiId": "9770326959@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-13T03:27:31.491Z"
+    "status": "rejected",
+    "updatedAt": "2026-10-14T13:07:07.231Z",
+    "action": "rejected",
+    "reason": "ggvh"
   },
   "WDR-609575": {
     "amount": 200,
