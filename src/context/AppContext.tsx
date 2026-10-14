@@ -555,7 +555,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Process all completed deposits from backend
     if (backendDeps && backendDeps.length > 0 && currentU && currentU.id) {
       backendDeps.forEach((bd: any) => {
-        const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
+        const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited' || bd.status === 'approved';
         const isSynthetic = bd.id && (bd.id.startsWith('TEST_') || bd.id.startsWith('FAKE_') || bd.id.startsWith('DEP_PROD_') || bd.id.startsWith('DEMO_'));
         if (isCompleted && !isSynthetic) {
           const matched = allDeps.find((d) => d.id === bd.id);
@@ -585,7 +585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Also reconcile any locally completed deposits that haven't been credited yet
     if (currentU && currentU.id) {
       allDeps.forEach((ld) => {
-        const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited';
+        const isCompleted = ld.credited === true || ld.status === 'completed' || ld.status === 'credited' || ld.status === 'approved';
         const isSynthetic = ld.id && (ld.id.startsWith('TEST_') || ld.id.startsWith('FAKE_') || ld.id.startsWith('DEP_PROD_') || ld.id.startsWith('DEMO_'));
         if (isCompleted && !isSynthetic && !creditedList.includes(ld.id)) {
           const ldPhone = (ld.userPhone || '').replace(/[^0-9]/g, '');

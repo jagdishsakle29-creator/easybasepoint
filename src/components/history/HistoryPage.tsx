@@ -112,10 +112,10 @@ export const HistoryPage: React.FC = () => {
             : `₹${baseAmt}`;
 
           currentNote = isCompleted
-            ? (isUsdt ? `USDT Deposit Approved (+₹${(matchingDep.totalInr || t.amount).toFixed(2)})` : `INR Deposit: ${depositFormula}`)
+            ? (isUsdt ? `USDT Deposit Approved` : `INR Deposit`)
             : (matchingDep.status === 'rejected' 
-                ? (isUsdt ? 'USDT Deposit Rejected' : `INR Deposit Rejected (${depositFormula})`) 
-                : (isUsdt ? `USDT Deposit (${matchingDep.amount} USDT • Pending)` : `INR Deposit (${depositFormula} • Pending)`));
+                ? (isUsdt ? 'USDT Deposit Rejected' : `INR Deposit Rejected`) 
+                : (isUsdt ? `USDT Deposit (Pending)` : `INR Deposit (Pending)`));
           currentMetadata = {
             ...t.metadata,
             bonusInr: bonusAmt,
@@ -130,8 +130,8 @@ export const HistoryPage: React.FC = () => {
             currentStatus = matchingWith.status as TransactionStatus;
             currentAmount = matchingWith.amount;
             currentNote = matchingWith.status === 'rejected' && matchingWith.rejectionReason 
-              ? `Withdrawal via ${matchingWith.method.toUpperCase()} (Rejected: ${matchingWith.rejectionReason})` 
-              : `Withdrawal via ${matchingWith.method.toUpperCase()} (Net: ₹${matchingWith.netAmount.toFixed(2)})`;
+              ? `Withdrawal (${matchingWith.rejectionReason})` 
+              : `Withdrawal via ${(matchingWith.method || 'bank').toUpperCase()}`;
           }
         }
       }
@@ -162,10 +162,6 @@ export const HistoryPage: React.FC = () => {
           ? (Number(dep.bonusInr) + (dep.activityRewardInr || 0))
           : Math.round(baseAmt * 0.20);
         const totalAmt = dep.totalInr || (baseAmt + bonusAmt);
-        const bonusPercent = baseAmt > 0 && bonusAmt > 0 ? Math.round((bonusAmt / baseAmt) * 100) : 20;
-        const depositFormula = bonusAmt > 0 
-          ? `₹${baseAmt} + ${bonusPercent}% Bonus (₹${bonusAmt.toFixed(0)}) = ₹${totalAmt.toFixed(2)}`
-          : `₹${baseAmt}`;
 
         // Hide pending deposit if older than 20 minutes
         if (!isPendingExpired(depStatus, dep.createdAt)) {
@@ -177,9 +173,7 @@ export const HistoryPage: React.FC = () => {
             currency: 'INR',
             status: depStatus,
             timestamp: dep.createdAt,
-            note: isUsdt
-              ? `USDT Deposit (${dep.amount} USDT • ${isCompleted ? 'Approved & Credited' : dep.status === 'rejected' ? 'Rejected' : 'Pending Verification'})`
-              : `INR Deposit: ${depositFormula} (${isCompleted ? 'Approved' : dep.status === 'rejected' ? 'Rejected' : 'Pending'})`,
+            note: isUsdt ? `USDT Deposit` : `INR Deposit`,
             referenceId: dep.id,
             metadata: {
               bonusInr: bonusAmt,
@@ -366,25 +360,15 @@ export const HistoryPage: React.FC = () => {
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-black text-slate-800">{t.note}</span>
               {hasBonus ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black bg-gradient-to-r from-orange-100 to-amber-100 text-[#FF6B00] border border-orange-300 shadow-xs">
-                  ₹{baseAmount.toFixed(0)} + ₹{bonusInr.toFixed(0)} ({bonusPercent}%) = ₹{t.amount.toFixed(2)}
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-orange-50 text-[#FF6B00] border border-orange-200">
+                  ₹{baseAmount.toFixed(0)} + {bonusPercent}% = ₹{t.amount.toFixed(0)}
                 </span>
               ) : bonusInr > 0 ? (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                  +₹{bonusInr.toFixed(2)} Bonus
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
+                  +₹{bonusInr.toFixed(0)} Bonus
                 </span>
               ) : null}
             </div>
-
-            {hasBonus && (
-              <div className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-1">
-                <span>Original: ₹{baseAmount.toFixed(0)}</span>
-                <span>•</span>
-                <span>+{bonusPercent}% Bonus (+₹{bonusInr.toFixed(0)})</span>
-                <span>•</span>
-                <span className="text-[#FF6B00] font-black">Total: ₹{t.amount.toFixed(2)}</span>
-              </div>
-            )}
 
             <div className="text-[11px] text-slate-400 font-mono mt-0.5">
               {t.id} • {new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -404,11 +388,6 @@ export const HistoryPage: React.FC = () => {
           >
             {isCredit ? '+' : '-'}₹{t.amount.toFixed(2)}
           </div>
-          {hasBonus && (
-            <div className="text-[9px] font-bold text-slate-400">
-              ₹{baseAmount.toFixed(0)} + ₹{bonusInr.toFixed(0)}
-            </div>
-          )}
           <div>{getStatusBadge(t.status)}</div>
         </div>
       </div>

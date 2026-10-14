@@ -59,7 +59,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
     if (deferredPrompt) {
       setInstallStep('installing');
       try {
-        deferredPrompt.prompt();
+        await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           setIsInstalled(true);
@@ -72,20 +72,11 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
       }
       setDeferredPrompt(null);
     } else if (isIOS) {
-      // iOS: scroll or highlight guide
+      // iOS: handled via guide below
     } else {
-      // Fallback: trigger APK download
-      handleDownloadApk();
+      // Direct APK download fallback
+      window.location.href = '/EasyBasePoint.apk';
     }
-  };
-
-  const handleDownloadApk = () => {
-    const link = document.createElement('a');
-    link.href = '/EasyBasePoint.apk';
-    link.download = 'EasyBasePoint_v2.1.0.apk';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -150,7 +141,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Size</div>
-              <div className="text-xs font-black text-emerald-300 font-outfit">1.8 MB</div>
+              <div className="text-xs font-black text-emerald-300 font-outfit">197 KB</div>
             </div>
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Safety</div>
@@ -163,11 +154,22 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           </div>
         </div>
 
-        {/* Primary CTA: 1-Tap WebAPK / Native Install */}
-        <div className="space-y-2">
+        {/* Primary Action Buttons */}
+        <div className="space-y-2.5">
+          {/* Direct Download Android APK Button (Works everywhere) */}
+          <a
+            href="/EasyBasePoint.apk"
+            download="EasyBasePoint_v2.1.0.apk"
+            className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
+          >
+            <Download className="w-5 h-5 text-white" />
+            <span>📲 Download Official Android APK (197 KB)</span>
+          </a>
+
+          {/* 1-Tap Web App Install Button */}
           {isInstalled ? (
-            <div className="p-3.5 bg-emerald-500/20 rounded-2xl border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>✓ App is already installed on this device!</span>
             </div>
           ) : (
@@ -175,28 +177,28 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
               type="button"
               onClick={handleNativeInstall}
               disabled={installStep === 'installing'}
-              className="w-full py-4 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs font-outfit rounded-xl border border-white/15 transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Smartphone className="w-5 h-5" />
+              <Smartphone className="w-4 h-4 text-amber-400" />
               <span>
                 {installStep === 'installing' 
-                  ? 'Installing App on Device...' 
+                  ? 'Adding App to Device...' 
                   : deferredPrompt 
-                  ? '📲 1-Tap Install App (WebAPK)' 
-                  : '📲 Install Official App on Device'}
+                  ? '⚡ 1-Tap Add to Home Screen' 
+                  : '⚡ Install as Web App on Home Screen'}
               </span>
             </button>
           )}
+        </div>
 
-          {/* Secondary Direct APK Download Option */}
-          <button
-            type="button"
-            onClick={handleDownloadApk}
-            className="w-full py-3 bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs font-outfit rounded-xl border border-white/15 transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-amber-400" />
-            <span>Download Direct Android .APK (v2.1.0)</span>
-          </button>
+        {/* In-App Browser (Telegram / WhatsApp) Help Note */}
+        <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-xs space-y-1">
+          <div className="font-bold text-amber-300 flex items-center gap-1.5 text-[11px]">
+            <span>💡 Agar Telegram/WhatsApp ke andar khola hai:</span>
+          </div>
+          <p className="text-[10px] text-slate-300 leading-relaxed">
+            Upar daayein kone me <strong>3 dots (⋮)</strong> dabayein aur <strong>"Open in Chrome" / "Open in Browser"</strong> chunein. Isse APK seedha download ho jayega aur ek click me install ho jayega.
+          </p>
         </div>
 
         {/* iOS Safari Guide (if iPhone/iPad) */}

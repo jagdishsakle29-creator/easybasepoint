@@ -34,7 +34,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
     }
     const nextCount = logoTapCount + 1;
 
-    if (nextCount >= 12) {
+    if (nextCount >= 5) {
       setLogoTapCount(0);
       const key = prompt('🔑 Admin Access: Enter Secret Key (lord12):');
       if (!key) return;
@@ -67,13 +67,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
 
     setLogoTapCount(nextCount);
 
-    if (nextCount >= 8) {
-      addToast('info', `Admin Access: ${12 - nextCount} more taps`);
+    if (nextCount >= 3) {
+      addToast('info', `Admin Access: ${5 - nextCount} more taps`);
     }
 
     tapResetTimerRef.current = setTimeout(() => {
       setLogoTapCount(0);
-    }, 3500);
+    }, 3000);
   };
 
   const handleJoinTelegram = () => {

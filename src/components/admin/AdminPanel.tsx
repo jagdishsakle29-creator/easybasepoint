@@ -1322,7 +1322,7 @@ export const AdminPanel: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-outfit">
-                Withdrawal Management ({withdrawals.length} Total, {pendingWithdrawals.length} Pending)
+                Withdrawal Management ({uniqueWithdrawals.length} Total, {pendingWithdrawals.length} Pending)
               </h3>
               <p className="text-xs text-slate-400">Review, approve payouts or reject with instant wallet refund</p>
             </div>
@@ -1345,7 +1345,7 @@ export const AdminPanel: React.FC = () => {
               <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
               {(['all', 'pending', 'completed', 'rejected'] as const).map((filter) => {
                 const count = filter === 'all' 
-                  ? withdrawals.length 
+                  ? uniqueWithdrawals.length 
                   : filter === 'pending' 
                   ? pendingWithdrawals.length 
                   : filter === 'completed' 
