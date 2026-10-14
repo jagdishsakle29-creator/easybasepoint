@@ -153,7 +153,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Size</div>
-              <div className="text-xs font-black text-emerald-300 font-outfit">145 KB</div>
+              <div className="text-xs font-black text-emerald-300 font-outfit">213 KB</div>
             </div>
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Safety</div>
@@ -167,17 +167,16 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Primary Action Buttons */}
-        {/* Primary Action Buttons */}
         <div className="space-y-3">
           {/* Direct Download Android APK Button */}
           <div>
             <a
-              href="/EasyBasePoint.apk"
-              download="EasyBasePoint_v2.1.0.apk"
+              href="/api/download-apk"
+              download="EasyBasePoint.apk"
               className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
             >
               <Download className="w-5 h-5 text-white animate-bounce" />
-              <span>📲 Download Official Android APK (145 KB)</span>
+              <span>📲 Download Official Android APK (213 KB)</span>
             </a>
             
             {/* Quick APK Installation Steps */}
