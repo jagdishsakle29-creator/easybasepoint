@@ -475,7 +475,8 @@
     "accountDetails": {
       "upiId": "9770326959@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-14T09:21:49.636Z"
+    "status": "completed",
+    "updatedAt": "2026-10-14T13:06:55.871Z",
+    "action": "approved"
   }
 }
