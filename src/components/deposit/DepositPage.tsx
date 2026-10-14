@@ -76,8 +76,10 @@ export const DepositPage: React.FC = () => {
 
   // Instant image preloading for zero-latency switching
   useEffect(() => {
-    const imgAuto = new Image();
-    imgAuto.src = '/deposit_qr.png?v=phonepe_khushi_v3_reload';
+    const imgClean = new Image();
+    imgClean.src = '/deposit_qr_clean.png?v=fixed_v5_scannable';
+    const imgOfficial = new Image();
+    imgOfficial.src = '/deposit_qr.png?v=fixed_v5_scannable';
   }, []);
 
   // Filtered packages
@@ -506,7 +508,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr_clean.png?v=clean_large_v2" 
+                            src="/deposit_qr_clean.png?v=fixed_v5_scannable" 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1120,9 +1122,35 @@ export const DepositPage: React.FC = () => {
                       </span>
                     </div>
 
+                    {/* QR View Mode Toggle Tabs */}
+                    <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold font-outfit">
+                      <button
+                        type="button"
+                        onClick={() => setQrViewMode('dynamic')}
+                        className={`flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                          qrViewMode === 'dynamic'
+                            ? 'bg-[#FF6B00] text-white shadow-xs font-black'
+                            : 'text-slate-600 hover:text-slate-900 bg-white/70'
+                        }`}
+                      >
+                        ⚡ Zoomed QR (Best for Scanning)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQrViewMode('official')}
+                        className={`flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                          qrViewMode === 'official'
+                            ? 'bg-[#0B1528] text-white shadow-xs font-black'
+                            : 'text-slate-600 hover:text-slate-900 bg-white/70'
+                        }`}
+                      >
+                        🏦 Official PhonePe Card
+                      </button>
+                    </div>
+
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src="/deposit_qr_clean.png?v=clean_large_v3" 
+                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v5_scannable' : '/deposit_qr_clean.png?v=fixed_v5_scannable'} 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1137,8 +1165,8 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href="/deposit_qr_clean.png?v=clean_large_v3"
-                        download="easybase_point_payment_qr.png"
+                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v5_scannable' : '/deposit_qr_clean.png?v=fixed_v5_scannable'}
+                        download={qrViewMode === 'official' ? 'easybase_phonepe_official_qr.png' : 'easybase_point_payment_qr.png'}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
