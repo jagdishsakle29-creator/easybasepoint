@@ -28,6 +28,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
 import { UsdtDepositTab } from './UsdtDepositTab';
+import QRCode from 'qrcode';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -73,6 +74,39 @@ export const DepositPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
   const [qrViewMode, setQrViewMode] = useState<'dynamic' | 'official'>('dynamic');
+  const [dynamicQrDataUrl, setDynamicQrDataUrl] = useState<string>('');
+
+  // Generate dynamic amount UPI QR code on any amount change
+  useEffect(() => {
+    let isCancelled = false;
+    const upiId = settings.adminUpiId || 'narwariya321@axl';
+    const cleanPayee = (settings.adminUpiName || 'Khushi Naravriya').replace(/\s*\(.*?\)/g, '').trim();
+    const amount = topUpAmount || 350;
+    const note = 'TopUp';
+    const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(cleanPayee)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+
+    QRCode.toDataURL(upiUri, {
+      width: 600,
+      margin: 1.5,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+      errorCorrectionLevel: 'H',
+    })
+      .then((url) => {
+        if (!isCancelled) {
+          setDynamicQrDataUrl(url);
+        }
+      })
+      .catch((err) => {
+        console.error('Error generating dynamic QR:', err);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [topUpAmount, settings.adminUpiId, settings.adminUpiName]);
 
   // Instant image preloading for zero-latency switching
   useEffect(() => {
@@ -503,7 +537,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr_clean.png?v=fixed_v7_baby_ebp" 
+                            src={dynamicQrDataUrl || "/deposit_qr_clean.png?v=fixed_v7_baby_ebp"} 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1128,7 +1162,7 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        ⚡ Zoomed QR (EBP)
+                        ⚡ Amount QR (₹{topUpAmount})
                       </button>
                       <button
                         type="button"
@@ -1139,13 +1173,26 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        🏛️ Main Official QR
+                        🏛️ Main Official Poster
                       </button>
+                    </div>
+
+                    {/* Pre-filled Amount Notification Tag */}
+                    <div className="bg-emerald-50 border border-emerald-300/80 rounded-xl px-3 py-1.5 flex items-center justify-between text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-[11px] font-black text-emerald-800 font-outfit">
+                          Auto Amount Locked: ₹${topUpAmount}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
+                        Pre-Filled in UPI
+                      </span>
                     </div>
 
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : '/deposit_qr_clean.png?v=fixed_v7_baby_ebp'} 
+                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')} 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1160,8 +1207,8 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : '/deposit_qr_clean.png?v=fixed_v7_baby_ebp'}
-                        download={qrViewMode === 'official' ? 'easybase_main_official_qr.png' : 'easybase_ebp_payment_qr.png'}
+                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')}
+                        download={qrViewMode === 'official' ? 'easybase_main_official_qr.png' : `easybase_qr_amount_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
