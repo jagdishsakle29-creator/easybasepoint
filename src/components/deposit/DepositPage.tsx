@@ -77,9 +77,9 @@ export const DepositPage: React.FC = () => {
   // Instant image preloading for zero-latency switching
   useEffect(() => {
     const imgClean = new Image();
-    imgClean.src = '/deposit_qr_clean.png?v=fixed_v5_scannable';
+    imgClean.src = '/deposit_qr_clean.png?v=fixed_v6_ebp';
     const imgOfficial = new Image();
-    imgOfficial.src = '/deposit_qr.png?v=fixed_v5_scannable';
+    imgOfficial.src = '/deposit_qr.png?v=fixed_v6_ebp';
   }, []);
 
   // Filtered packages
@@ -508,7 +508,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src="/deposit_qr_clean.png?v=fixed_v5_scannable" 
+                            src="/deposit_qr_clean.png?v=fixed_v6_ebp" 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1133,7 +1133,7 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        ⚡ Zoomed QR (Best for Scanning)
+                        ⚡ Zoomed QR (EBP)
                       </button>
                       <button
                         type="button"
@@ -1144,13 +1144,13 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        🏦 Official PhonePe Card
+                        🏛️ Main Official QR
                       </button>
                     </div>
 
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v5_scannable' : '/deposit_qr_clean.png?v=fixed_v5_scannable'} 
+                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v6_ebp' : '/deposit_qr_clean.png?v=fixed_v6_ebp'} 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1165,8 +1165,8 @@ export const DepositPage: React.FC = () => {
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v5_scannable' : '/deposit_qr_clean.png?v=fixed_v5_scannable'}
-                        download={qrViewMode === 'official' ? 'easybase_phonepe_official_qr.png' : 'easybase_point_payment_qr.png'}
+                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v6_ebp' : '/deposit_qr_clean.png?v=fixed_v6_ebp'}
+                        download={qrViewMode === 'official' ? 'easybase_main_official_qr.png' : 'easybase_ebp_payment_qr.png'}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
