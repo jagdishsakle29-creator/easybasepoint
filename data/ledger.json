@@ -542,19 +542,23 @@
     "action": "approved"
   },
   "DEP-606095": {
-    "id": "DEP-606095",
-    "userId": "usr-1789220593374",
-    "userPhone": "9630020285",
     "amount": 2500,
     "totalInr": 3050,
-    "utrNumber": "548427943406",
     "method": "INR",
+    "userPhone": "9630020285",
+    "utrNumber": "548427943406",
     "createdAt": "2026-10-14T13:26:17.043Z",
-    "status": "pending_verification",
+    "id": "DEP-606095",
+    "userId": "usr-1789220593374",
+    "status": "completed",
     "proofUrl": "548427943406",
     "paymentScreenshot": "",
     "remark": "cousin",
     "isDemo": false,
-    "updatedAt": "2026-10-14T13:26:17.588Z"
+    "updatedAt": "2026-10-14T13:26:40.721Z",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-14T13:26:38.383Z",
+    "creditedAt": "2026-10-14T13:26:38.383Z"
   }
 }
