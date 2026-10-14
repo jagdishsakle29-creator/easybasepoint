@@ -195,6 +195,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { storage.setUpis(upis); }, [upis]);
   useEffect(() => { storage.setUsdts(usdts); }, [usdts]);
 
+  // Dynamic Real-time Calculation of Team Members and Commissions for Current User
+  const buildTeamForUser = useCallback((targetUser: User | null): TeamMember[] => {
+    if (!targetUser || !targetUser.id) return [];
+    const allAccounts = storage.getAccounts();
+    const allDeposits = storage.getDeposits();
+    const l1Code = (targetUser.referralCode || '').trim().toUpperCase();
+    const l1Phone = (targetUser.phone || '').replace(/[^0-9]/g, '');
+    const l1Id = targetUser.id;
+
+    // Direct Level 1 Members
+    const level1Accounts = allAccounts.filter((a) => {
+      if (!a?.user || a.user.id === targetUser.id) return false;
+      const ref = (a.user.referredBy || '').trim().toUpperCase();
+      const cleanRefDigits = ref.replace(/[^0-9]/g, '');
+      const isRefMatch = Boolean(
+        (l1Code && ref === l1Code) ||
+        (l1Phone.length >= 10 && cleanRefDigits.length >= 10 && cleanRefDigits.endsWith(l1Phone.slice(-10))) ||
+        (l1Id && ref === l1Id)
+      );
+      return isRefMatch;
+    });
+
+    const level1Codes = new Set(level1Accounts.map(a => (a.user.referralCode || '').trim().toUpperCase()).filter(Boolean));
+    const level1Ids = new Set(level1Accounts.map(a => a.user.id));
+    const level1Phones = new Set(level1Accounts.map(a => (a.user.phone || '').replace(/[^0-9]/g, '')).filter(Boolean));
+
+    // Indirect Level 2 Members
+    const level2Accounts = allAccounts.filter((a) => {
+      if (!a?.user || a.user.id === targetUser.id || level1Ids.has(a.user.id)) return false;
+      const ref = (a.user.referredBy || '').trim().toUpperCase();
+      const cleanRefDigits = ref.replace(/[^0-9]/g, '');
+      const isL2Match = Boolean(
+        level1Codes.has(ref) ||
+        level1Ids.has(ref) ||
+        (cleanRefDigits.length >= 10 && Array.from(level1Phones).some(p => p.endsWith(cleanRefDigits.slice(-10))))
+      );
+      return isL2Match;
+    });
+
+    const l1Percent = Number(settings.referralL1Percent) || 20;
+    const l2Percent = Number(settings.referralL2Percent) || 5;
+
+    const buildMember = (acc: RegisteredAccount, level: 1 | 2): TeamMember => {
+      const u = acc.user;
+      const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+      const userApprovedDeps = allDeposits.filter((d) => {
+        const depPhone = (d.userPhone || '').replace(/[^0-9]/g, '');
+        const isDepUser = d.userId === u.id || (uPhone.length >= 10 && depPhone.length >= 10 && depPhone.endsWith(uPhone.slice(-10)));
+        return isDepUser && (d.status === 'approved' || d.credited);
+      });
+      const contribution = userApprovedDeps.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+      const rewardPercent = level === 1 ? l1Percent : l2Percent;
+      const reward = parseFloat(((contribution * rewardPercent) / 100).toFixed(2));
+
+      return {
+        id: u.id,
+        username: uPhone.length >= 10 ? `${uPhone.slice(0, 4)}***${uPhone.slice(-3)}` : u.name || 'Member',
+        joinDate: u.createdAt || new Date().toISOString(),
+        status: 'active',
+        eligibleReward: reward,
+        teamContribution: contribution,
+        level,
+      };
+    };
+
+    const teamList: TeamMember[] = [
+      ...level1Accounts.map(a => buildMember(a, 1)),
+      ...level2Accounts.map(a => buildMember(a, 2)),
+    ];
+
+    return teamList;
+  }, [settings.referralL1Percent, settings.referralL2Percent]);
+
+  // Synchronize team and wallet team stats whenever user or deposits change
+  useEffect(() => {
+    if (user) {
+      const liveTeam = buildTeamForUser(user);
+      setTeam(liveTeam);
+      storage.setTeam(liveTeam);
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const totalMembers = liveTeam.length;
+      const todayMembers = liveTeam.filter(m => (m.joinDate || '').slice(0, 10) === todayStr).length;
+      const totalRecharge = liveTeam.reduce((sum, m) => sum + m.teamContribution, 0);
+      const totalCommission = liveTeam.reduce((sum, m) => sum + m.eligibleReward, 0);
+
+      setWallet((prev) => {
+        if (
+          prev.totalTeamMembers === totalMembers &&
+          prev.todayTeamMembers === todayMembers &&
+          prev.totalTeamRecharge === totalRecharge &&
+          prev.teamCommission === totalCommission
+        ) {
+          return prev;
+        }
+        const updated: Wallet = {
+          ...prev,
+          totalTeamMembers: totalMembers,
+          todayTeamMembers: todayMembers,
+          totalTeamRecharge: parseFloat(totalRecharge.toFixed(2)),
+          teamCommission: parseFloat(totalCommission.toFixed(2)),
+          referralBalance: parseFloat(totalCommission.toFixed(2)),
+        };
+        storage.setWallet(updated);
+        return updated;
+      });
+    }
+  }, [user, deposits, buildTeamForUser]);
+
   // Real-time cross-tab synchronization (e.g. Admin approves in one tab, Game wallet updates in other tab)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
@@ -1181,15 +1290,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, wrongPassword: true, message: 'Incorrect password or Security PIN. Please try again.' };
     }
 
-    // Attach transactionPin to user object
+    // Attach transactionPin to user object and ensure valid referralCode
     const userWithPin: User = {
       ...existingAccount.user,
+      referralCode: existingAccount.user.referralCode || `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
       transactionPin: validPin || existingAccount.user.transactionPin,
     };
 
+    const userTeam = buildTeamForUser(userWithPin);
     const updatedWallet: Wallet = {
       ...(existingAccount.wallet || defaultWallet),
       userId: userWithPin.id,
+      totalTeamMembers: userTeam.length,
       creditedDepositIds: Array.isArray(existingAccount.wallet?.creditedDepositIds)
         ? existingAccount.wallet.creditedDepositIds
         : [],
@@ -1197,8 +1309,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUser(userWithPin);
     setWallet(updatedWallet);
+    setTeam(userTeam);
     storage.setUser(userWithPin);
     storage.setWallet(updatedWallet);
+    storage.setTeam(userTeam);
 
     // Load account-specific transactions strictly for this user
     let userTx: Transaction[] = [];
@@ -1279,13 +1393,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: 'Account connected successfully' };
     }
 
+    const cleanRef = (refCode || '').trim().toUpperCase();
+
     const newUser: User = {
       id: `usr-${Date.now()}`,
       name: name.trim(),
       email: cleanEmail,
       phone: cleanPhone,
       referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
-      referredBy: refCode || undefined,
+      referredBy: cleanRef || undefined,
       isGoogleAuthEnabled: false,
       transactionPin: cleanPin,
       role: 'user',
@@ -1328,6 +1444,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save registered account to local persistence AND cloud
     storage.saveAccount(newAccount);
     cloudSync.saveCloudAccount(newAccount);
+
+    // If registered with a referral code, link and increment referrer's team
+    if (cleanRef) {
+      const allAccounts = storage.getAccounts();
+      const referrerAcc = allAccounts.find(a => 
+        (a.user.referralCode && a.user.referralCode.trim().toUpperCase() === cleanRef) ||
+        (a.user.phone && a.user.phone.replace(/[^0-9]/g, '').endsWith(cleanRef.replace(/[^0-9]/g, ''))) ||
+        a.user.id === cleanRef
+      );
+      if (referrerAcc) {
+        const refWallet = referrerAcc.wallet || defaultWallet;
+        referrerAcc.wallet = {
+          ...refWallet,
+          totalTeamMembers: (refWallet.totalTeamMembers || 0) + 1,
+          todayTeamMembers: (refWallet.todayTeamMembers || 0) + 1,
+        };
+        storage.saveAccount(referrerAcc);
+        cloudSync.saveCloudAccount(referrerAcc);
+      }
+    }
 
     setUser(newUser);
     setWallet(initialWallet);
@@ -1896,6 +2032,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     });
+
+    // 3b. Automatic Referral Commission Distribution (L1: 20% Direct, L2: 5% Indirect)
+    const depAccount = accounts.find((a) =>
+      a.user.id === deposit.userId ||
+      (depPhone.length >= 10 && (a.user.phone || '').replace(/[^0-9]/g, '').endsWith(depPhone.slice(-10)))
+    );
+    const directRefCode = (depAccount?.user?.referredBy || (isCurrentUser && user?.referredBy) || '').trim().toUpperCase();
+
+    if (directRefCode) {
+      // Find Level 1 Direct Referrer
+      const l1Referrer = accounts.find((a) => {
+        if (!a?.user) return false;
+        const codeMatch = a.user.referralCode && a.user.referralCode.trim().toUpperCase() === directRefCode;
+        const phoneMatch = a.user.phone && a.user.phone.replace(/[^0-9]/g, '').endsWith(directRefCode.replace(/[^0-9]/g, ''));
+        const idMatch = a.user.id === directRefCode;
+        return codeMatch || phoneMatch || idMatch;
+      });
+
+      if (l1Referrer) {
+        const l1Percent = Number(settings.referralL1Percent) || 20;
+        const l1Commission = parseFloat(((deposit.amount * l1Percent) / 100).toFixed(2));
+
+        if (l1Commission > 0) {
+          const l1Wallet = l1Referrer.wallet || defaultWallet;
+          const updatedL1Wallet: Wallet = {
+            ...l1Wallet,
+            balance: parseFloat(((Number(l1Wallet.balance) || 0) + l1Commission).toFixed(2)),
+            teamCommission: parseFloat(((Number(l1Wallet.teamCommission) || 0) + l1Commission).toFixed(2)),
+            referralBalance: parseFloat(((Number(l1Wallet.referralBalance) || 0) + l1Commission).toFixed(2)),
+            todayTeamRecharge: parseFloat(((Number(l1Wallet.todayTeamRecharge) || 0) + deposit.amount).toFixed(2)),
+            totalTeamRecharge: parseFloat(((Number(l1Wallet.totalTeamRecharge) || 0) + deposit.amount).toFixed(2)),
+          };
+          l1Referrer.wallet = updatedL1Wallet;
+
+          const l1Tx: Transaction = {
+            id: `TXN-REF-${Math.floor(100000 + Math.random() * 900000)}`,
+            userId: l1Referrer.user.id,
+            type: 'commission',
+            amount: l1Commission,
+            currency: 'INR',
+            status: 'completed',
+            timestamp: nowIso,
+            note: `🔥 20% Direct Referral Commission from Member (${depPhone ? depPhone.slice(0, 4) + '***' + depPhone.slice(-3) : 'Deposit'})`,
+            referenceId: deposit.id,
+          };
+          l1Referrer.transactions = [l1Tx, ...(l1Referrer.transactions || [])];
+
+          storage.saveAccount(l1Referrer);
+          cloudSync.saveCloudAccount(l1Referrer);
+
+          // If current logged-in user is the direct referrer, update live state immediately
+          if (currentU && (currentU.id === l1Referrer.user.id || currentU.referralCode === l1Referrer.user.referralCode)) {
+            setWallet(updatedL1Wallet);
+            setTransactions((prev) => [l1Tx, ...prev]);
+            addToast('success', `🎁 ₹${l1Commission.toFixed(2)} Referral Commission (20%) credited to your wallet!`);
+          }
+
+          // Check Level 2 Indirect Referrer (5%)
+          const l2RefCode = (l1Referrer.user.referredBy || '').trim().toUpperCase();
+          if (l2RefCode) {
+            const l2Referrer = accounts.find((a) => {
+              if (!a?.user || a.user.id === l1Referrer.user.id) return false;
+              const codeMatch = a.user.referralCode && a.user.referralCode.trim().toUpperCase() === l2RefCode;
+              const phoneMatch = a.user.phone && a.user.phone.replace(/[^0-9]/g, '').endsWith(l2RefCode.replace(/[^0-9]/g, ''));
+              return codeMatch || phoneMatch || a.user.id === l2RefCode;
+            });
+
+            if (l2Referrer) {
+              const l2Percent = Number(settings.referralL2Percent) || 5;
+              const l2Commission = parseFloat(((deposit.amount * l2Percent) / 100).toFixed(2));
+              if (l2Commission > 0) {
+                const l2Wallet = l2Referrer.wallet || defaultWallet;
+                const updatedL2Wallet: Wallet = {
+                  ...l2Wallet,
+                  balance: parseFloat(((Number(l2Wallet.balance) || 0) + l2Commission).toFixed(2)),
+                  teamCommission: parseFloat(((Number(l2Wallet.teamCommission) || 0) + l2Commission).toFixed(2)),
+                  referralBalance: parseFloat(((Number(l2Wallet.referralBalance) || 0) + l2Commission).toFixed(2)),
+                  todayTeamRecharge: parseFloat(((Number(l2Wallet.todayTeamRecharge) || 0) + deposit.amount).toFixed(2)),
+                  totalTeamRecharge: parseFloat(((Number(l2Wallet.totalTeamRecharge) || 0) + deposit.amount).toFixed(2)),
+                };
+                l2Referrer.wallet = updatedL2Wallet;
+
+                const l2Tx: Transaction = {
+                  id: `TXN-REF-${Math.floor(100000 + Math.random() * 900000)}`,
+                  userId: l2Referrer.user.id,
+                  type: 'commission',
+                  amount: l2Commission,
+                  currency: 'INR',
+                  status: 'completed',
+                  timestamp: nowIso,
+                  note: `🚀 5% Indirect L2 Team Commission from Member Deposit`,
+                  referenceId: deposit.id,
+                };
+                l2Referrer.transactions = [l2Tx, ...(l2Referrer.transactions || [])];
+
+                storage.saveAccount(l2Referrer);
+                cloudSync.saveCloudAccount(l2Referrer);
+
+                if (currentU && (currentU.id === l2Referrer.user.id || currentU.referralCode === l2Referrer.user.referralCode)) {
+                  setWallet(updatedL2Wallet);
+                  setTransactions((prev) => [l2Tx, ...prev]);
+                  addToast('success', `🎁 ₹${l2Commission.toFixed(2)} Indirect Team Commission (5%) credited!`);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // 4. Update or create transaction record in history
     setTransactions((prev) => {

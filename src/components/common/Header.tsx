@@ -3,6 +3,7 @@ import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkl
 import { useApp } from '../../context/AppContext';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { AppDownloadModal } from './AppDownloadModal';
+import { isAppMode } from '../../utils/appDetector';
 
 interface HeaderProps {
   onOpenHelp?: () => void;
@@ -162,15 +163,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
               </button>
             )}
 
-            {/* Official App Download Quick Link */}
-            <button
-              onClick={() => setShowAppModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black text-amber-700 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300/80 transition shadow-sm active:scale-95"
-              title="Download & Install Official EasyBase App"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
-              <span className="font-outfit font-extrabold text-[11px]">App</span>
-            </button>
+            {/* Official App Download Quick Link (Only on website, hidden when user is already in App / APK) */}
+            {!isAppMode() && (
+              <button
+                onClick={() => setShowAppModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black text-amber-700 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300/80 transition shadow-sm active:scale-95"
+                title="Download & Install Official EasyBase App"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
+                <span className="font-outfit font-extrabold text-[11px]">App</span>
+              </button>
+            )}
 
             {/* Official Telegram Channel Quick Link */}
             <button

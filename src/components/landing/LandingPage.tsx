@@ -80,6 +80,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
     openOfficialTelegramChannel();
   };
 
+  const pendingRef = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('ref') || 
+       new URLSearchParams(window.location.search).get('invite') || 
+       new URLSearchParams(window.location.search).get('code') || 
+       localStorage.getItem('ebp_pending_ref') || 
+       sessionStorage.getItem('ebp_pending_ref'))
+    : null;
+
   return (
     <div className="min-h-screen bg-[#070D18] text-white flex flex-col font-sans selection:bg-[#FF6B00] selection:text-white relative overflow-hidden">
       {/* Background ambient lighting glows */}
@@ -145,6 +153,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
       {/* Main Content */}
       <main className="flex-1 max-w-4xl mx-auto px-4 py-6 sm:py-10 w-full flex flex-col justify-center relative z-10">
         
+        {/* Pending Referral Invitation Callout */}
+        {pendingRef && !user && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-orange-500/20 via-amber-500/20 to-emerald-500/20 border-2 border-[#FF6B00]/50 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-md">
+                🎁
+              </div>
+              <div>
+                <div className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                  Special Referral Invitation
+                </div>
+                <div className="text-sm font-extrabold text-white">
+                  Invited with code <span className="text-[#FF6B00] font-mono px-1.5 py-0.5 bg-black/40 rounded border border-[#FF6B00]/40">{pendingRef}</span> • ₹50 Welcome Bonus Awaiting
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onOpenRegister}
+              className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#FF6B00] to-amber-500 hover:from-[#E55F00] hover:to-amber-600 text-white font-extrabold text-xs rounded-xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <span>Accept & Claim ₹50</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* HERO SECTION: Attractively framed Company Graphic Banner */}
         <div className="relative rounded-3xl overflow-hidden border border-slate-700/60 shadow-2xl bg-gradient-to-b from-slate-900 via-[#0B1528] to-[#070D18] mb-8 group">
           {/* Banner Image with overlay */}

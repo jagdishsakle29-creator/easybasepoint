@@ -57,15 +57,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState('');
 
-  // Prefill referral code if URL has ?ref=...
+  // Prefill referral code if URL has ?ref=... or from stored invite
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (ref) {
-      setReferralCode(ref);
-      setMode('register');
-    }
-  }, []);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref') || params.get('invite') || params.get('code') || localStorage.getItem('ebp_pending_ref') || sessionStorage.getItem('ebp_pending_ref');
+      if (ref) {
+        const clean = ref.trim().toUpperCase();
+        setReferralCode(clean);
+        setMode('register');
+      } else if (initialMode) {
+        setMode(initialMode);
+      }
+    } catch {}
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -149,6 +154,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       try {
         const res = await register(name.trim(), cleanEmail, cleanDigits, password, referralCode, cleanPin);
         if (res.success) {
+          try {
+            localStorage.removeItem('ebp_pending_ref');
+            sessionStorage.removeItem('ebp_pending_ref');
+          } catch {}
           setFormError('');
           onClose();
         } else if (res.alreadyExists) {
@@ -497,16 +506,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Referral Code (Optional) */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">
-                  Referral Code (Optional)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300">
+                    Referral / Invite Code (Optional)
+                  </label>
+                  {referralCode && (
+                    <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
+                      ✓ Bonus Active
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                   placeholder="EBP-98241"
-                  className="w-full px-3.5 py-2.5 text-xs font-mono uppercase font-bold rounded-2xl bg-white/5 border-2 border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 transition"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono uppercase font-bold rounded-2xl bg-white/5 border-2 border-orange-500/30 text-white placeholder-slate-600 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 transition"
                 />
+                {referralCode && (
+                  <p className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                    <span>🎁 Extra ₹50 signup bonus unlocked via referral link!</span>
+                  </p>
+                )}
               </div>
             </>
           )}

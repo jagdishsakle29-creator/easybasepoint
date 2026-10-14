@@ -27,6 +27,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
 import { AppDownloadModal } from '../common/AppDownloadModal';
+import { isAppMode } from '../../utils/appDetector';
 
 const SUPPORT_CATEGORIES = [
   { 
@@ -99,7 +100,7 @@ const SUPPORT_CATEGORIES = [
     helpTip: 'You receive 20% lifetime instant commission on Level 1 whenever your invited friend purchases a quota.',
     subIssues: [
       { id: 'ref-bonus-missing', title: 'Friend registered & bought plan, 20% bonus missing', desc: 'Invited friend signed up and purchased a quota, but 20% bonus was not received.' },
-      { id: 'ref-link-issue', title: 'Referral link (bit.ly short link) not opening', desc: 'Referral link or bit.ly short link is failing to open properly on friend devices.' },
+      { id: 'ref-link-issue', title: 'Referral link not opening or invite code issue', desc: 'Referral link or invite code query regarding friend registration.' },
       { id: 'ref-team-view', title: 'Friend joined but not appearing in Level 1 team', desc: 'Friend has registered through referral link but is not appearing in Level 1 team.' },
       { id: 'ref-l2-inquiry', title: 'Level 2 team bonus calculation inquiry', desc: 'Need explanation regarding Level 2 team referral commission structure and payouts.' },
     ]
@@ -229,7 +230,7 @@ export const ProfilePage: React.FC = () => {
     { id: 'googleAuth', label: 'Google Authentication', icon: KeyRound },
     { id: 'contactUs', label: 'Contact Us', icon: Headphones },
     { id: 'privacy', label: 'Privacy Policy', icon: FileText },
-    { id: 'downloadApp', label: 'Download App', icon: Download },
+    ...(!isAppMode() ? [{ id: 'downloadApp' as const, label: 'Download App', icon: Download }] : []),
   ];
 
   return (

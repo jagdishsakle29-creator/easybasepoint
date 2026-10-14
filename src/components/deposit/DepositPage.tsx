@@ -75,6 +75,7 @@ export const DepositPage: React.FC = () => {
   const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
   const [qrViewMode, setQrViewMode] = useState<'dynamic' | 'official'>('dynamic');
   const [dynamicQrDataUrl, setDynamicQrDataUrl] = useState<string>('');
+  const [officialQrDataUrl, setOfficialQrDataUrl] = useState<string>('');
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
   // Monitor 2-minute rate limit for payment screenshot submissions
@@ -96,7 +97,7 @@ export const DepositPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [user]);
 
-  // Generate dynamic amount UPI QR code on any amount change
+  // Generate dynamic amount UPI QR code on any amount change (1st QR)
   useEffect(() => {
     let isCancelled = false;
     const upiId = settings.adminUpiId || 'narwariya321@axl';
@@ -127,6 +128,75 @@ export const DepositPage: React.FC = () => {
       isCancelled = true;
     };
   }, [topUpAmount, settings.adminUpiId, settings.adminUpiName]);
+
+  // Generate dynamic Official Poster QR code with amount pre-filled (Main Official Poster)
+  useEffect(() => {
+    let isCancelled = false;
+    const amount = topUpAmount || 350;
+    const officialUri = `upi://pay?pa=manishkey@fam&pn=${encodeURIComponent('LORD PAID HACK SELLER')}&am=${amount}&cu=INR&tn=TopUp`;
+
+    QRCode.toDataURL(officialUri, {
+      width: 600,
+      margin: 1.5,
+      color: {
+        dark: '#2D2335',
+        light: '#E6D7F9',
+      },
+      errorCorrectionLevel: 'H',
+    })
+      .then((rawQrUrl) => {
+        if (isCancelled) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setOfficialQrDataUrl(rawQrUrl);
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          if (isCancelled) return;
+          ctx.drawImage(img, 0, 0, 600, 600);
+
+          // Center circle dimensions matching user's uploaded poster
+          const centerX = 300;
+          const centerY = 300;
+          const radius = 62;
+
+          // Outer dark circle
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+          ctx.fillStyle = '#1D1A20';
+          ctx.fill();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#3E3447';
+          ctx.stroke();
+
+          // Golden 'X' mark
+          ctx.fillStyle = '#F59E0B';
+          ctx.font = '900 68px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('X', centerX, centerY + 2);
+
+          const compositeUrl = canvas.toDataURL('image/png');
+          setOfficialQrDataUrl(compositeUrl);
+        };
+        img.onerror = () => {
+          if (!isCancelled) setOfficialQrDataUrl(rawQrUrl);
+        };
+        img.src = rawQrUrl;
+      })
+      .catch((err) => {
+        console.error('Error generating official dynamic QR:', err);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [topUpAmount]);
 
   // Instant image preloading for zero-latency switching
   useEffect(() => {
@@ -1154,14 +1224,22 @@ export const DepositPage: React.FC = () => {
                   {/* Official UPI ID 1-Tap Copy Bar */}
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-400">Official UPI ID:</span>
-                      <span className="font-mono font-black text-amber-300 select-all">{settings.adminUpiId || 'narwariya321@axl'}</span>
+                      <span className="text-slate-400">
+                        {qrViewMode === 'official' ? 'Official Payee UPI:' : 'Official UPI ID:'}
+                      </span>
+                      <span className="font-mono font-black text-amber-300 select-all">
+                        {qrViewMode === 'official' ? 'manishkey@fam' : (settings.adminUpiId || 'narwariya321@axl')}
+                      </span>
+                      {qrViewMode === 'official' && (
+                        <span className="text-[10px] text-amber-200 font-bold hidden sm:inline">(LORD PAID HACK SELLER)</span>
+                      )}
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(settings.adminUpiId || 'narwariya321@axl');
-                        addToast('success', `Copied ${settings.adminUpiId || 'narwariya321@axl'} to clipboard!`);
+                        const targetUpi = qrViewMode === 'official' ? 'manishkey@fam' : (settings.adminUpiId || 'narwariya321@axl');
+                        navigator.clipboard.writeText(targetUpi);
+                        addToast('success', `Copied ${targetUpi} to clipboard!`);
                       }}
                       className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
                     >
@@ -1179,7 +1257,7 @@ export const DepositPage: React.FC = () => {
                           <Sparkles className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-black text-slate-900 tracking-wider font-outfit uppercase">
-                          EASYBASE POINT PAY
+                          {qrViewMode === 'official' ? 'LORD PAID HACK SELLER • PAY' : 'EASYBASE POINT PAY'}
                         </span>
                       </div>
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase">
@@ -1218,7 +1296,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span className="text-[11px] font-black text-emerald-800 font-outfit">
-                          Auto Amount Locked: ₹${topUpAmount}
+                          Auto Amount Locked: ₹{topUpAmount}
                         </span>
                       </div>
                       <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
@@ -1228,7 +1306,7 @@ export const DepositPage: React.FC = () => {
 
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')} 
+                        src={qrViewMode === 'official' ? (officialQrDataUrl || '/deposit_qr.png?v=fixed_v7_baby_ebp') : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')} 
                         alt="EasyBase Payment QR" 
                         loading="eager"
                         decoding="sync"
@@ -1238,13 +1316,17 @@ export const DepositPage: React.FC = () => {
 
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1 font-outfit">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Scan & Pay with Any UPI App (₹{topUpAmount})</span>
+                      <span>
+                        {qrViewMode === 'official'
+                          ? `Official Verified QR (₹${topUpAmount} Pre-Loaded)`
+                          : `Scan & Pay with Any UPI App (₹${topUpAmount})`}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href={qrViewMode === 'official' ? '/deposit_qr.png?v=fixed_v7_baby_ebp' : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')}
-                        download={qrViewMode === 'official' ? 'easybase_main_official_qr.png' : `easybase_qr_amount_${topUpAmount}.png`}
+                        href={qrViewMode === 'official' ? (officialQrDataUrl || '/deposit_qr.png?v=fixed_v7_baby_ebp') : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')}
+                        download={qrViewMode === 'official' ? `easybase_official_qr_${topUpAmount}.png` : `easybase_qr_amount_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />

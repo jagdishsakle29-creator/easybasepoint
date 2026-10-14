@@ -43,8 +43,32 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [isAuthDismissed, setIsAuthDismissed] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
+
+  // Auto-detect incoming referral link (?ref=... or ?invite=... or ?code=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const incomingRef = params.get('ref') || params.get('invite') || params.get('code');
+      if (incomingRef) {
+        const cleanRef = incomingRef.trim().toUpperCase();
+        localStorage.setItem('ebp_pending_ref', cleanRef);
+        sessionStorage.setItem('ebp_pending_ref', cleanRef);
+        if (!user) {
+          setAuthInitialMode('register');
+          setIsAuthOpen(true);
+        } else {
+          if (user.referralCode && user.referralCode.trim().toUpperCase() === cleanRef) {
+            addToast('info', 'ℹ️ This is your own referral link. Share it with friends to earn 20% commission!');
+          } else {
+            addToast('info', `ℹ️ Referral invitation (${cleanRef}) detected! Sign out to register a new account.`);
+          }
+        }
+      }
+    } catch {}
+  }, [user, addToast]);
 
   // Force global refresh & cache bust for all devices
   useEffect(() => {
@@ -259,12 +283,19 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-[#070D18] text-white font-sans selection:bg-[#FF6B00] selection:text-white relative">
         <ToastContainer />
         <LandingPage 
-          onEnterApp={() => setIsAuthOpen(true)}
-          onOpenRegister={() => setIsAuthOpen(true)}
+          onEnterApp={() => {
+            setAuthInitialMode('login');
+            setIsAuthOpen(true);
+          }}
+          onOpenRegister={() => {
+            setAuthInitialMode('register');
+            setIsAuthOpen(true);
+          }}
         />
         <AuthModal
           isOpen={isAuthOpen}
           isForced={false}
+          initialMode={authInitialMode}
           onClose={() => setIsAuthOpen(false)}
         />
       </div>

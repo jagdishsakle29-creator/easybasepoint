@@ -300,19 +300,6 @@ export const WithdrawPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        {/* Bank Account Safety Notice */}
-        <div className="p-3.5 bg-amber-500/10 rounded-2xl border border-amber-400/40 text-amber-900 text-xs flex items-start gap-2.5 shadow-xs">
-          <AlertCircle className="w-4 h-4 text-[#FF6B00] flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-extrabold text-amber-900 text-xs font-outfit">
-              ⚠️ Bank Account Safety Notice:
-            </p>
-            <p className="text-[11px] text-amber-800 font-semibold mt-0.5 leading-relaxed">
-              Isme account ka risk 10% rahega. Use 3 bank accounts for not freeze or any issue on bank account.
-            </p>
-          </div>
-        </div>
-
         {/* Method Selector */}
         <div className="space-y-1.5">
           <label className="text-xs font-black font-outfit text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -530,15 +517,15 @@ export const WithdrawPage: React.FC = () => {
 
           {method === 'bank' && (
             <div className="space-y-2.5">
-              {/* Bank Account Safety Notice */}
-              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5 shadow-xs">
-                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              {/* Bank Account Safety Guideline (Clean single display) */}
+              <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50/60 rounded-2xl border border-amber-200/80 text-xs text-amber-950 flex items-start gap-2.5 shadow-xs">
+                <ShieldCheck className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold text-amber-800 text-xs">
-                    ⚠️ Bank Account Safety Notice:
+                  <p className="font-extrabold text-amber-900 text-xs font-outfit">
+                    🛡️ Bank Account Safety Guideline:
                   </p>
                   <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed font-medium">
-                    Isme account ka risk 10% rahega. Use 3 bank accounts for not freeze or any issue on bank account.
+                    Use 2-3 alternate bank accounts for regular settlements to prevent bank freezes or account hold issues.
                   </p>
                 </div>
               </div>
@@ -796,19 +783,6 @@ export const WithdrawPage: React.FC = () => {
               )}
             </>
           )}
-        </div>
-
-        {/* Bank Account Safety Notice */}
-        <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-300 flex items-start gap-2.5 text-xs text-amber-950 leading-relaxed shadow-xs">
-          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-amber-800 text-xs">
-              ⚠️ Bank Account Safety Notice:
-            </p>
-            <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed font-medium">
-              Isme account ka risk 10% rahega. Use 3 bank accounts for not freeze or any issue on bank account.
-            </p>
-          </div>
         </div>
 
         {/* Security & Verification Notice */}

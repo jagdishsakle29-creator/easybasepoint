@@ -571,7 +571,12 @@ export const storage = {
         parsed.telegramBotToken = '';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      return { ...defaultSettings, ...parsed, adminSecretKey: '', telegramBotToken: '' };
+      // Ensure telegramChannelUrl is updated to https://t.me/easybasepoint
+      if (!parsed.telegramChannelUrl || parsed.telegramChannelUrl !== 'https://t.me/easybasepoint') {
+        parsed.telegramChannelUrl = 'https://t.me/easybasepoint';
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+      }
+      return { ...defaultSettings, ...parsed, telegramChannelUrl: 'https://t.me/easybasepoint', adminSecretKey: '', telegramBotToken: '' };
     } catch {
       return defaultSettings;
     }
@@ -680,6 +685,12 @@ export const storage = {
       accounts.push(account);
     }
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+  },
+  findAccountByReferralCode(code: string): RegisteredAccount | undefined {
+    if (!code) return undefined;
+    const clean = code.trim().toLowerCase();
+    const accounts = this.getAccounts();
+    return accounts.find((a) => a?.user?.referralCode && a.user.referralCode.trim().toLowerCase() === clean);
   },
   findAccount(emailOrPhoneOrId: string): RegisteredAccount | undefined {
     if (!emailOrPhoneOrId) return undefined;

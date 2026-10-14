@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   X, 
-  Smartphone, 
   Download, 
   ShieldCheck, 
   CheckCircle2, 
-  Share2, 
-  Sparkles,
-  ArrowRight,
-  Check,
-  Wallet,
-  TrendingUp,
-  Zap
+  Sparkles
 } from 'lucide-react';
+import { markAppInstalled } from '../../utils/appDetector';
 
 interface AppDownloadModalProps {
   isOpen: boolean;
@@ -20,84 +14,11 @@ interface AppDownloadModalProps {
 }
 
 export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onClose }) => {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(() => (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null));
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
-  const [isIOS, setIsIOS] = useState<boolean>(false);
-  const [installStep, setInstallStep] = useState<'idle' | 'installing' | 'installed'>('idle');
-  const [showManualGuide, setShowManualGuide] = useState<boolean>(false);
-  const [activePreview, setActivePreview] = useState<'wallet' | 'bonus' | 'payout'>('wallet');
-
-  useEffect(() => {
-    // Detect iOS
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(ua);
-    setIsIOS(isIosDevice);
-
-    if ((window as any).deferredInstallPrompt) {
-      setDeferredPrompt((window as any).deferredInstallPrompt);
-    }
-
-    // Listen for PWA install prompt
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      (window as any).deferredInstallPrompt = e;
-      setDeferredPrompt(e);
-    };
-
-    const handleCustomPwa = (e: any) => {
-      setDeferredPrompt(e.detail || (window as any).deferredInstallPrompt);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    window.addEventListener('ebp:can-install-pwa', handleCustomPwa);
-
-    // Listen for app installed event
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true);
-      setInstallStep('installed');
-      setDeferredPrompt(null);
-    });
-
-    // Check if already in standalone mode (already installed & opened as app)
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
-      setIsInstalled(true);
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-      window.removeEventListener('ebp:can-install-pwa', handleCustomPwa);
-    };
-  }, []);
-
   if (!isOpen) return null;
-
-  const handleNativeInstall = async () => {
-    const promptEvent = deferredPrompt || (window as any).deferredInstallPrompt;
-    if (promptEvent) {
-      setInstallStep('installing');
-      try {
-        await promptEvent.prompt();
-        const { outcome } = await promptEvent.userChoice;
-        if (outcome === 'accepted') {
-          setIsInstalled(true);
-          setInstallStep('installed');
-          (window as any).deferredInstallPrompt = null;
-          setDeferredPrompt(null);
-        } else {
-          setInstallStep('idle');
-        }
-      } catch {
-        setInstallStep('idle');
-      }
-    } else {
-      // Browser didn't provide programmatic prompt: open instant manual guide
-      setShowManualGuide(true);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-[0_0_50px_rgba(255,107,0,0.35)] border-2 border-orange-500/40 space-y-4 max-h-[92vh] overflow-y-auto">
+      <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-[0_0_50px_rgba(255,107,0,0.35)] border-2 border-orange-500/40 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2.5">
@@ -157,7 +78,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Size</div>
-              <div className="text-xs font-black text-emerald-300 font-outfit">213 KB</div>
+              <div className="text-xs font-black text-emerald-300 font-outfit">44 MB</div>
             </div>
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Safety</div>
@@ -165,284 +86,47 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
             </div>
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Rating</div>
-              <div className="text-xs font-black text-yellow-300 font-outfit">★ 4.9 / 5.0</div>
+              <div className="text-xs font-black text-yellow-300 font-outfit">★ 4.1 / 5.0</div>
             </div>
           </div>
         </div>
 
-        {/* In-App Live Screen Preview (Interactive Showcase) */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#0F223D] via-[#0A1629] to-[#060E1A] border border-amber-500/30 shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-              <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span>App Interface Live Preview</span>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-              ● 60 FPS Fluid
-            </span>
-          </div>
-
-          {/* Interactive Preview Switcher Tabs */}
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
-            <button
-              type="button"
-              onClick={() => setActivePreview('wallet')}
-              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                activePreview === 'wallet'
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Wallet className="w-3 h-3" />
-              <span>Wallet UI</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePreview('bonus')}
-              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                activePreview === 'bonus'
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <TrendingUp className="w-3 h-3" />
-              <span>22% Bonus</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePreview('payout')}
-              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                activePreview === 'payout'
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Zap className="w-3 h-3" />
-              <span>5-Min Bank</span>
-            </button>
-          </div>
-
-          {/* Mini Smartphone Screen Frame Mockup */}
-          <div className="relative rounded-2xl bg-[#070D18] border-2 border-slate-700/60 p-3 shadow-inner overflow-hidden">
-            {/* Phone Speaker Notch */}
-            <div className="mx-auto w-14 h-1 bg-slate-700/80 rounded-full mb-2.5"></div>
-
-            {activePreview === 'wallet' && (
-              <div className="space-y-2 animate-fadeIn">
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Available Balance</span>
-                  <span className="text-emerald-400 font-bold flex items-center gap-1 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                    Live Sync
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <div className="text-xl font-black text-white font-outfit tracking-tight">
-                    ₹24,850.<span className="text-xs text-slate-400">00</span>
-                  </div>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                    VIP GOLD
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div className="p-2 bg-white/5 rounded-xl border border-white/10 text-center">
-                    <div className="text-[9px] text-slate-400">Today's Profit</div>
-                    <div className="text-xs font-black text-emerald-300">+₹5,467.00</div>
-                  </div>
-                  <div className="p-2 bg-white/5 rounded-xl border border-white/10 text-center">
-                    <div className="text-[9px] text-slate-400">Extra Reward</div>
-                    <div className="text-xs font-black text-amber-300">+22.00%</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activePreview === 'bonus' && (
-              <div className="space-y-2 animate-fadeIn">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-amber-300 font-bold flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-400" />
-                    22% Direct Deposit Booster
-                  </span>
-                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
-                    INSTANT
-                  </span>
-                </div>
-                <div className="p-2.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl border border-amber-500/30">
-                  <div className="text-[10px] text-slate-300">Har Deposit Par 22% Extra Milta Hai:</div>
-                  <div className="text-xs font-black text-white mt-1 font-outfit">
-                    ₹500 Deposit + 22% (₹110) = <span className="text-amber-300">₹610 Wallet</span>
-                  </div>
-                  <div className="text-[10px] font-black text-white mt-0.5 font-outfit">
-                    ₹2,500 Deposit + 22% (₹550) = <span className="text-amber-300">₹3,050 Wallet</span>
-                  </div>
-                </div>
-                <div className="text-[9px] text-emerald-400 font-bold text-center">
-                  ✓ PhonePe, GPay, Paytm, QR Sabhi Par Live Hai
-                </div>
-              </div>
-            )}
-
-            {activePreview === 'payout' && (
-              <div className="space-y-2 animate-fadeIn">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-emerald-300 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    Direct Bank Withdrawal
-                  </span>
-                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
-                    SUCCESS
-                  </span>
-                </div>
-                <div className="p-2 bg-white/5 rounded-xl border border-white/10 space-y-1">
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-400">Withdrawal Amount:</span>
-                    <span className="font-bold text-white">₹12,400.00</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-400">Payout Speed:</span>
-                    <span className="text-emerald-300 font-bold">5 - 7 Minutes</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-400">Bank Reference:</span>
-                    <span className="font-mono text-slate-300 text-[9px]">UTR# 42981298412</span>
-                  </div>
-                </div>
-                <div className="text-[9px] text-amber-300 font-bold text-center">
-                  ⚡ 24x7 Direct Account Settlement Without Any Fee
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Perks Checkmarks */}
-          <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-300 pt-0.5">
-            <div className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span>Full Screen (No URL Bar)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span>1-Tap Instant Launch</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span>Auto Login Saved</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span>100% Virus-Free APK</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Primary Action Buttons */}
+        {/* Primary Action Button - Download Android APK */}
         <div className="space-y-3">
-          {/* Direct Download Android APK Button */}
-          <div>
-            <a
-              href="/EasyBasePoint.apk"
-              download="EasyBasePoint.apk"
-              className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
-            >
-              <Download className="w-5 h-5 text-white animate-bounce" />
-              <span>📲 Download Official Android APK (213 KB)</span>
-            </a>
-            
-            {/* Quick APK Installation Steps */}
-            <div className="mt-2 p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
-              <div className="font-bold text-emerald-300 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>APK Download Hone Ke Baad Install Kaise Karein:</span>
-              </div>
-              <p className="text-[10px] text-slate-300 leading-normal pl-4 list-disc">
-                • Chrome ke Downloads ya Notification par tap karke <strong>"Open"</strong> karein.<br />
-                • <strong>"Install"</strong> dabayein (Agar puche toh <em>'Allow from this source'</em> enable karein).
-              </p>
+          <a
+            href="/EasyBasePoint.apk"
+            download="EasyBasePoint.apk"
+            onClick={() => markAppInstalled()}
+            className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
+          >
+            <Download className="w-5 h-5 text-white animate-bounce" />
+            <span>📲 Download Official Android APK (44 MB)</span>
+          </a>
+          
+          {/* Quick APK Installation Steps */}
+          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
+            <div className="font-bold text-emerald-300 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>APK Download Hone Ke Baad Install Kaise Karein:</span>
             </div>
+            <p className="text-[10px] text-slate-300 leading-normal pl-4">
+              • Notification / Downloads par click karke <strong>Open</strong> karein.<br />
+              • <strong>Install</strong> dabayein aur login karein.
+            </p>
           </div>
-
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-white/10"></div>
-            <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">YA PHIR</span>
-            <div className="flex-grow border-t border-white/10"></div>
-          </div>
-
-          {/* 1-Tap Web App Install Button (No File Download needed) */}
-          {isInstalled ? (
-            <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>✓ App is already installed on this device!</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNativeInstall}
-              disabled={installStep === 'installing'}
-              className="w-full py-3 bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs font-outfit rounded-xl border border-white/20 transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Smartphone className="w-4 h-4 text-amber-400" />
-              <span>
-                {installStep === 'installing' 
-                  ? 'Adding App to Device...' 
-                  : deferredPrompt 
-                  ? '⚡ 1-Tap Add to Home Screen (Bina Download)' 
-                  : '⚡ Direct Home Screen Pe Lagayein (1-Tap)'}
-              </span>
-            </button>
-          )}
         </div>
-
-        {/* In-App Browser (Telegram / WhatsApp) Help Note */}
-        <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-xs space-y-1">
-          <div className="font-bold text-amber-300 flex items-center gap-1.5 text-[11px]">
-            <span>💡 Agar Telegram/WhatsApp ke andar khola hai:</span>
-          </div>
-          <p className="text-[10px] text-slate-300 leading-relaxed">
-            Upar daayein kone me <strong>3 dots (⋮)</strong> dabayein aur <strong>"Open in Chrome" / "Open in Browser"</strong> chunein. Isse APK seedha download ho jayega aur ek click me install ho jayega.
-          </p>
-        </div>
-
-        {/* Android Chrome 1-Tap Manual Guide */}
-        {(!isIOS && showManualGuide) && (
-          <div className="p-4 bg-orange-500/15 rounded-2xl border-2 border-[#FF6B00] text-xs space-y-2 animate-fadeIn">
-            <div className="font-black text-amber-300 font-outfit text-sm flex items-center gap-1.5">
-              <span>📲 Chrome me Direct App Kaise Lagayein:</span>
-            </div>
-            <ol className="text-xs text-slate-200 space-y-1.5 pl-4 list-decimal leading-relaxed">
-              <li>Chrome browser me sabse upar daayein (top right) kone me <strong>3 dots (⋮)</strong> dabayein.</li>
-              <li>Menu me <strong>'Install app'</strong> ya <strong>'Add to Home screen'</strong> chunein.</li>
-              <li>Neeche <strong>'Install'</strong> button dabayein — App turant phone par install ho jayegi!</li>
-            </ol>
-          </div>
-        )}
-
-        {/* iOS Safari Guide (if iPhone/iPad) */}
-        {isIOS && (
-          <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-400/30 text-xs space-y-1.5">
-            <div className="font-black text-amber-300 font-outfit flex items-center gap-1.5">
-              <Share2 className="w-3.5 h-3.5" />
-              <span>How to Install on iPhone / iPad:</span>
-            </div>
-            <ol className="text-[11px] text-slate-300 space-y-1 pl-4 list-decimal">
-              <li>Safari browser me niche <strong>Share button (⎋)</strong> dabayein.</li>
-              <li>Niche scroll karke <strong>'Add to Home Screen' (⊞)</strong> chunein.</li>
-              <li>Top right me <strong>'Add'</strong> par tap karein — App turant add ho jayegi!</li>
-            </ol>
-          </div>
-        )}
 
         {/* Trust Badges Footer */}
-        <div className="pt-1 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
+        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
           <span className="flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>No Browser URL Bar</span>
+            <span>Official Client</span>
           </span>
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>256-Bit NPCI Encrypted</span>
+            <span>256-Bit Encrypted</span>
           </span>
-          <span>Zero Lag • Fast 60FPS</span>
+          <span>Fast 60FPS</span>
         </div>
       </div>
     </div>
