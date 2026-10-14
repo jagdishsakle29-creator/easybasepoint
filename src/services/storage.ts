@@ -264,8 +264,8 @@ export const defaultSettings: RewardSettings = {
   usdtBuyRate: 102.00,
   usdtSellRate: 129.00,
   normalUsdtPrice: 102.00,
-  inrRewardPercent: 22.00,
-  lowBonusPercent: 22.00,
+  inrRewardPercent: 20.00,
+  lowBonusPercent: 20.00,
   middleBonusPercent: 25.00,
   highBonusPercent: 30.00,
   minDeposit: 350.00,
@@ -466,13 +466,48 @@ export const storage = {
 
   getWithdrawals(): WithdrawalRequest[] {
     const raw = localStorage.getItem(STORAGE_KEYS.WITHDRAWALS);
-    if (!raw) return [];
-    try {
-      const parsed: WithdrawalRequest[] = JSON.parse(raw);
-      return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    } catch {
-      return [];
+    const map = new Map<string, WithdrawalRequest>();
+    if (raw) {
+      try {
+        const parsed: WithdrawalRequest[] = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((w) => {
+            if (w && w.id) map.set(w.id, w);
+          });
+        }
+      } catch {}
     }
+
+    // Auto-recover any withdrawal transactions from local transaction history
+    try {
+      const txs = this.getTransactions();
+      txs.forEach((t) => {
+        if (t && t.type === 'withdrawal') {
+          const wId = t.referenceId || (t.id.startsWith('WDR-') ? t.id : `WDR-${t.id.replace('TXN-', '')}`);
+          if (!map.has(wId)) {
+            const method = (t.note?.toLowerCase().includes('usdt') ? 'usdt' : t.note?.toLowerCase().includes('upi') ? 'upi' : 'bank') as any;
+            map.set(wId, {
+              id: wId,
+              userId: t.userId || 'player',
+              userName: t.metadata?.userName || 'Player',
+              userPhone: t.metadata?.phone || '',
+              amount: t.amount || 0,
+              fee: 0,
+              netAmount: t.amount || 0,
+              method,
+              accountDetails: t.metadata?.accountDetails || {},
+              status: (t.status === 'completed' ? 'completed' : t.status === 'rejected' ? 'rejected' : 'pending') as any,
+              createdAt: t.timestamp || new Date().toISOString(),
+            });
+          }
+        }
+      });
+    } catch {}
+
+    const result = Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return result;
   },
   setWithdrawals(withdrawals: WithdrawalRequest[]): void {
     const sorted = [...withdrawals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -493,15 +528,11 @@ export const storage = {
     try {
       const parsed = JSON.parse(raw);
       if (
-        parsed.inrRewardPercent !== 22.00 ||
-        parsed.lowBonusPercent !== 22.00 ||
-        parsed.middleBonusPercent !== 25.00 ||
-        parsed.highBonusPercent !== 30.00
+        parsed.inrRewardPercent !== 20.00 ||
+        parsed.lowBonusPercent !== 20.00
       ) {
-        parsed.inrRewardPercent = 22.00;
-        parsed.lowBonusPercent = 22.00;
-        parsed.middleBonusPercent = 25.00;
-        parsed.highBonusPercent = 30.00;
+        parsed.inrRewardPercent = 20.00;
+        parsed.lowBonusPercent = 20.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.adminUpiId || parsed.adminUpiId !== 'narwariya321@axl') {
@@ -653,32 +684,70 @@ export const storage = {
   findAccount(emailOrPhoneOrId: string): RegisteredAccount | undefined {
     if (!emailOrPhoneOrId) return undefined;
     const accounts = this.getAccounts();
-    if (accounts.length === 0) return undefined;
-
     const clean = emailOrPhoneOrId.trim().toLowerCase();
     const cleanDigits = emailOrPhoneOrId.replace(/[^0-9]/g, '');
 
-    // 1. Check direct ID match
-    const byId = accounts.find((a) => a?.user?.id && a.user.id.trim() === emailOrPhoneOrId.trim());
-    if (byId) return byId;
+    // 1. Check direct ID or Referral Code match in accounts
+    const byIdOrRef = accounts.find((a) => {
+      if (!a?.user) return false;
+      const idMatch = a.user.id && a.user.id.trim().toLowerCase() === clean;
+      const refMatch = a.user.referralCode && a.user.referralCode.trim().toLowerCase() === clean;
+      return idMatch || refMatch;
+    });
+    if (byIdOrRef) return byIdOrRef;
 
-    // 2. Check phone or email match
-    const byPhoneOrEmail = accounts.find((a) => {
+    // 2. Check phone, email, or full name match in accounts
+    const byPhoneOrEmailOrName = accounts.find((a) => {
       if (!a || !a.user) return false;
       const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
+      const aName = (a.user.name || '').toLowerCase().trim();
       
-      // Check phone match (10 digits)
-      if (cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) {
+      // Check phone match (match last 10 digits or exact)
+      if (cleanDigits.length >= 8 && aPhone.length >= 8) {
+        if (aPhone.endsWith(cleanDigits.slice(-10)) || cleanDigits.endsWith(aPhone.slice(-10)) || aPhone === cleanDigits) {
+          return true;
+        }
+      }
+      // Check email match (exact or prefix)
+      if (aEmail && (aEmail === clean || aEmail.split('@')[0] === clean || (clean.includes('@') && clean === aEmail))) {
         return true;
       }
-      // Check email match
-      if (clean.includes('@') && aEmail === clean) {
+      // Check user name match
+      if (clean.length >= 3 && aName && (aName === clean || aName.includes(clean) || clean.includes(aName))) {
         return true;
       }
       return false;
     });
-    if (byPhoneOrEmail) return byPhoneOrEmail;
+    if (byPhoneOrEmailOrName) return byPhoneOrEmailOrName;
+
+    // 3. Fallback: Check currently active user in localStorage (heals any local storage desync)
+    const currentUser = this.getUser();
+    if (currentUser) {
+      const uPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
+      const uEmail = (currentUser.email || '').toLowerCase().trim();
+      const uName = (currentUser.name || '').toLowerCase().trim();
+      const uId = (currentUser.id || '').toLowerCase().trim();
+      const uRef = (currentUser.referralCode || '').toLowerCase().trim();
+
+      const matches =
+        (cleanDigits.length >= 8 && uPhone.length >= 8 && (uPhone.endsWith(cleanDigits.slice(-10)) || cleanDigits.endsWith(uPhone.slice(-10)))) ||
+        (uEmail && (uEmail === clean || uEmail.split('@')[0] === clean)) ||
+        (clean.length >= 3 && uName && (uName === clean || uName.includes(clean))) ||
+        (uId && uId === clean) ||
+        (uRef && uRef === clean);
+
+      if (matches) {
+        const reconstructed: RegisteredAccount = {
+          user: currentUser,
+          wallet: this.getWallet(),
+          transactions: this.getUserTransactions(currentUser.id, currentUser.phone),
+          allowInitialPasswordSet: true,
+        };
+        this.saveAccount(reconstructed);
+        return reconstructed;
+      }
+    }
 
     return undefined;
   },

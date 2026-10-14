@@ -94,10 +94,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         } else if (res.notFound) {
           setFormError('❌ Account not found! This mobile number or email is not registered. Please tap "Sign Up" below to register.');
-          addToast('error', 'Account not found! Please register an account first.');
         } else if (res.wrongPassword) {
           setFormError('❌ Incorrect password or Security PIN! Please verify your password/PIN and try again.');
-          addToast('error', '❌ Incorrect password! Please check your password and try again.');
         } else {
           setFormError(res.message || 'Login failed. Please verify your credentials.');
         }

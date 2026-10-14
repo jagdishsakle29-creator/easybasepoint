@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkles, Send } from 'lucide-react';
+import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkles, Send, Download } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { openOfficialTelegramChannel } from '../../config/constants';
+import { AppDownloadModal } from './AppDownloadModal';
 
 interface HeaderProps {
   onOpenHelp?: () => void;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
   } = useApp();
 
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showAppModal, setShowAppModal] = useState(false);
 
   return (
     <>
@@ -104,6 +106,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
               </button>
             )}
 
+            {/* Official App Download Quick Link */}
+            <button
+              onClick={() => setShowAppModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black text-amber-700 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300/80 transition shadow-sm active:scale-95"
+              title="Download & Install Official EasyBase App"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
+              <span className="font-outfit font-extrabold text-[11px]">App</span>
+            </button>
+
             {/* Official Telegram Channel Quick Link */}
             <button
               onClick={() => openOfficialTelegramChannel(settings.telegramChannelUrl)}
@@ -172,6 +184,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
           </div>
         </div>
       )}
+
+      {/* App Download Modal */}
+      <AppDownloadModal 
+        isOpen={showAppModal} 
+        onClose={() => setShowAppModal(false)} 
+      />
     </>
   );
 };

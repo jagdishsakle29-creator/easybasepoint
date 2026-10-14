@@ -75,6 +75,26 @@ export const DepositPage: React.FC = () => {
   const [isUploadingScreenshot, setIsUploadingScreenshot] = useState<boolean>(false);
   const [qrViewMode, setQrViewMode] = useState<'dynamic' | 'official'>('dynamic');
   const [dynamicQrDataUrl, setDynamicQrDataUrl] = useState<string>('');
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
+
+  // Monitor 2-minute rate limit for payment screenshot submissions
+  useEffect(() => {
+    const userIdentifier = user?.id || user?.phone || 'active_user';
+    const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
+    const checkCooldown = () => {
+      const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
+      const now = Date.now();
+      const TWO_MINUTES_MS = 2 * 60 * 1000;
+      if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
+        setCooldownSeconds(Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000));
+      } else {
+        setCooldownSeconds(0);
+      }
+    };
+    checkCooldown();
+    const timer = setInterval(checkCooldown, 1000);
+    return () => clearInterval(timer);
+  }, [user]);
 
   // Generate dynamic amount UPI QR code on any amount change
   useEffect(() => {
@@ -236,10 +256,30 @@ export const DepositPage: React.FC = () => {
       addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit for approval.');
       return;
     }
+
+    // Strict 1: Payment screenshot is 100% mandatory (Cannot submit without screenshot)
+    if (!screenshotUrl && !screenshotFile) {
+      addToast('error', '⚠️ Payment screenshot upload karna anivarya hai! Bina screenshot ke request admin panel me nahi jayegi.');
+      return;
+    }
+
+    // Strict 2: Rate Limit - 1 payment screenshot every 2 minutes per user
+    const userIdentifier = user?.id || user?.phone || 'active_user';
+    const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
+    const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
+    const now = Date.now();
+    const TWO_MINUTES_MS = 2 * 60 * 1000;
+    if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
+      const remainingSec = Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000);
+      addToast('error', `⏳ Kripya prateeksha karein! Ek user 2 minute me 1 hi payment screenshot bhej sakta hai (${remainingSec}s bache hain).`);
+      return;
+    }
+
     setIsProcessingTopUp(true);
     try {
       const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl || '', 'cousin');
       if (res && res.success) {
+        localStorage.setItem(lastDepositKey, Date.now().toString());
         setIsTopUpModalOpen(false);
         setUtrRef('');
         setScreenshotFile(null);
@@ -1265,24 +1305,22 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                         <ImageIcon className="w-4 h-4 text-[#FF6B00]" />
-                        <span>Payment Screenshot (Optional)</span>
+                        <span>Payment Screenshot (100% Mandatory)</span>
                       </label>
                       {screenshotUrl ? (
                         <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          ✓ Payment screenshot attached
+                          ✓ Attached & Verified
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          Optional (Recommended)
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                          Zaroori Hai (Mandatory)
                         </span>
                       )}
                     </div>
 
                     <p className="text-[11px] text-slate-300">
-                      {isUtrReady 
-                        ? 'Please upload your payment screenshot to complete verification.' 
-                        : 'Upload the screenshot of your successful payment. Required for verification.'}
+                      Payment screenshot attach karna anivarya hai. Screenshot upload kiye bina deposit process nahi hoga.
                     </p>
 
                     {/* Screenshot Preview or Upload Dropzone */}
@@ -1388,6 +1426,19 @@ export const DepositPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* 2-Minute Rate Limit Warning if active */}
+                  {cooldownSeconds > 0 && (
+                    <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/50 text-amber-200 flex items-center gap-2 text-xs animate-pulse">
+                      <Clock className="w-4 h-4 text-amber-300 flex-shrink-0 animate-spin" />
+                      <div>
+                        <span className="font-bold text-amber-300">Rate Limit Active:</span>
+                        <p className="text-[11px] text-amber-200/90 mt-0.5">
+                          Only 1 payment screenshot is allowed per 2-minute period. You can submit again in <strong className="text-white font-mono">{cooldownSeconds}s</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
                     <button
@@ -1399,10 +1450,10 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isProcessingTopUp || !isUtrReady || isUploadingScreenshot}
+                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot || cooldownSeconds > 0}
                       onClick={handleConfirmTopUp}
                       className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                        isUtrReady
+                        isUtrReady && screenshotUrl && cooldownSeconds === 0 && !isProcessingTopUp
                           ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
                           : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                       }`}
@@ -1411,10 +1462,12 @@ export const DepositPage: React.FC = () => {
                       <span>
                         {isProcessingTopUp 
                           ? 'Submitting for Verification...' 
+                          : cooldownSeconds > 0 
+                          ? `Wait ${cooldownSeconds}s (1 per 2 mins)`
                           : !isUtrReady 
                           ? 'Enter 12-Digit UTR to Submit' 
-                          : screenshotUrl 
-                          ? `Submit with Screenshot (₹${topUpAmount})` 
+                          : !screenshotUrl 
+                          ? 'Attach Screenshot to Submit' 
                           : `Submit for Verification (₹${topUpAmount})`}
                       </span>
                     </button>

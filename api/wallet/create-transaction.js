@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       activityRewardInr = numAmount >= 100 ? (calculatedInr * 0.03) : 0;
       totalInr = calculatedInr + bonusInr + activityRewardInr;
     } else {
-      bonusInr = (numAmount * 22) / 100;
+      bonusInr = (numAmount * 20) / 100;
       if (numAmount >= 50000) activityRewardInr = 5000;
       else if (numAmount >= 20000) activityRewardInr = 1000;
       else if (numAmount >= 5000) activityRewardInr = 100;
@@ -82,8 +82,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: err.message });
     }
 
-    // Only send Telegram alert if not already sent by client
-    if (body.sendTelegram !== false && !body.skipTelegram) {
+    // Only send Telegram alert if explicitly requested (client telegramService already sends the rich interactive card)
+    if (body.sendTelegram === true && !body.skipTelegram) {
       try {
         if (TELEGRAM_BOT_TOKEN && TELEGRAM_ADMIN_CHAT_ID) {
           const text = `🔔 *NEW ${isUsdt ? 'USDT' : 'INR'} DEPOSIT SUBMITTED*\n\n` +

@@ -27,9 +27,15 @@
     <meta name="twitter:description" content="Instant UPI & Bank Withdrawals within 5-15 mins. Get 22% guaranteed return on every deposit." />
     <meta name="twitter:image" content="https://easybasepoint.vercel.app/og-image.jpg" />
 
-    <!-- Mobile App Theme Color -->
+    <!-- Mobile App Theme Color & PWA -->
     <meta name="theme-color" content="#0B1528" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EasyBase" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 
     <!-- Prevent stale caching on mobile devices -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -42,6 +48,13 @@
   </head>
   <body class="bg-[#F3F6FD] text-slate-800 font-sans antialiased selection:bg-orange-500 selection:text-white">
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function() {});
+        });
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

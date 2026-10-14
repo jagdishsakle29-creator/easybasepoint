@@ -12,14 +12,18 @@ import {
   ShieldCheck,
   Zap,
   Clock,
-  Coins
+  Coins,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { UsdtOtcCard } from '../common/UsdtOtcCard';
+import { AppDownloadModal } from '../common/AppDownloadModal';
 
 export const HomePage: React.FC = () => {
   const { wallet, settings, setActiveTab, deposits, transactions } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // Calculate today's pure commission & profits earned (STRICTLY EXCLUDING deposit principal)
   const todayCommissionEarned = React.useMemo(() => {
@@ -206,6 +210,34 @@ export const HomePage: React.FC = () => {
         onNavigateToWithdraw={() => setActiveTab('withdraw')}
       />
 
+      {/* Official App (APK) Download Banner Card */}
+      <div 
+        onClick={() => setIsDownloadModalOpen(true)}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1528] via-[#162744] to-[#1E3052] p-4 text-white border-2 border-orange-500/40 shadow-lg cursor-pointer group hover:border-orange-400 transition-all select-none"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF6B00]/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#0B1528] border-2 border-amber-400 p-0.5 shadow-md flex-shrink-0 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <img src="/icon-192.png" alt="App Icon" className="w-full h-full object-cover rounded-xl" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-outfit font-black text-sm text-white">EasyBase Official App</span>
+                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 uppercase">
+                  APK v2.1.0
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">Fast 1-Tap Download • 100% Safe • Zero Lag</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white text-xs font-bold shadow-orange-glow group-hover:scale-105 transition-all">
+            <Download className="w-3.5 h-3.5" />
+            <span>Install APK</span>
+          </div>
+        </div>
+      </div>
+
       {/* Rates Grid: USDT Rate & INR Reward */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {/* USDT Buy & Sell Card */}
@@ -327,6 +359,12 @@ export const HomePage: React.FC = () => {
           <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#FF6B00] group-hover:translate-x-1 transition-all" />
         </div>
       </div>
+
+      {/* Official App Download & Install Modal */}
+      <AppDownloadModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+      />
     </div>
   );
 };

@@ -105,7 +105,36 @@ export default async function handler(req, res) {
       if (!body.createdAt) body.createdAt = new Date().toISOString();
       if (!body.status) body.status = "pending_verification";
 
+      // Strict mandatory screenshot
+      const screenshot = body.paymentScreenshot || body.proofUrl || "";
+      const isDemo = Boolean(body.isDemo);
+      const hasScreenshot = screenshot && (screenshot.startsWith("data:image") || screenshot.startsWith("http") || screenshot.length > 40);
+      if (!isDemo && !hasScreenshot) {
+        return res.status(400).json({ ok: false, error: "Payment screenshot is strictly required to submit a deposit." });
+      }
+
       let { data, sha } = await fetchLedger();
+
+      // Strict 2-minute rate limit: only 1 payment screenshot per 2-minute period per user
+      const now = Date.now();
+      const TWO_MINS_MS = 2 * 60 * 1000;
+      const userPhoneClean = (body.userPhone || "").replace(/[^0-9]/g, "");
+      const userId = body.userId || "";
+      if (!isDemo) {
+        for (const item of Object.values(data || {})) {
+          if (!item || !item.createdAt || item.id === depId) continue;
+          const itemPhone = (item.userPhone || "").replace(/[^0-9]/g, "");
+          const isSameUser = (userId && item.userId === userId) || (userPhoneClean.length >= 10 && itemPhone.endsWith(userPhoneClean.slice(-10)));
+          if (isSameUser) {
+            const itemTime = new Date(item.createdAt).getTime();
+            if (now - itemTime < TWO_MINS_MS) {
+              const waitSec = Math.ceil((TWO_MINS_MS - (now - itemTime)) / 1000);
+              return res.status(429).json({ ok: false, error: `Rate limit: Only 1 payment screenshot is allowed per 2 minutes. Please wait ${waitSec}s.` });
+            }
+          }
+        }
+      }
+
       data[depId] = {
         ...(data[depId] || {}),
         ...body,

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
+import { AppDownloadModal } from '../common/AppDownloadModal';
 
 const SUPPORT_CATEGORIES = [
   { 
@@ -331,6 +332,34 @@ export const ProfilePage: React.FC = () => {
           </div>
           <span className="text-xs font-bold text-slate-700">Contact Us</span>
         </button>
+      </div>
+
+      {/* Official App Download Banner Card */}
+      <div 
+        onClick={() => setActiveModal('downloadApp')}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1528] via-[#162744] to-[#1E3052] p-4 text-white border-2 border-orange-500/40 shadow-lg cursor-pointer group hover:border-orange-400 transition-all select-none"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF6B00]/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#0B1528] border-2 border-amber-400 p-0.5 shadow-md flex-shrink-0 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <img src="/icon-192.png" alt="App Icon" className="w-full h-full object-cover rounded-xl" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-outfit font-black text-sm text-white">EasyBase App (APK)</span>
+                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 uppercase">
+                  v2.1.0
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">Fast 1-Tap Install • Zero Lag • Play Protect Safe</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white text-xs font-bold shadow-orange-glow group-hover:scale-105 transition-all">
+            <Download className="w-3.5 h-3.5" />
+            <span>Install</span>
+          </div>
+        </div>
       </div>
 
       {/* Menu Items List */}
@@ -771,47 +800,10 @@ export const ProfilePage: React.FC = () => {
       )}
 
       {/* Download App Modal */}
-      {activeModal === 'downloadApp' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 font-outfit">Download EasyBasePoint App</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
-                <Smartphone className="w-8 h-8 text-[#FF6B00]" />
-                <div>
-                  <h4 className="font-bold text-slate-900">Install Progressive Web App (PWA)</h4>
-                  <p className="text-[11px] text-slate-500">
-                    Tap your browser's share menu and select "Add to Home Screen" for instant native app experience.
-                  </p>
-                </div>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
-                <Download className="w-8 h-8 text-blue-600" />
-                <div>
-                  <h4 className="font-bold text-slate-900">Android APK Build</h4>
-                  <p className="text-[11px] text-slate-500">
-                    Direct APK download package v2.4 (Enterprise Signed).
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                addToast('success', 'PWA installation triggered on your device!');
-                setActiveModal(null);
-              }}
-              className="w-full py-2.5 bg-[#FF6B00] text-white rounded-xl text-xs font-bold shadow-orange-glow"
-            >
-              Install App
-            </button>
-          </div>
-        </div>
-      )}
+      <AppDownloadModal
+        isOpen={activeModal === 'downloadApp'}
+        onClose={() => setActiveModal(null)}
+      />
 
       {/* Payment Methods Modal */}
       <PaymentMethodsModal

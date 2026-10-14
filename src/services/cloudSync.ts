@@ -231,25 +231,13 @@ export const cloudSync = {
     }
   },
 
-  // Broadcast a new deposit submission to Backend & Admin Panel in real time
+  // Broadcast a new deposit submission to Backend & Admin Panel in real time (Zero delay & Single Event)
   async broadcastDeposit(deposit: CloudDepositPayload): Promise<boolean> {
     try {
-      // 1. Post to Serverless API
-      fetch(`${getApiBaseUrl()}/deposits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deposit),
-      }).catch(() => {});
-      fetch(`${getApiBaseUrl()}/bot/deposits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deposit),
-      }).catch(() => {});
+      // 1. Single direct GitHub Cloud Ledger Persistence
+      saveToGitHubLedger(deposit).catch(() => {});
 
-      // 2. Direct Permanent GitHub Ledger Persistence (awaited)
-      const saved = await saveToGitHubLedger(deposit);
-
-      // 3. Broadcast via high-speed pub/sub for instant 0.01s Admin Panel reception
+      // 2. Single high-speed pub/sub broadcast for instant Admin Panel SSE update
       fetch(NTFY_DEPOSITS_PUB, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -262,21 +250,32 @@ export const cloudSync = {
     }
   },
 
-  // Broadcast a new withdrawal request to Backend & Admin in real time
+  // Broadcast a new withdrawal request to Backend & Admin in real time (Zero delay & Single Event)
   async broadcastWithdrawal(withdrawal: any): Promise<boolean> {
     try {
-      fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
+      const payload = { ...withdrawal, type: 'withdrawal' };
+
+      // 1. Post to Serverless backend endpoints
+      fetch(`${getApiBaseUrl()}/withdrawals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(withdrawal),
+        body: JSON.stringify(payload),
+      }).catch(() => {
+        return fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
       }).catch(() => {});
 
-      saveToGitHubLedger(withdrawal).catch(() => {});
+      // 2. Direct GitHub Cloud Ledger Persistence fallback
+      saveToGitHubLedger(payload).catch(() => {});
 
+      // 3. High-speed pub/sub broadcast for instant Admin Panel SSE update
       fetch(NTFY_DEPOSITS_PUB, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'NEW_WITHDRAWAL', withdrawal }),
+        body: JSON.stringify({ type: 'NEW_WITHDRAWAL', withdrawal: payload }),
       }).catch(() => {});
 
       return true;

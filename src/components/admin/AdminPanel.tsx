@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Lock, 
   LayoutDashboard, 
@@ -40,6 +40,7 @@ export const AdminPanel: React.FC = () => {
     rejectDeposit,
     deleteDeposit,
     refreshDeposits,
+    refreshWithdrawals,
     approveWithdrawal, 
     rejectWithdrawal, 
     addQuotaPackage, 
@@ -54,16 +55,19 @@ export const AdminPanel: React.FC = () => {
 
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
 
-  // Auto-sync incoming deposits from players in real-time
+  // Auto-sync incoming deposits and withdrawals from players in real-time
   useEffect(() => {
     refreshDeposits();
+    refreshWithdrawals();
     const timer = setInterval(() => {
       refreshDeposits();
+      refreshWithdrawals();
     }, 3500);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         refreshDeposits();
+        refreshWithdrawals();
       }
     };
     window.addEventListener('visibilitychange', onVisible);
@@ -74,7 +78,7 @@ export const AdminPanel: React.FC = () => {
       window.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [refreshDeposits]);
+  }, [refreshDeposits, refreshWithdrawals]);
 
   const [activeAdminTab, setActiveAdminTab] = useState<
     'overview' | 'usdt' | 'deposits' | 'withdrawals' | 'packages' | 'gateways' | 'users' | 'settings' | 'logs'
@@ -113,16 +117,55 @@ export const AdminPanel: React.FC = () => {
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/easybasepoint');
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
+  const [processingActionIds, setProcessingActionIds] = useState<Set<string>>(new Set());
+  const [currentAdminKey, setCurrentAdminKey] = useState(sessionStorage.getItem('ebp_admin_key') || 'lord12');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const pendingDeposits = deposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
+  // Strict Deduplication of Deposits & Withdrawals (Guarantees zero double entries)
+  const uniqueDeposits = useMemo(() => {
+    const map = new Map<string, typeof deposits[0]>();
+    deposits.forEach((d) => {
+      if (d && d.id) {
+        const existing = map.get(d.id);
+        if (!existing) {
+          map.set(d.id, d);
+        } else if ((d.status === 'approved' || d.status === 'completed' || d.status === 'rejected') && (existing.status === 'pending' || existing.status === 'pending_verification')) {
+          map.set(d.id, d);
+        }
+      }
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }, [deposits]);
+
+  const uniqueWithdrawals = useMemo(() => {
+    const map = new Map<string, typeof withdrawals[0]>();
+    withdrawals.forEach((w) => {
+      if (w && w.id) {
+        const existing = map.get(w.id);
+        if (!existing) {
+          map.set(w.id, w);
+        } else if ((w.status === 'completed' || w.status === 'rejected') && (existing.status === 'pending' || (existing.status as string) === 'processing')) {
+          map.set(w.id, w);
+        }
+      }
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }, [withdrawals]);
+
+  const pendingDeposits = uniqueDeposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
   
   // Dedicated Withdrawal Metrics & Filtered List
   const [withFilter, setWithFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
-  const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending' || (w.status as string) === 'processing');
-  const completedWithdrawals = withdrawals.filter((w) => w.status === 'completed');
-  const rejectedWithdrawals = withdrawals.filter((w) => w.status === 'rejected');
+  const pendingWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'pending' || (w.status as string) === 'processing');
+  const completedWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'completed');
+  const rejectedWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'rejected');
 
-  const filteredWithdrawals = withdrawals.filter((w) => {
+  const filteredWithdrawals = uniqueWithdrawals.filter((w) => {
     if (withFilter === 'all') return true;
     if (withFilter === 'pending') return w.status === 'pending' || (w.status as string) === 'processing';
     if (withFilter === 'completed') return w.status === 'completed';
@@ -131,7 +174,7 @@ export const AdminPanel: React.FC = () => {
   });
 
   // Dedicated USDT Metrics
-  const usdtDeposits = deposits.filter((d) => d.method === 'USDT' || d.id.startsWith('USDT'));
+  const usdtDeposits = uniqueDeposits.filter((d) => d.method === 'USDT' || d.id.startsWith('USDT'));
   const pendingUsdtDeposits = usdtDeposits.filter((d) => d.status === 'pending');
   const approvedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'approved');
   const creditedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'credited' || (d.status === 'completed' && d.credited !== false));
@@ -261,9 +304,77 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleAdminApproveDeposit = async (depId: string, hasScreenshot: boolean) => {
+    if (!hasScreenshot) {
+      addToast('error', 'Approval blocked: Payment screenshot is mandatory before approving.');
+      return;
+    }
+    if (processingActionIds.has(depId)) return;
+    setProcessingActionIds((prev) => new Set(prev).add(depId));
+    try {
+      await approveDeposit(depId);
+    } finally {
+      setTimeout(() => {
+        setProcessingActionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(depId);
+          return next;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleAdminRejectDeposit = async (depId: string, reason?: string) => {
+    if (processingActionIds.has(depId)) return;
+    setProcessingActionIds((prev) => new Set(prev).add(depId));
+    try {
+      await rejectDeposit(depId, reason);
+    } finally {
+      setTimeout(() => {
+        setProcessingActionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(depId);
+          return next;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleAdminApproveWithdrawal = async (wId: string) => {
+    if (processingActionIds.has(wId)) return;
+    setProcessingActionIds((prev) => new Set(prev).add(wId));
+    try {
+      await approveWithdrawal(wId);
+    } finally {
+      setTimeout(() => {
+        setProcessingActionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(wId);
+          return next;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleAdminRejectWithdrawal = async (wId: string, reason?: string) => {
+    if (processingActionIds.has(wId)) return;
+    setProcessingActionIds((prev) => new Set(prev).add(wId));
+    try {
+      await rejectWithdrawal(wId, reason || 'Incomplete banking information');
+    } finally {
+      setTimeout(() => {
+        setProcessingActionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(wId);
+          return next;
+        });
+      }, 1000);
+    }
+  };
+
   const handleConfirmReject = () => {
     if (!rejectingId) return;
-    rejectWithdrawal(rejectingId, rejectReason || 'Incomplete banking information');
+    handleAdminRejectWithdrawal(rejectingId, rejectReason || 'Incomplete banking information');
     setRejectingId(null);
     setRejectReason('');
   };
@@ -505,15 +616,21 @@ export const AdminPanel: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => approveWithdrawal(w.id)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition active:scale-95"
+                        disabled={processingActionIds.has(w.id)}
+                        onClick={() => handleAdminApproveWithdrawal(w.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition active:scale-95 ${
+                          processingActionIds.has(w.id)
+                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                        }`}
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Approve</span>
+                        <span>{processingActionIds.has(w.id) ? 'Processing...' : 'Approve'}</span>
                       </button>
                       <button
+                        disabled={processingActionIds.has(w.id)}
                         onClick={() => setRejectingId(w.id)}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                         <span>Reject & Delete</span>
@@ -771,15 +888,21 @@ export const AdminPanel: React.FC = () => {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                       <button
-                        onClick={() => approveDeposit(dep.id)}
-                        className="flex-1 sm:flex-initial py-2.5 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                        disabled={processingActionIds.has(dep.id)}
+                        onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot))}
+                        className={`flex-1 sm:flex-initial py-2.5 px-5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition ${
+                          processingActionIds.has(dep.id)
+                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer'
+                        }`}
                       >
                         <Check className="w-4 h-4" />
-                        <span>Approve & Credit ₹{Number(dep.totalInr || 0)}</span>
+                        <span>{processingActionIds.has(dep.id) ? 'Processing...' : `Approve & Credit ₹${Number(dep.totalInr || 0)}`}</span>
                       </button>
                       <button
-                        onClick={() => rejectDeposit(dep.id, 'Invalid USDT TxID or payment unconfirmed')}
-                        className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1"
+                        disabled={processingActionIds.has(dep.id)}
+                        onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid USDT TxID or payment unconfirmed')}
+                        className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                         <span>Reject & Delete</span>
@@ -911,15 +1034,21 @@ export const AdminPanel: React.FC = () => {
                               {dep.status === 'pending' ? (
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
-                                    onClick={() => approveDeposit(dep.id)}
-                                    className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1"
+                                    disabled={processingActionIds.has(dep.id)}
+                                    onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot))}
+                                    className={`py-1 px-2.5 rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1 ${
+                                      processingActionIds.has(dep.id)
+                                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                                    }`}
                                   >
                                     <Check className="w-3 h-3" />
-                                    <span>Approve</span>
+                                    <span>{processingActionIds.has(dep.id) ? 'Processing...' : 'Approve'}</span>
                                   </button>
                                   <button
-                                    onClick={() => rejectDeposit(dep.id)}
-                                    className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1"
+                                    disabled={processingActionIds.has(dep.id)}
+                                    onClick={() => handleAdminRejectDeposit(dep.id)}
+                                    className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
                                   >
                                     <X className="w-3 h-3" />
                                     <span>Reject & Delete</span>
@@ -1116,26 +1245,29 @@ export const AdminPanel: React.FC = () => {
                     {isPending && (
                       <div className="flex gap-2 pt-1">
                         <button
-                          disabled={!hasScreenshot}
-                          onClick={() => {
-                            if (!hasScreenshot) {
-                              addToast('error', 'Cannot approve: Payment screenshot is required.');
-                              return;
-                            }
-                            approveDeposit(dep.id);
-                          }}
+                          disabled={!hasScreenshot || processingActionIds.has(dep.id)}
+                          onClick={() => handleAdminApproveDeposit(dep.id, hasScreenshot)}
                           className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
-                            hasScreenshot
+                            processingActionIds.has(dep.id)
+                              ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                              : hasScreenshot
                               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer'
                               : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
                           }`}
                         >
                           <Check className="w-4 h-4" />
-                          <span>Approve & Credit ₹{dep.totalInr}</span>
+                          <span>
+                            {processingActionIds.has(dep.id)
+                              ? 'Processing...'
+                              : !hasScreenshot
+                              ? 'Screenshot Required to Approve'
+                              : `Approve & Credit ₹${dep.totalInr}`}
+                          </span>
                         </button>
 
                         <button
-                          onClick={() => rejectDeposit(dep.id, 'Invalid UTR, missing screenshot, or payment not received')}
+                          disabled={processingActionIds.has(dep.id)}
+                          onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid UTR, missing screenshot, or payment not received')}
                           className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                         >
                           <X className="w-4 h-4" />
@@ -1164,8 +1296,22 @@ export const AdminPanel: React.FC = () => {
               <p className="text-xs text-slate-400">Review, approve payouts or reject with instant wallet refund</p>
             </div>
 
-            {/* Status Filter Tabs */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  refreshWithdrawals();
+                  addToast('info', 'Synced withdrawals from cloud ledger.');
+                }}
+                className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer"
+                title="Force refresh withdrawals list"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Sync Live</span>
+              </button>
+
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
               {(['all', 'pending', 'completed', 'rejected'] as const).map((filter) => {
                 const count = filter === 'all' 
                   ? withdrawals.length 
@@ -1188,6 +1334,7 @@ export const AdminPanel: React.FC = () => {
                   </button>
                 );
               })}
+              </div>
             </div>
           </div>
 
@@ -1255,14 +1402,20 @@ export const AdminPanel: React.FC = () => {
                   {(req.status === 'pending' || (req.status as string) === 'processing') && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => approveWithdrawal(req.id)}
-                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer shadow-xs"
+                        disabled={processingActionIds.has(req.id)}
+                        onClick={() => handleAdminApproveWithdrawal(req.id)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 shadow-xs ${
+                          processingActionIds.has(req.id)
+                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                        }`}
                       >
                         <Check className="w-4 h-4" />
-                        <span>Approve Payout</span>
+                        <span>{processingActionIds.has(req.id) ? 'Processing...' : 'Approve Payout'}</span>
                       </button>
 
                       <button
+                        disabled={processingActionIds.has(req.id)}
                         onClick={() => setRejectingId(req.id)}
                         className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
                       >
@@ -1522,96 +1675,241 @@ export const AdminPanel: React.FC = () => {
           TAB 5: PLATFORM SETTINGS
          ======================================================= */}
       {activeAdminTab === 'settings' && (
-        <form onSubmit={handleSaveSettings} className="glass-card rounded-3xl p-5 space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-            Exchange Rates & Fees
-          </h3>
+        <div className="space-y-4">
+          <form onSubmit={handleSaveSettings} className="glass-card rounded-3xl p-5 space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Exchange Rates & Fees
+            </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Platform USDT Rate (INR)
-              </label>
-              <input
-                type="number"
-                step={0.1}
-                value={usdtRate}
-                onChange={(e) => setUsdtRate(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Platform USDT Rate (INR)
+                </label>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={usdtRate}
+                  onChange={(e) => setUsdtRate(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Normal Market USDT Price (INR)
+                </label>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={normalPrice}
+                  onChange={(e) => setNormalPrice(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Active INR Reward Bonus (%)
+                </label>
+                <input
+                  type="number"
+                  step={0.5}
+                  value={inrReward}
+                  onChange={(e) => setInrReward(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Withdrawal Fee (%)
+                </label>
+                <input
+                  type="number"
+                  step={0.5}
+                  value={feePercent}
+                  onChange={(e) => setFeePercent(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Minimum Deposit (INR)
+                </label>
+                <input
+                  type="number"
+                  value={minDeposit}
+                  onChange={(e) => setMinDeposit(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Minimum Withdrawal (INR)
+                </label>
+                <input
+                  type="number"
+                  value={minWithdraw}
+                  onChange={(e) => setMinWithdraw(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Normal Market USDT Price (INR)
-              </label>
-              <input
-                type="number"
-                step={0.1}
-                value={normalPrice}
-                onChange={(e) => setNormalPrice(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition"
+            >
+              Save Platform Settings
+            </button>
+          </form>
+
+          {/* Admin Security & Password Recovery */}
+          <div className="glass-card rounded-3xl p-5 space-y-4 border border-amber-300/80 bg-gradient-to-br from-white to-amber-50/30">
+            <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 font-outfit uppercase tracking-wider">
+                    Admin Password & Security Settings
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Recover, reset, or verify your administrator credentials
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Active Session
+              </span>
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Active INR Reward Bonus (%)
-              </label>
-              <input
-                type="number"
-                step={0.5}
-                value={inrReward}
-                onChange={(e) => setInrReward(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
+            <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-2">
+              <div className="font-bold flex items-center gap-1.5">
+                <span>🔑 Admin Login Credentials:</span>
+              </div>
+              <div className="font-mono text-xs bg-white/90 p-2.5 rounded-xl border border-amber-200 flex items-center justify-between">
+                <span>Default Admin Password:</span>
+                <strong className="text-orange-600 font-black tracking-wider text-sm">lord12</strong>
+              </div>
+              <p className="text-[11px] text-slate-600">
+                <strong>Quick Direct Link:</strong> Access the admin panel at any time by navigating to <code className="bg-white px-1.5 py-0.5 rounded text-orange-600 border border-amber-200">/?admin=lord12</code> in your browser.
+              </p>
+              <p className="text-[11px] text-slate-600">
+                <strong>Custom Production Password:</strong> Set <code className="bg-white px-1.5 py-0.5 rounded text-orange-600 border border-amber-200">ADMIN_SECRET_KEY</code> in your Vercel / server environment variables, or update it below.
+              </p>
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Withdrawal Fee (%)
-              </label>
-              <input
-                type="number"
-                step={0.5}
-                value={feePercent}
-                onChange={(e) => setFeePercent(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
+            {/* Password Reset Form */}
+            <div className="space-y-3 pt-1">
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider font-outfit">
+                Change / Reset Admin Password
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500">
+                    Current Admin Password / Key
+                  </label>
+                  <input
+                    type="text"
+                    value={currentAdminKey}
+                    onChange={(e) => setCurrentAdminKey(e.target.value)}
+                    placeholder="Enter current password (default: lord12)"
+                    className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500">
+                    New Admin Password
+                  </label>
+                  <input
+                    type="password"
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    placeholder="Enter new admin password"
+                    className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Minimum Deposit (INR)
-              </label>
-              <input
-                type="number"
-                value={minDeposit}
-                onChange={(e) => setMinDeposit(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isUpdatingPassword || !newAdminPassword.trim()}
+                  onClick={async () => {
+                    if (!newAdminPassword.trim() || newAdminPassword.trim().length < 4) {
+                      addToast('error', 'New password must be at least 4 characters.');
+                      return;
+                    }
+                    setIsUpdatingPassword(true);
+                    try {
+                      const res = await fetch('/api/auth/admin-verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'reset_password',
+                          currentPassword: currentAdminKey,
+                          newPassword: newAdminPassword.trim(),
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.ok && data.success) {
+                        sessionStorage.setItem('ebp_admin_key', newAdminPassword.trim());
+                        if (data.token) {
+                          sessionStorage.setItem('ebp_admin_token', data.token);
+                        }
+                        setCurrentAdminKey(newAdminPassword.trim());
+                        setNewAdminPassword('');
+                        addToast('success', 'Admin password changed successfully!');
+                      } else {
+                        addToast('error', data.error || 'Failed to update admin password.');
+                      }
+                    } catch (err: any) {
+                      addToast('error', 'Error connecting to auth service: ' + (err.message || 'Network error'));
+                    } finally {
+                      setIsUpdatingPassword(false);
+                    }
+                  }}
+                  className={`py-2.5 px-4 rounded-xl text-xs font-bold shadow-md transition active:scale-95 ${
+                    isUpdatingPassword || !newAdminPassword.trim()
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-orange-500 to-[#FF6B00] hover:from-orange-600 hover:to-[#E55F00] text-white cursor-pointer'
+                  }`}
+                >
+                  {isUpdatingPassword ? 'Updating Password...' : 'Save New Admin Password'}
+                </button>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500">
-                Minimum Withdrawal (INR)
-              </label>
-              <input
-                type="number"
-                value={minWithdraw}
-                onChange={(e) => setMinWithdraw(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
-              />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/auth/admin-verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: currentAdminKey }),
+                      });
+                      const data = await res.json();
+                      if (data.ok && data.success) {
+                        addToast('success', `Password verified! Key "${currentAdminKey}" is valid.`);
+                      } else {
+                        addToast('error', 'Password check failed: ' + (data.error || 'Invalid key'));
+                      }
+                    } catch {
+                      addToast('error', 'Auth service check failed.');
+                    }
+                  }}
+                  className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer"
+                >
+                  Test Current Password
+                </button>
+              </div>
             </div>
           </div>
-
-          <button
-            type="submit"
-            className="w-full py-3 bg-[#FF6B00] hover:bg-[#E55F00] text-white font-bold text-xs rounded-2xl shadow-orange-glow transition"
-          >
-            Save Platform Settings
-          </button>
-        </form>
+        </div>
       )}
 
       {/* =======================================================

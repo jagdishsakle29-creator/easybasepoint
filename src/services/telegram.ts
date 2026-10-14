@@ -7,6 +7,23 @@ const getApiBaseUrl = (): string => {
   return 'https://easybasepoint.vercel.app/api';
 };
 
+const getSentKeys = (): Set<string> => {
+  try {
+    const raw = sessionStorage.getItem('ebp_sent_alerts') || '[]';
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+};
+
+const markSentKey = (key: string) => {
+  try {
+    const set = getSentKeys();
+    set.add(key);
+    sessionStorage.setItem('ebp_sent_alerts', JSON.stringify(Array.from(set)));
+  } catch {}
+};
+
 export const telegramService = {
   // Mask phone for strict privacy
   maskPhone(phone: string): string {
@@ -48,18 +65,25 @@ export const telegramService = {
   // Send Deposit Alert with [Approve] and [Reject] Inline Buttons
   async sendDepositAlert(deposit: DepositOrder, userName: string, userPhone: string, settings?: RewardSettings): Promise<boolean> {
     try {
+      const alertKey = `dep_${deposit.id}`;
+      if (getSentKeys().has(alertKey)) {
+        return true; // Already sent, avoid duplicate spam!
+      }
+      markSentKey(alertKey);
+
       const maskedPhone = this.maskPhone(userPhone);
       const isUsdt = deposit.method === 'USDT' || deposit.id.startsWith('USDT');
       const amountStr = isUsdt 
         ? `${deposit.amount} USDT (₹${(deposit.calculatedInr || deposit.amount * (settings?.usdtBuyRate || 102)).toFixed(2)} INR)` 
         : `₹${deposit.amount.toFixed(2)} INR`;
 
+      const bonusPercent = settings?.inrRewardPercent || 20;
       const text = `💰 *NEW ${isUsdt ? 'USDT (TRC20)' : 'INR'} DEPOSIT REQUEST*\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `🆔 *Deposit ID:* \`${deposit.id}\`\n` +
         `👤 *User:* ${userName} (${maskedPhone})\n` +
         `💵 *Deposit Amount:* ${amountStr}\n` +
-        `🎁 *${settings?.inrRewardPercent || 22}% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
+        `🎁 *${bonusPercent}% Bonus:* +₹${deposit.bonusInr.toFixed(2)} INR\n` +
         `📈 *Total Receivable:* *₹${deposit.totalInr.toFixed(2)} INR*\n` +
         `💳 *Method:* ${deposit.method} ${isUsdt ? '(TRON Network)' : '(UPI Transfer)'}\n` +
         `🔢 *Ref / UTR / TxID:* \`${deposit.utrNumber || 'Pending'}\`\n` +
@@ -101,6 +125,12 @@ export const telegramService = {
   // Send Withdrawal Alert with [Approve] and [Reject] Inline Buttons
   async sendWithdrawalAlert(withdrawal: WithdrawalRequest, settings?: RewardSettings): Promise<boolean> {
     try {
+      const alertKey = `wdr_${withdrawal.id}`;
+      if (getSentKeys().has(alertKey)) {
+        return true; // Already sent
+      }
+      markSentKey(alertKey);
+
       const text = `📤 *NEW WITHDRAWAL REQUEST*\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `🆔 *Request ID:* \`${withdrawal.id}\`\n` +

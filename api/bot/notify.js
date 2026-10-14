@@ -26,18 +26,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Message text is required' });
     }
 
-    // Deduplication check: prevent sending the identical alert within 30 seconds
-    const alertKey = `${targetChatId}_${messageText.slice(0, 100)}`;
+    // Robust deduplication check: prevent sending the identical alert or same transaction ID within 3 minutes
+    const txnIdMatch = messageText.match(/(DEP-[A-Za-z0-9_-]+|WDR-[A-Za-z0-9_-]+|TXN-[A-Za-z0-9_-]+|USDT-[A-Za-z0-9_-]+)/i);
+    const txnId = body.depId || body.wdrId || body.id || (txnIdMatch ? txnIdMatch[1].toUpperCase() : null);
+    const alertKey = txnId ? `${targetChatId}_${txnId}` : `${targetChatId}_${messageText.slice(0, 100)}`;
     const now = Date.now();
-    if (recentAlerts.has(alertKey) && now - recentAlerts.get(alertKey) < 30000) {
+    if (recentAlerts.has(alertKey) && now - recentAlerts.get(alertKey) < 180000) {
       return res.status(200).json({ ok: true, deduplicated: true, message: 'Duplicate alert suppressed' });
     }
     recentAlerts.set(alertKey, now);
 
     // Cleanup old keys
-    if (recentAlerts.size > 200) {
+    if (recentAlerts.size > 300) {
       for (const [k, time] of recentAlerts.entries()) {
-        if (now - time > 60000) recentAlerts.delete(k);
+        if (now - time > 180000) recentAlerts.delete(k);
       }
     }
 

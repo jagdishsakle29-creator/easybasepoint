@@ -5,6 +5,7 @@ import {
   QuotaPackage, 
   Transaction, 
   DepositOrder, 
+  DepositStatus,
   WithdrawalRequest, 
   TeamMember, 
   RewardSettings, 
@@ -77,6 +78,7 @@ interface AppContextType {
   
   // Admin Operations
   refreshDeposits: () => Promise<void>;
+  refreshWithdrawals: () => Promise<WithdrawalRequest[]>;
   approveDeposit: (id: string, fallbackTotalInr?: number) => void;
   rejectDeposit: (id: string, reason?: string) => void;
   deleteDeposit: (id: string) => void;
@@ -95,6 +97,42 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Persistent store of Admin resolved actions to prevent stale background polls from resurrecting/reverting items
+const PROCESSED_DEPOSITS_KEY = 'ebp_processed_deposits_v2';
+const PROCESSED_WITHDRAWALS_KEY = 'ebp_processed_withdrawals_v2';
+
+const getProcessedDeposits = (): Record<string, 'approved' | 'rejected' | 'deleted'> => {
+  try {
+    return JSON.parse(localStorage.getItem(PROCESSED_DEPOSITS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+const recordProcessedDeposit = (id: string, action: 'approved' | 'rejected' | 'deleted') => {
+  try {
+    const data = getProcessedDeposits();
+    data[id] = action;
+    localStorage.setItem(PROCESSED_DEPOSITS_KEY, JSON.stringify(data));
+  } catch {}
+};
+
+const getProcessedWithdrawals = (): Record<string, 'completed' | 'rejected'> => {
+  try {
+    return JSON.parse(localStorage.getItem(PROCESSED_WITHDRAWALS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+const recordProcessedWithdrawal = (id: string, action: 'completed' | 'rejected') => {
+  try {
+    const data = getProcessedWithdrawals();
+    data[id] = action;
+    localStorage.setItem(PROCESSED_WITHDRAWALS_KEY, JSON.stringify(data));
+  } catch {}
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => storage.getUser());
@@ -568,16 +606,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // Merge deposits into React state & storage
+    // Merge deposits into React state & storage with STRICT terminal status guarantees
     if (backendDeps && backendDeps.length > 0) {
+      const processedDeps = getProcessedDeposits();
+
       setDeposits((prev) => {
         const map = new Map();
         prev.forEach((d) => map.set(d.id, d));
         backendDeps.forEach((bd: any) => {
           if (!bd || !bd.id) return;
+
+          // If this deposit was already rejected or deleted by admin, NEVER resurrect it!
+          if (processedDeps[bd.id] === 'rejected' || processedDeps[bd.id] === 'deleted') {
+            map.delete(bd.id);
+            return;
+          }
+
           const existingDep = map.get(bd.id);
           const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
-          const isCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited';
+
+          // Check if approved locally or in processed registry or in backend
+          const isLocallyApproved = existingDep && (existingDep.status === 'approved' || existingDep.status === 'completed');
+          const isRecordedApproved = processedDeps[bd.id] === 'approved';
+          const isBackendCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited' || bd.status === 'approved';
+          const isApproved = isLocallyApproved || isRecordedApproved || isBackendCompleted;
+
           const validAmount = Number(bd.amount) || Number(bd.totalInr) || (existingDep ? existingDep.amount : 0);
           const validTotalInr = Number(bd.totalInr) || validAmount || (existingDep ? existingDep.totalInr : 0);
           const validBonus = Number(bd.bonusInr) || (existingDep ? existingDep.bonusInr : 0);
@@ -595,8 +648,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               bonusInr: validBonus,
               activityRewardInr: Number(bd.activityRewardInr) || 0,
               totalInr: validTotalInr,
-              status: isCompleted ? 'approved' : (bd.status || 'pending_verification'),
-              credited: isCompleted,
+              status: isApproved ? 'approved' : (bd.status || 'pending_verification'),
+              credited: isApproved,
               createdAt: validCreatedAt,
               utrNumber: bd.utrNumber || '',
               proofUrl: bd.paymentScreenshot || bd.proofUrl || bd.utrNumber || '',
@@ -606,16 +659,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else {
             const updatedScreenshot = bd.paymentScreenshot || bd.proofUrl || existingDep.paymentScreenshot || existingDep.proofUrl || '';
             const updatedProof = bd.proofUrl || bd.paymentScreenshot || existingDep.proofUrl || '';
-            const newStatus = isCompleted ? 'approved' : (bd.status || existingDep.status);
+            
+            // STRICT TERMINAL STATE: If already approved or rejected, NEVER revert to pending!
+            let finalStatus: DepositStatus = existingDep.status;
+            if (isApproved) {
+              finalStatus = 'approved';
+            } else if (existingDep.status === 'rejected') {
+              finalStatus = 'rejected';
+            } else {
+              finalStatus = bd.status || existingDep.status;
+            }
+
             map.set(bd.id, {
               ...existingDep,
               amount: validAmount || existingDep.amount,
               totalInr: validTotalInr || existingDep.totalInr,
               method: validMethod || existingDep.method,
-              status: newStatus,
-              credited: isCompleted || existingDep.credited,
-              creditedAt: isCompleted ? (bd.creditedAt || existingDep.creditedAt || new Date().toISOString()) : existingDep.creditedAt,
-              approvedAt: isCompleted ? (bd.approvedAt || existingDep.approvedAt || new Date().toISOString()) : existingDep.approvedAt,
+              status: finalStatus,
+              credited: isApproved || existingDep.credited,
+              creditedAt: isApproved ? (bd.creditedAt || existingDep.creditedAt || new Date().toISOString()) : existingDep.creditedAt,
+              approvedAt: isApproved ? (bd.approvedAt || existingDep.approvedAt || new Date().toISOString()) : existingDep.approvedAt,
               paymentScreenshot: updatedScreenshot,
               proofUrl: updatedProof,
               utrNumber: bd.utrNumber || existingDep.utrNumber,
@@ -631,18 +694,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // Merge withdrawals into React state & storage from backend
+    // Merge withdrawals into React state & storage from backend with strict terminal state guarantees
     const backendWiths = await cloudSync.fetchAllWithdrawals();
     if (backendWiths && backendWiths.length > 0) {
+      const processedWdrs = getProcessedWithdrawals();
+
       setWithdrawals((prev) => {
         const map = new Map();
         prev.forEach((w) => map.set(w.id, w));
         backendWiths.forEach((bw: any) => {
+          if (!bw || !bw.id) return;
           const existing = map.get(bw.id);
+
+          const isLocallyCompleted = existing && existing.status === 'completed';
+          const isLocallyRejected = existing && existing.status === 'rejected';
+          const isRecordedCompleted = processedWdrs[bw.id] === 'completed';
+          const isRecordedRejected = processedWdrs[bw.id] === 'rejected';
+
+          let resolvedStatus = bw.status || 'pending';
+          if (isLocallyCompleted || isRecordedCompleted || bw.status === 'completed') {
+            resolvedStatus = 'completed';
+          } else if (isLocallyRejected || isRecordedRejected || bw.status === 'rejected') {
+            resolvedStatus = 'rejected';
+          }
+
           if (!existing) {
-            map.set(bw.id, bw);
-          } else if (bw.status !== existing.status) {
-            map.set(bw.id, { ...existing, status: bw.status, rejectionReason: bw.rejectionReason });
+            map.set(bw.id, { ...bw, status: resolvedStatus });
+          } else {
+            // NEVER revert an approved or rejected withdrawal back to pending!
+            map.set(bw.id, {
+              ...existing,
+              ...bw,
+              status: resolvedStatus,
+              rejectionReason: resolvedStatus === 'rejected' ? (bw.rejectionReason || existing.rejectionReason) : undefined,
+            });
           }
         });
         const merged = Array.from(map.values()).sort(
@@ -685,6 +770,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
   }, [creditWalletForDeposit]);
+
+  const refreshWithdrawals = useCallback(async (): Promise<WithdrawalRequest[]> => {
+    try {
+      const backendWiths = await cloudSync.fetchAllWithdrawals().catch(() => []);
+      const localWiths = storage.getWithdrawals();
+      const processedWdrs = getProcessedWithdrawals();
+
+      setWithdrawals((prev) => {
+        const map = new Map<string, WithdrawalRequest>();
+        // 1. Load existing state
+        (prev || []).forEach((w) => {
+          if (w && w.id) map.set(w.id, w);
+        });
+        // 2. Load all storage & transaction-recovered withdrawals
+        (localWiths || []).forEach((lw) => {
+          if (lw && lw.id && !map.has(lw.id)) map.set(lw.id, lw);
+        });
+        // 3. Merge backend cloud withdrawals
+        (backendWiths || []).forEach((bw: any) => {
+          if (!bw || !bw.id) return;
+          const existing = map.get(bw.id);
+          const isCompleted = existing?.status === 'completed' || processedWdrs[bw.id] === 'completed' || bw.status === 'completed';
+          const isRejected = existing?.status === 'rejected' || processedWdrs[bw.id] === 'rejected' || bw.status === 'rejected';
+          const resolvedStatus = isCompleted ? 'completed' : isRejected ? 'rejected' : (bw.status || 'pending');
+
+          const item: WithdrawalRequest = {
+            id: bw.id,
+            userId: bw.userId || existing?.userId || 'player',
+            userName: bw.userName || existing?.userName || 'Player',
+            userPhone: bw.userPhone || existing?.userPhone || '',
+            amount: Number(bw.amount) || existing?.amount || 0,
+            fee: Number(bw.fee) || 0,
+            netAmount: Number(bw.netAmount) || Number(bw.amount) || existing?.netAmount || 0,
+            method: bw.method || existing?.method || 'bank',
+            accountDetails: bw.accountDetails || existing?.accountDetails || {},
+            status: resolvedStatus as any,
+            rejectionReason: isRejected ? (bw.rejectionReason || existing?.rejectionReason) : undefined,
+            createdAt: bw.createdAt || existing?.createdAt || new Date().toISOString(),
+          };
+          map.set(bw.id, item);
+        });
+
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        storage.setWithdrawals(merged);
+        return merged;
+      });
+
+      return storage.getWithdrawals();
+    } catch (e) {
+      console.warn('[REFRESH_WITHDRAWALS] Error:', e);
+      return storage.getWithdrawals();
+    }
+  }, []);
 
   // Instant Real-Time Cloud Sync (SSE Stream + 2.5s Polling Fallback)
   useEffect(() => {
@@ -1017,7 +1157,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (!existingAccount) {
-      addToast('error', '❌ Account not found! Please register an account first.');
       return { success: false, notFound: true, message: 'Account not found. Please Sign Up first.' };
     }
 
@@ -1039,7 +1178,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isPinMatch = validPin && cleanPass === validPin;
 
     if (!isPasswordMatch && !isPinMatch) {
-      addToast('error', '❌ Incorrect password or Security PIN! Please check and try again.');
       return { success: false, wrongPassword: true, message: 'Incorrect password or Security PIN. Please try again.' };
     }
 
@@ -1358,6 +1496,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Valid 12-digit UTR required' };
     }
 
+    // Strict 1: Mandatory payment screenshot
+    if (!screenshotUrl || !screenshotUrl.trim()) {
+      addToast('error', '⚠️ Payment screenshot is strictly required.');
+      return { success: false, message: 'Payment screenshot required' };
+    }
+
+    // Strict 2: 2-minute rate limit per user
+    const userIdentifier = activeUser.id || activeUser.phone || 'player';
+    const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
+    const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
+    const now = Date.now();
+    const TWO_MINUTES_MS = 2 * 60 * 1000;
+    if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
+      const remainingSec = Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000);
+      addToast('error', `⏳ Rate limit: Only 1 payment screenshot is allowed per 2 minutes (${remainingSec}s remaining).`);
+      return { success: false, message: 'Rate limit active' };
+    }
+    localStorage.setItem(lastDepositKey, now.toString());
+
     // Extra Tier Free Bonus:
     // 50,000+ -> +5,000 Free
     // 20,000+ -> +1,000 Free
@@ -1375,7 +1532,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tierLabel = '₹100 Extra Free Bonus';
     }
 
-    const standardBonus = (amount * settings.inrRewardPercent) / 100;
+    const bonusPercent = settings.inrRewardPercent || 20;
+    const standardBonus = (amount * bonusPercent) / 100;
     const totalBonus = standardBonus + extraFreeBonus;
     const total = amount + totalBonus;
     const finalRemark = remark || 'cousin';
@@ -1435,7 +1593,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     telegramService.sendDepositAlert(newDeposit, activeUser.name, activeUser.phone, settings);
 
-    // Create Transaction record so it immediately appears in user History
+    // Create Transaction record with transparent breakdown so it immediately appears in user History
+    const depositFormula = `₹${amount} + ${bonusPercent}% Bonus (₹${standardBonus.toFixed(0)}) = ₹${total.toFixed(2)}`;
     const newTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: activeUser.id,
@@ -1444,8 +1603,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currency: 'INR',
       status: settings.isDemoMode ? 'completed' : 'pending',
       timestamp: new Date().toISOString(),
-      note: `INR Deposit (₹${amount} | UTR: ${cleanUtr} | Remark: ${finalRemark})`,
+      note: `INR Deposit: ${depositFormula}`,
       referenceId: newDeposit.id,
+      metadata: {
+        baseAmount: amount,
+        bonusInr: standardBonus,
+        totalAmount: total,
+        utrNumber: cleanUtr,
+        method: 'INR',
+      },
     };
     const updatedTx = [newTx, ...transactions];
     setTransactions(updatedTx);
@@ -1636,6 +1802,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
     const nowIso = new Date().toISOString();
 
+    const processedDeps = getProcessedDeposits();
+    if (processedDeps[id] === 'approved' || (deposit && (deposit.status === 'approved' || deposit.credited === true))) {
+      addToast('info', `Deposit #${id} is already approved.`);
+      return;
+    }
+
+    const screenshot = deposit?.paymentScreenshot || deposit?.proofUrl || '';
+    const isDemo = Boolean(settings.isDemoMode || deposit?.id?.startsWith('DEMO_'));
+    const hasScreenshot = isDemo || Boolean(
+      screenshot &&
+      (screenshot.startsWith('data:image') ||
+       screenshot.startsWith('http') ||
+       screenshot.length > 50 ||
+       screenshot === 'VERIFIED_BY_ADMIN')
+    );
+    if (!hasScreenshot) {
+      addToast('error', '❌ Cannot approve: Valid payment screenshot is strictly required.');
+      return;
+    }
+
     if (!deposit) {
       const isUsdt = id.startsWith('USDT');
       const amount = isUsdt ? 50 : 500;
@@ -1666,7 +1852,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 1. Mark deposit as approved in state and storage
+    // 1. Mark deposit as approved in state and storage & record in permanent processed registry
+    recordProcessedDeposit(id, 'approved');
     const updatedDeposits = (allDeps.some((d) => d.id === id) ? allDeps : [deposit, ...allDeps]).map((d) =>
       d.id === id ? { ...d, status: 'approved' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
     );
@@ -1774,6 +1961,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteDeposit = (id: string) => {
+    recordProcessedDeposit(id, 'deleted');
     const updatedDeposits = deposits.filter((d) => d.id !== id);
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
@@ -1782,6 +1970,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const rejectDeposit = (id: string, reason?: string) => {
+    const processedDeps = getProcessedDeposits();
+    if (processedDeps[id] === 'rejected') return;
+    recordProcessedDeposit(id, 'rejected');
     const deposit = deposits.find((d) => d.id === id);
     if (!deposit) return;
 
@@ -1810,7 +2001,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Admin Actions
   const approveWithdrawal = (id: string) => {
+    const processedWdrs = getProcessedWithdrawals();
     const item = withdrawals.find((w) => w.id === id) || storage.getWithdrawals().find((w) => w.id === id);
+    if (processedWdrs[id] === 'completed' || item?.status === 'completed') {
+      addToast('info', `Withdrawal #${id} is already approved.`);
+      return;
+    }
+    recordProcessedWithdrawal(id, 'completed');
     setWithdrawals((prev) =>
       prev.map((w) => (w.id === id ? { ...w, status: 'completed' } : w))
     );
@@ -1831,8 +2028,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const rejectWithdrawal = (id: string, reason: string) => {
+    const processedWdrs = getProcessedWithdrawals();
     const item = withdrawals.find((w) => w.id === id) || storage.getWithdrawals().find((w) => w.id === id);
-    if (!item) return;
+    if (!item || processedWdrs[id] === 'rejected' || item?.status === 'rejected') {
+      return;
+    }
+    recordProcessedWithdrawal(id, 'rejected');
 
     // Refund amount to wallet balance
     const currentW = storage.getWallet();
@@ -2011,6 +2212,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addUsdt,
         deleteUsdt,
         refreshDeposits: syncWithBackend,
+        refreshWithdrawals,
         approveDeposit,
         rejectDeposit,
         deleteDeposit,

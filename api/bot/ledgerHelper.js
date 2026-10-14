@@ -150,6 +150,27 @@ export async function recordDeposit(deposit) {
     throw new Error('Payment screenshot is required to complete payment verification.');
   }
 
+  // Strict 2-minute rate limit: only 1 payment screenshot per 2-minute period per user
+  const now = Date.now();
+  const TWO_MINS_MS = 2 * 60 * 1000;
+  const userPhoneClean = (deposit.userPhone || '').replace(/[^0-9]/g, '');
+  const userId = deposit.userId || '';
+
+  if (!isDemo) {
+    for (const item of Object.values(data || {})) {
+      if (!item || !item.createdAt || item.id === id) continue;
+      const itemPhone = (item.userPhone || '').replace(/[^0-9]/g, '');
+      const isSameUser = (userId && item.userId === userId) || (userPhoneClean.length >= 10 && itemPhone.length >= 10 && itemPhone.endsWith(userPhoneClean.slice(-10)));
+      if (isSameUser) {
+        const itemTime = new Date(item.createdAt).getTime();
+        if (now - itemTime < TWO_MINS_MS) {
+          const waitSec = Math.ceil((TWO_MINS_MS - (now - itemTime)) / 1000);
+          throw new Error(`Rate limit: Only 1 payment screenshot is allowed per 2-minute period. Please wait ${waitSec}s.`);
+        }
+      }
+    }
+  }
+
   data[id] = {
     ...deposit,
     id,
@@ -184,7 +205,27 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
   // Idempotency: Prevent duplicate credits if already approved or completed
   const alreadyCredited = Boolean(existing.credited === true || existing.status === 'approved' || existing.status === 'completed');
   if (isApproved && alreadyCredited) {
-    return { ...existing, alreadyCredited: true };
+    return { ...existing, alreadyCredited: true, alreadyProcessed: true };
+  }
+
+  // Idempotency: Prevent duplicate rejections
+  if (!isApproved && existing.status === 'rejected') {
+    return { ...existing, alreadyProcessed: true };
+  }
+
+  // Strict: Cannot approve deposit without a valid payment screenshot
+  if (isApproved) {
+    const screenshot = existing.paymentScreenshot || existing.proofUrl || meta.paymentScreenshot || '';
+    const hasScreenshot = Boolean(
+      screenshot &&
+      (screenshot.startsWith('data:image') ||
+       screenshot.startsWith('http') ||
+       screenshot.length > 50 ||
+       screenshot === 'VERIFIED_BY_ADMIN')
+    );
+    if (!hasScreenshot) {
+      throw new Error('Payment screenshot is strictly required to approve any deposit.');
+    }
   }
 
   if (!isApproved) {
@@ -281,6 +322,11 @@ export async function markWithdrawalApproval(wdrId, action = 'approved', meta = 
   const existing = data[wdrId] || {};
   const isApproved = action === 'approved';
   const nowIso = new Date().toISOString();
+
+  // Idempotency: Prevent duplicate approvals or rejections
+  if (existing.status === 'completed' || existing.status === 'rejected') {
+    return { ...existing, alreadyProcessed: true };
+  }
 
   const finalStatus = isApproved ? 'completed' : 'rejected';
 
