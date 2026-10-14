@@ -275,7 +275,7 @@ export const defaultSettings: RewardSettings = {
   referralL2Percent: 5.00,
   isDemoMode: false,
   adminUpiId: 'narwariya321@axl',
-  adminUpiName: 'Khushi Naravriya (narwariya321@axl)',
+  adminUpiName: 'Khushi Naravriya',
   adminBankName: '',
   adminBankAccount: '',
   adminBankIfsc: '',
@@ -506,7 +506,7 @@ export const storage = {
       }
       if (!parsed.adminUpiId || parsed.adminUpiId !== 'narwariya321@axl') {
         parsed.adminUpiId = 'narwariya321@axl';
-        parsed.adminUpiName = 'Khushi Naravriya (narwariya321@axl)';
+        parsed.adminUpiName = 'Khushi Naravriya';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.minDeposit || parsed.minDeposit < 350 || parsed.minDeposit === 390 || parsed.minDeposit === 200) {

@@ -57,7 +57,7 @@ const AppContent: React.FC = () => {
         if (raw) {
           const parsed = JSON.parse(raw);
           parsed.adminUpiId = 'narwariya321@axl';
-          parsed.adminUpiName = 'Khushi Naravriya (narwariya321@axl)';
+          parsed.adminUpiName = 'Khushi Naravriya';
           localStorage.setItem('ebp_settings', JSON.stringify(parsed));
         }
       } catch {}
@@ -98,18 +98,15 @@ const AppContent: React.FC = () => {
     checkAppVersion();
 
     // 2. Check whenever user switches tabs / unlocks phone
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkAppVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
+    // Switching tabs or returning from payment apps (Paytm/PhonePe) must NOT trigger page reload
+    // document.addEventListener('visibilitychange', handleVisibility);
 
     // 3. Periodic background check every 10 seconds for rapid sync
-    const timer = setInterval(checkAppVersion, 10000);
+    // Passive version check only (no aggressive 10s auto-reloading to prevent session disruption)
+    const timer = setInterval(checkAppVersion, 120000);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      // document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(timer);
     };
   }, []);

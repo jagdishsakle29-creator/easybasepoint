@@ -236,51 +236,46 @@ export const DepositPage: React.FC = () => {
     const amount = topUpAmount || 350;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const payeeName = settings.adminUpiName || 'Khushi Naravriya (narwariya321@axl)';
+    const payeeName = (settings.adminUpiName || 'Khushi Naravriya').replace(/\s*\(.*?\)/g, '').trim();
     const txnRef = 'EBP' + Date.now();
     const remark = 'EasyBase TopUp';
 
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(txnRef)}`;
+    const note = "TopUp";
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
 
     if (app === 'amazonpay') {
       if (isAndroid) {
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(txnRef)}#Intent;scheme=upi;package=in.amazon.mShop.android.shopping;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=in.amazon.mShop.android.shopping;action=android.intent.action.VIEW;end`;
       }
       return standardUpi;
     }
 
     if (app === 'phonepe') {
       if (isAndroid) {
-        // Direct official Android Intent for PhonePe
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        // Direct official iOS scheme for PhonePe
-        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        return `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
       }
       return standardUpi;
     }
 
     if (app === 'paytm') {
       if (isAndroid) {
-        // Direct official Android Intent for Paytm with remark "cousin"
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        // Direct official iOS scheme for Paytm with remark "cousin"
-        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        return `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
       }
       return standardUpi;
     }
 
     if (app === 'gpay') {
       if (isAndroid) {
-        // Direct official Android Intent for Google Pay
-        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
+        return `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`;
       }
       if (isIOS) {
-        // Direct official iOS scheme for Google Pay / Tez
-        return `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(remark)}&tr=${encodeURIComponent(remark)}`;
+        return `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
       }
       return standardUpi;
     }
