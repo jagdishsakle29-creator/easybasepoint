@@ -153,7 +153,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Size</div>
-              <div className="text-xs font-black text-emerald-300 font-outfit">197 KB</div>
+              <div className="text-xs font-black text-emerald-300 font-outfit">145 KB</div>
             </div>
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Safety</div>
@@ -167,18 +167,39 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Primary Action Buttons */}
-        <div className="space-y-2.5">
-          {/* Direct Download Android APK Button (Works everywhere) */}
-          <a
-            href="/EasyBasePoint.apk"
-            download="EasyBasePoint_v2.1.0.apk"
-            className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
-          >
-            <Download className="w-5 h-5 text-white" />
-            <span>📲 Download Official Android APK (197 KB)</span>
-          </a>
+        {/* Primary Action Buttons */}
+        <div className="space-y-3">
+          {/* Direct Download Android APK Button */}
+          <div>
+            <a
+              href="/EasyBasePoint.apk"
+              download="EasyBasePoint_v2.1.0.apk"
+              className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
+            >
+              <Download className="w-5 h-5 text-white animate-bounce" />
+              <span>📲 Download Official Android APK (145 KB)</span>
+            </a>
+            
+            {/* Quick APK Installation Steps */}
+            <div className="mt-2 p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
+              <div className="font-bold text-emerald-300 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>APK Download Hone Ke Baad Install Kaise Karein:</span>
+              </div>
+              <p className="text-[10px] text-slate-300 leading-normal pl-4 list-disc">
+                • Chrome ke Downloads ya Notification par tap karke <strong>"Open"</strong> karein.<br />
+                • <strong>"Install"</strong> dabayein (Agar puche toh <em>'Allow from this source'</em> enable karein).
+              </p>
+            </div>
+          </div>
 
-          {/* 1-Tap Web App Install Button */}
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-white/10"></div>
+            <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">YA PHIR</span>
+            <div className="flex-grow border-t border-white/10"></div>
+          </div>
+
+          {/* 1-Tap Web App Install Button (No File Download needed) */}
           {isInstalled ? (
             <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -189,15 +210,15 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
               type="button"
               onClick={handleNativeInstall}
               disabled={installStep === 'installing'}
-              className="w-full py-3 bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs font-outfit rounded-xl border border-white/15 transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs font-outfit rounded-xl border border-white/20 transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Smartphone className="w-4 h-4 text-amber-400" />
               <span>
                 {installStep === 'installing' 
                   ? 'Adding App to Device...' 
                   : deferredPrompt 
-                  ? '⚡ 1-Tap Add to Home Screen' 
-                  : '⚡ Install as Web App on Home Screen'}
+                  ? '⚡ 1-Tap Add to Home Screen (Bina Download)' 
+                  : '⚡ Direct Home Screen Pe Lagayein (1-Tap)'}
               </span>
             </button>
           )}
@@ -217,7 +238,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
         {(!isIOS && showManualGuide) && (
           <div className="p-4 bg-orange-500/15 rounded-2xl border-2 border-[#FF6B00] text-xs space-y-2 animate-fadeIn">
             <div className="font-black text-amber-300 font-outfit text-sm flex items-center gap-1.5">
-              <span>📲 Chrome me 1-Click me App Kaise Lagayein:</span>
+              <span>📲 Chrome me Direct App Kaise Lagayein:</span>
             </div>
             <ol className="text-xs text-slate-200 space-y-1.5 pl-4 list-decimal leading-relaxed">
               <li>Chrome browser me sabse upar daayein (top right) kone me <strong>3 dots (⋮)</strong> dabayein.</li>
