@@ -184,22 +184,37 @@
     },
     "wallet": {
       "userId": "usr-1791815021235",
-      "balance": 50,
-      "quota": 0,
+      "balance": 3954,
+      "quota": 3200,
       "referralBalance": 0,
-      "todayReceive": 0,
+      "todayReceive": 3904,
       "teamCommission": 0,
       "todayTeamRecharge": 0,
       "todayTeamMembers": 0,
       "totalTeamRecharge": 0,
       "totalTeamMembers": 0,
-      "creditedDepositIds": []
+      "creditedDepositIds": [
+        "DEP-318600",
+        "DEP-177342"
+      ]
     },
-    "transactions": [],
+    "transactions": [
+      {
+        "id": "TXN-188864",
+        "userId": "usr-1789220593374",
+        "type": "deposit",
+        "amount": 4270,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-14T14:31:48.402Z",
+        "note": "INR Deposit Approved (+₹0 Bonus)",
+        "referenceId": "DEP-456311"
+      }
+    ],
     "isReconstructedFromLedger": true,
     "password": "123456",
     "transactionPin": "112345",
     "allowInitialPasswordSet": false,
-    "updatedAt": "2026-10-14T14:29:50.050Z"
+    "updatedAt": "2026-10-14T14:35:13.775Z"
   }
 }
