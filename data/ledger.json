@@ -275,8 +275,10 @@
       "accountNumber": "34247294178",
       "ifscCode": "SBIN0010847"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-12T15:49:41.587Z"
+    "status": "rejected",
+    "updatedAt": "2026-10-14T15:15:42.036Z",
+    "action": "rejected",
+    "reason": "Incomplete banking information"
   },
   "WDR-368357": {
     "amount": 250,
