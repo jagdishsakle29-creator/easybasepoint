@@ -540,5 +540,21 @@
     "status": "completed",
     "updatedAt": "2026-10-14T13:25:44.569Z",
     "action": "approved"
+  },
+  "DEP-606095": {
+    "id": "DEP-606095",
+    "userId": "usr-1789220593374",
+    "userPhone": "9630020285",
+    "amount": 2500,
+    "totalInr": 3050,
+    "utrNumber": "548427943406",
+    "method": "INR",
+    "createdAt": "2026-10-14T13:26:17.043Z",
+    "status": "pending_verification",
+    "proofUrl": "548427943406",
+    "paymentScreenshot": "",
+    "remark": "cousin",
+    "isDemo": false,
+    "updatedAt": "2026-10-14T13:26:17.588Z"
   }
 }
