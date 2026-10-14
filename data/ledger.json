@@ -580,25 +580,5 @@
     "approvedAt": "2026-10-14T14:31:48.403Z",
     "creditedAt": "2026-10-14T14:31:48.403Z",
     "updatedAt": "2026-10-14T14:31:49.583Z"
-  },
-  "WDR-TEST-AUTO": {
-    "id": "WDR-TEST-AUTO",
-    "amount": 500,
-    "method": "bank",
-    "userPhone": "9876543210",
-    "userName": "Test User",
-    "accountDetails": {
-      "bankName": "SBI",
-      "accountNumber": "1234567890",
-      "ifscCode": "SBIN0001234",
-      "accountHolderName": "Test"
-    },
-    "type": "withdrawal",
-    "createdAt": "2026-10-14T14:58:50.500Z",
-    "status": "pending",
-    "fee": 0,
-    "netAmount": 500,
-    "userId": "",
-    "updatedAt": "2026-10-14T14:58:50.500Z"
   }
 }
