@@ -580,5 +580,22 @@
     "approvedAt": "2026-10-14T14:31:48.403Z",
     "creditedAt": "2026-10-14T14:31:48.403Z",
     "updatedAt": "2026-10-14T14:31:49.583Z"
+  },
+  "WDR-394026": {
+    "id": "WDR-394026",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 4697,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 4697,
+    "accountDetails": {
+      "upiId": "Lxn@ptyes"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-14T15:09:57.158Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-14T15:09:57.378Z"
   }
 }
