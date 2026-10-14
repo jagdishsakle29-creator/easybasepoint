@@ -177,8 +177,10 @@
     "accountDetails": {
       "upiId": "9770326959-2@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-12T14:36:59.961Z"
+    "status": "rejected",
+    "updatedAt": "2026-10-14T15:15:45.343Z",
+    "action": "rejected",
+    "reason": "Incomplete banking information"
   },
   "DEP-177342": {
     "amount": 1200,
