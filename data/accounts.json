@@ -174,13 +174,13 @@
   "9876543210": {
     "user": {
       "id": "usr-1791815021235",
-      "name": "LORD",
+      "name": "lord",
       "phone": "9876543210",
       "email": "bjkfjkfebjkfe@gmail.com",
       "role": "user",
       "status": "active",
       "createdAt": "2026-10-11T15:47:54.476Z",
-      "transactionPin": "987654"
+      "transactionPin": "112345"
     },
     "wallet": {
       "userId": "usr-1791815021235",
@@ -197,9 +197,9 @@
     },
     "transactions": [],
     "isReconstructedFromLedger": true,
-    "password": "0987654321",
-    "transactionPin": "987654",
+    "password": "123456",
+    "transactionPin": "112345",
     "allowInitialPasswordSet": false,
-    "updatedAt": "2026-10-12T14:23:41.634Z"
+    "updatedAt": "2026-10-14T14:29:50.050Z"
   }
 }
