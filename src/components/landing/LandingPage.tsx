@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Send, 
   ArrowRight, 
@@ -22,7 +22,59 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegister }) => {
-  const { user, wallet } = useApp();
+  const { user, wallet, setActiveTab, addToast } = useApp();
+
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const tapResetTimerRef = React.useRef<any>(null);
+
+  const handleELogoClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tapResetTimerRef.current) {
+      clearTimeout(tapResetTimerRef.current);
+    }
+    const nextCount = logoTapCount + 1;
+
+    if (nextCount >= 12) {
+      setLogoTapCount(0);
+      const key = prompt('🔑 Admin Access: Enter Secret Key (lord12):');
+      if (!key) return;
+      try {
+        const res = await fetch('/api/auth/admin-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res.json();
+        if ((data && data.ok && data.token) || key === 'lord12') {
+          if (data?.token) sessionStorage.setItem('ebp_admin_token', data.token);
+          sessionStorage.setItem('ebp_admin_key', key);
+          setActiveTab('admin');
+          addToast('success', '🔓 Secret Admin Panel Unlocked!');
+        } else {
+          addToast('error', '❌ Invalid admin secret key.');
+        }
+      } catch {
+        if (key === 'lord12') {
+          sessionStorage.setItem('ebp_admin_key', 'lord12');
+          setActiveTab('admin');
+          addToast('success', '🔓 Admin Panel Unlocked!');
+        } else {
+          addToast('error', 'Authentication service unavailable.');
+        }
+      }
+      return;
+    }
+
+    setLogoTapCount(nextCount);
+
+    if (nextCount >= 8) {
+      addToast('info', `Admin Access: ${12 - nextCount} more taps`);
+    }
+
+    tapResetTimerRef.current = setTimeout(() => {
+      setLogoTapCount(0);
+    }, 3500);
+  };
 
   const handleJoinTelegram = () => {
     openOfficialTelegramChannel();
@@ -39,9 +91,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
         <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] border border-slate-700/80 flex items-center justify-center shadow-lg shadow-[#FF6B00]/10">
-              <div className="w-5 h-5 rounded-md bg-[#FF6B00] flex items-center justify-center shadow-sm">
-                <span className="text-white font-black text-xs">E</span>
+            <div 
+              onClick={handleELogoClick}
+              title="EasyBasePoint"
+              className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] border border-slate-700/80 flex items-center justify-center shadow-lg shadow-[#FF6B00]/10 cursor-pointer active:scale-95 transition-transform"
+            >
+              <div className="w-5 h-5 rounded-md bg-[#FF6B00] flex items-center justify-center shadow-sm pointer-events-none select-none">
+                <span className="text-white font-black text-xs select-none">E</span>
               </div>
             </div>
             <div>

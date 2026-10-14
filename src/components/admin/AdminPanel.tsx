@@ -122,40 +122,67 @@ export const AdminPanel: React.FC = () => {
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  const [actionCounter, setActionCounter] = useState(0);
+
   // Strict Deduplication of Deposits & Withdrawals (Guarantees zero double entries)
   const uniqueDeposits = useMemo(() => {
+    let processedDeps: Record<string, string> = {};
+    try {
+      processedDeps = JSON.parse(localStorage.getItem('ebp_processed_deposits_v2') || '{}');
+    } catch {}
+
     const map = new Map<string, typeof deposits[0]>();
     deposits.forEach((d) => {
       if (d && d.id) {
+        let item = { ...d };
+        if (processedDeps[d.id] === 'approved') {
+          item.status = 'approved';
+          item.credited = true;
+        } else if (processedDeps[d.id] === 'rejected') {
+          item.status = 'rejected';
+        }
+
         const existing = map.get(d.id);
         if (!existing) {
-          map.set(d.id, d);
-        } else if ((d.status === 'approved' || d.status === 'completed' || d.status === 'rejected') && (existing.status === 'pending' || existing.status === 'pending_verification')) {
-          map.set(d.id, d);
+          map.set(d.id, item);
+        } else if ((item.status === 'approved' || item.status === 'completed' || item.status === 'rejected') && (existing.status === 'pending' || existing.status === 'pending_verification')) {
+          map.set(d.id, item);
         }
       }
     });
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
-  }, [deposits]);
+  }, [deposits, actionCounter]);
 
   const uniqueWithdrawals = useMemo(() => {
+    let processedWiths: Record<string, string> = {};
+    try {
+      processedWiths = JSON.parse(localStorage.getItem('ebp_processed_withdrawals_v2') || '{}');
+    } catch {}
+
     const map = new Map<string, typeof withdrawals[0]>();
     withdrawals.forEach((w) => {
       if (w && w.id) {
+        let item = { ...w };
+        if (processedWiths[w.id] === 'completed') {
+          item.status = 'completed';
+        } else if (processedWiths[w.id] === 'rejected') {
+          item.status = 'rejected';
+        }
+
         const existing = map.get(w.id);
         if (!existing) {
-          map.set(w.id, w);
-        } else if ((w.status === 'completed' || w.status === 'rejected') && (existing.status === 'pending' || (existing.status as string) === 'processing')) {
-          map.set(w.id, w);
+          map.set(w.id, item);
+        } else if ((item.status === 'completed' || item.status === 'rejected') && (existing.status === 'pending' || (existing.status as string) === 'processing')) {
+          map.set(w.id, item);
         }
       }
     });
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
-  }, [withdrawals]);
+  }, [withdrawals, actionCounter]);
 
   const pendingDeposits = uniqueDeposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
   
@@ -187,7 +214,7 @@ export const AdminPanel: React.FC = () => {
   const [usdtFilter, setUsdtFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
 
   // INR Deposit Metrics & Filtered List
-  const inrDeposits = deposits.filter((d) => d.method !== 'USDT' && !d.id.startsWith('USDT'));
+  const inrDeposits = uniqueDeposits.filter((d) => d.method !== 'USDT' && !d.id.startsWith('USDT'));
   const pendingInrDeposits = inrDeposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
   const completedInrDeposits = inrDeposits.filter((d) => d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true);
   const rejectedInrDeposits = inrDeposits.filter((d) => d.status === 'rejected');
@@ -313,6 +340,7 @@ export const AdminPanel: React.FC = () => {
     setProcessingActionIds((prev) => new Set(prev).add(depId));
     try {
       await approveDeposit(depId);
+      setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
         setProcessingActionIds((prev) => {
@@ -329,6 +357,7 @@ export const AdminPanel: React.FC = () => {
     setProcessingActionIds((prev) => new Set(prev).add(depId));
     try {
       await rejectDeposit(depId, reason);
+      setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
         setProcessingActionIds((prev) => {
@@ -345,6 +374,7 @@ export const AdminPanel: React.FC = () => {
     setProcessingActionIds((prev) => new Set(prev).add(wId));
     try {
       await approveWithdrawal(wId);
+      setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
         setProcessingActionIds((prev) => {
@@ -361,6 +391,7 @@ export const AdminPanel: React.FC = () => {
     setProcessingActionIds((prev) => new Set(prev).add(wId));
     try {
       await rejectWithdrawal(wId, reason || 'Incomplete banking information');
+      setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
         setProcessingActionIds((prev) => {

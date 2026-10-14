@@ -391,41 +391,6 @@ export const ProfilePage: React.FC = () => {
           );
         })}
 
-        {/* Admin Portal Button */}
-        <button
-          onClick={async () => {
-            const key = prompt('Enter Admin Secret Key:');
-            if (!key) return;
-            try {
-              const res = await fetch('/api/auth/admin-verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key }),
-              });
-              const data = await res.json();
-              if (data.ok && data.token) {
-                sessionStorage.setItem('ebp_admin_token', data.token);
-                sessionStorage.setItem('ebp_admin_key', key);
-                setActiveTab('admin');
-                addToast('success', 'Admin session unlocked successfully!');
-              } else {
-                addToast('error', '❌ Invalid admin secret key.');
-              }
-            } catch {
-              addToast('error', 'Authentication service unavailable.');
-            }
-          }}
-          className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/70 rounded-2xl transition group text-left text-slate-700"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FF6B00] flex items-center justify-center">
-              <Lock className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Admin Portal</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#FF6B00] group-hover:translate-x-0.5 transition" />
-        </button>
-
         {/* Log Out Button */}
         <button
           onClick={logout}
