@@ -443,8 +443,10 @@
     "accountDetails": {
       "upiId": "9770326959-2@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-13T08:01:48.216Z"
+    "status": "rejected",
+    "updatedAt": "2026-10-14T13:07:44.010Z",
+    "action": "rejected",
+    "reason": "Incomplete banking information"
   },
   "DEP-862070": {
     "id": "DEP-862070",
