@@ -636,8 +636,9 @@
     "accountDetails": {
       "upiId": "Lxn@ptyes "
     },
-    "status": "pending",
+    "status": "completed",
     "type": "withdrawal",
-    "updatedAt": "2026-10-14T15:13:43.165Z"
+    "updatedAt": "2026-10-14T15:14:13.528Z",
+    "action": "approved"
   }
 }
