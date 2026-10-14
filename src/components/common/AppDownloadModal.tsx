@@ -8,7 +8,10 @@ import {
   Share2, 
   Sparkles,
   ArrowRight,
-  Check
+  Check,
+  Wallet,
+  TrendingUp,
+  Zap
 } from 'lucide-react';
 
 interface AppDownloadModalProps {
@@ -22,6 +25,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [installStep, setInstallStep] = useState<'idle' | 'installing' | 'installed'>('idle');
   const [showManualGuide, setShowManualGuide] = useState<boolean>(false);
+  const [activePreview, setActivePreview] = useState<'wallet' | 'bonus' | 'payout'>('wallet');
 
   useEffect(() => {
     // Detect iOS
@@ -162,6 +166,172 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
             <div className="p-2 rounded-xl bg-black/40 border border-white/10">
               <div className="text-[9px] text-slate-400 uppercase font-bold">Rating</div>
               <div className="text-xs font-black text-yellow-300 font-outfit">★ 4.9 / 5.0</div>
+            </div>
+          </div>
+        </div>
+
+        {/* In-App Live Screen Preview (Interactive Showcase) */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#0F223D] via-[#0A1629] to-[#060E1A] border border-amber-500/30 shadow-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+              <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span>App Interface Live Preview</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              ● 60 FPS Fluid
+            </span>
+          </div>
+
+          {/* Interactive Preview Switcher Tabs */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
+            <button
+              type="button"
+              onClick={() => setActivePreview('wallet')}
+              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                activePreview === 'wallet'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Wallet className="w-3 h-3" />
+              <span>Wallet UI</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePreview('bonus')}
+              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                activePreview === 'bonus'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <TrendingUp className="w-3 h-3" />
+              <span>22% Bonus</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePreview('payout')}
+              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                activePreview === 'payout'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3 h-3" />
+              <span>5-Min Bank</span>
+            </button>
+          </div>
+
+          {/* Mini Smartphone Screen Frame Mockup */}
+          <div className="relative rounded-2xl bg-[#070D18] border-2 border-slate-700/60 p-3 shadow-inner overflow-hidden">
+            {/* Phone Speaker Notch */}
+            <div className="mx-auto w-14 h-1 bg-slate-700/80 rounded-full mb-2.5"></div>
+
+            {activePreview === 'wallet' && (
+              <div className="space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Available Balance</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1 text-[10px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    Live Sync
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div className="text-xl font-black text-white font-outfit tracking-tight">
+                    ₹24,850.<span className="text-xs text-slate-400">00</span>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    VIP GOLD
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="p-2 bg-white/5 rounded-xl border border-white/10 text-center">
+                    <div className="text-[9px] text-slate-400">Today's Profit</div>
+                    <div className="text-xs font-black text-emerald-300">+₹5,467.00</div>
+                  </div>
+                  <div className="p-2 bg-white/5 rounded-xl border border-white/10 text-center">
+                    <div className="text-[9px] text-slate-400">Extra Reward</div>
+                    <div className="text-xs font-black text-amber-300">+22.00%</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activePreview === 'bonus' && (
+              <div className="space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-amber-300 font-bold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    22% Direct Deposit Booster
+                  </span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                    INSTANT
+                  </span>
+                </div>
+                <div className="p-2.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl border border-amber-500/30">
+                  <div className="text-[10px] text-slate-300">Har Deposit Par 22% Extra Milta Hai:</div>
+                  <div className="text-xs font-black text-white mt-1 font-outfit">
+                    ₹500 Deposit + 22% (₹110) = <span className="text-amber-300">₹610 Wallet</span>
+                  </div>
+                  <div className="text-[10px] font-black text-white mt-0.5 font-outfit">
+                    ₹2,500 Deposit + 22% (₹550) = <span className="text-amber-300">₹3,050 Wallet</span>
+                  </div>
+                </div>
+                <div className="text-[9px] text-emerald-400 font-bold text-center">
+                  ✓ PhonePe, GPay, Paytm, QR Sabhi Par Live Hai
+                </div>
+              </div>
+            )}
+
+            {activePreview === 'payout' && (
+              <div className="space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-emerald-300 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Direct Bank Withdrawal
+                  </span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                    SUCCESS
+                  </span>
+                </div>
+                <div className="p-2 bg-white/5 rounded-xl border border-white/10 space-y-1">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">Withdrawal Amount:</span>
+                    <span className="font-bold text-white">₹12,400.00</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">Payout Speed:</span>
+                    <span className="text-emerald-300 font-bold">5 - 7 Minutes</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">Bank Reference:</span>
+                    <span className="font-mono text-slate-300 text-[9px]">UTR# 42981298412</span>
+                  </div>
+                </div>
+                <div className="text-[9px] text-amber-300 font-bold text-center">
+                  ⚡ 24x7 Direct Account Settlement Without Any Fee
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Perks Checkmarks */}
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-300 pt-0.5">
+            <div className="flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span>Full Screen (No URL Bar)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span>1-Tap Instant Launch</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span>Auto Login Saved</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span>100% Virus-Free APK</span>
             </div>
           </div>
         </div>
