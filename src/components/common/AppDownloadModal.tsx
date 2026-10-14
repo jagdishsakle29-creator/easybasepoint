@@ -171,7 +171,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           {/* Direct Download Android APK Button */}
           <div>
             <a
-              href="/api/download-apk"
+              href="/EasyBasePoint.apk"
               download="EasyBasePoint.apk"
               className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-sm font-outfit rounded-2xl shadow-[0_4px_24px_rgba(255,107,0,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer no-underline"
             >
