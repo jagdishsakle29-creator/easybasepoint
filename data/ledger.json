@@ -565,5 +565,20 @@
     "credited": true,
     "approvedAt": "2026-10-14T13:26:44.535Z",
     "creditedAt": "2026-10-14T13:26:44.535Z"
+  },
+  "DEP-456311": {
+    "amount": 0,
+    "totalInr": 4270,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-14T14:31:49.583Z",
+    "id": "DEP-456311",
+    "status": "completed",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-14T14:31:48.403Z",
+    "creditedAt": "2026-10-14T14:31:48.403Z",
+    "updatedAt": "2026-10-14T14:31:49.583Z"
   }
 }
