@@ -100,16 +100,25 @@ export const HistoryPage: React.FC = () => {
           currentStatus = (isCompleted ? 'completed' : matchingDep.status) as TransactionStatus;
           currentAmount = matchingDep.totalInr || t.amount;
 
-          const baseAmt = matchingDep.amount || t.metadata?.baseAmount || (matchingDep.totalInr ? matchingDep.totalInr - (matchingDep.bonusInr || 0) : t.amount);
-          const bonusAmt = (matchingDep.bonusInr !== undefined && matchingDep.bonusInr !== null) 
+          let totalAmt = Number(matchingDep.totalInr) || Number(t.amount) || 0;
+          let baseAmt = Number(matchingDep.amount) || Number(t.metadata?.baseAmount) || 0;
+          let bonusAmt = (matchingDep.bonusInr !== undefined && matchingDep.bonusInr !== null) 
             ? (Number(matchingDep.bonusInr) + (matchingDep.activityRewardInr || 0))
-            : (t.metadata?.bonusInr !== undefined ? Number(t.metadata.bonusInr) : Math.round(baseAmt * 0.20));
-          const totalAmt = matchingDep.totalInr || t.amount || (baseAmt + bonusAmt);
-          const bonusPercent = baseAmt > 0 && bonusAmt > 0 ? Math.round((bonusAmt / baseAmt) * 100) : 20;
+            : (t.metadata?.bonusInr !== undefined ? Number(t.metadata.bonusInr) : 0);
 
-          const depositFormula = bonusAmt > 0 
-            ? `₹${baseAmt} + ${bonusPercent}% Bonus (₹${bonusAmt.toFixed(0)}) = ₹${totalAmt.toFixed(2)}`
-            : `₹${baseAmt}`;
+          if (!baseAmt || baseAmt === totalAmt) {
+            if (bonusAmt > 0 && totalAmt > bonusAmt) {
+              baseAmt = totalAmt - bonusAmt;
+            } else {
+              baseAmt = Math.round(totalAmt / 1.22);
+              bonusAmt = totalAmt - baseAmt;
+            }
+          } else if (bonusAmt === 0 && totalAmt > baseAmt) {
+            bonusAmt = totalAmt - baseAmt;
+          }
+
+          let bonusPercent = baseAmt > 0 && bonusAmt > 0 ? Math.round((bonusAmt / baseAmt) * 100) : 22;
+          if (bonusPercent === 18 || bonusPercent === 20) bonusPercent = 22;
 
           currentNote = isCompleted
             ? (isUsdt ? `USDT Deposit Approved` : `INR Deposit`)
@@ -120,6 +129,7 @@ export const HistoryPage: React.FC = () => {
             ...t.metadata,
             bonusInr: bonusAmt,
             baseAmount: baseAmt,
+            bonusPercent,
             method: matchingDep.method,
             utrNumber: matchingDep.utrNumber,
           };
@@ -157,11 +167,25 @@ export const HistoryPage: React.FC = () => {
         const isCompleted = dep.status === 'completed' || dep.status === 'credited' || dep.status === 'approved' || dep.credited === true;
         const depStatus = (isCompleted ? 'completed' : dep.status) as TransactionStatus;
 
-        const baseAmt = dep.amount || (dep.totalInr ? dep.totalInr - (dep.bonusInr || 0) : 0);
-        const bonusAmt = (dep.bonusInr !== undefined && dep.bonusInr !== null)
+        let totalAmt = Number(dep.totalInr) || Number(dep.amount) || 0;
+        let baseAmt = Number(dep.amount) || 0;
+        let bonusAmt = (dep.bonusInr !== undefined && dep.bonusInr !== null)
           ? (Number(dep.bonusInr) + (dep.activityRewardInr || 0))
-          : Math.round(baseAmt * 0.20);
-        const totalAmt = dep.totalInr || (baseAmt + bonusAmt);
+          : 0;
+
+        if (!baseAmt || baseAmt === totalAmt) {
+          if (bonusAmt > 0 && totalAmt > bonusAmt) {
+            baseAmt = totalAmt - bonusAmt;
+          } else {
+            baseAmt = Math.round(totalAmt / 1.22);
+            bonusAmt = totalAmt - baseAmt;
+          }
+        } else if (bonusAmt === 0 && totalAmt > baseAmt) {
+          bonusAmt = totalAmt - baseAmt;
+        }
+
+        let bonusPercent = baseAmt > 0 && bonusAmt > 0 ? Math.round((bonusAmt / baseAmt) * 100) : 22;
+        if (bonusPercent === 18 || bonusPercent === 20) bonusPercent = 22;
 
         // Hide pending deposit if older than 20 minutes
         if (!isPendingExpired(depStatus, dep.createdAt)) {
@@ -178,6 +202,7 @@ export const HistoryPage: React.FC = () => {
             metadata: {
               bonusInr: bonusAmt,
               baseAmount: baseAmt,
+              bonusPercent,
               method: dep.method,
               utrNumber: dep.utrNumber,
             },
@@ -338,9 +363,24 @@ export const HistoryPage: React.FC = () => {
     const isCredit = t.type === 'deposit' || t.type === 'reward' || t.type === 'commission';
     const cat = getStatusCategory(t.status);
     const isDeposit = t.type === 'deposit';
-    const bonusInr = t.metadata?.bonusInr !== undefined ? Number(t.metadata.bonusInr) : 0;
-    const baseAmount = t.metadata?.baseAmount || (bonusInr > 0 ? t.amount - bonusInr : t.amount);
-    const bonusPercent = baseAmount > 0 && bonusInr > 0 ? Math.round((bonusInr / baseAmount) * 100) : 20;
+    let totalAmount = Number(t.amount) || 0;
+    let baseAmount = Number(t.metadata?.baseAmount) || 0;
+    let bonusInr = t.metadata?.bonusInr !== undefined ? Number(t.metadata.bonusInr) : 0;
+
+    if (!baseAmount || baseAmount === totalAmount) {
+      if (bonusInr > 0 && totalAmount > bonusInr) {
+        baseAmount = totalAmount - bonusInr;
+      } else {
+        baseAmount = Math.round(totalAmount / 1.22);
+        bonusInr = totalAmount - baseAmount;
+      }
+    } else if (bonusInr === 0 && totalAmount > baseAmount) {
+      bonusInr = totalAmount - baseAmount;
+    }
+
+    let bonusPercent = Number(t.metadata?.bonusPercent) || (baseAmount > 0 && bonusInr > 0 ? Math.round((bonusInr / baseAmount) * 100) : 22);
+    if (bonusPercent === 18 || bonusPercent === 20) bonusPercent = 22;
+
     const hasBonus = isDeposit && bonusInr > 0 && baseAmount > 0;
 
     return (

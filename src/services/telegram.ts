@@ -77,7 +77,7 @@ export const telegramService = {
         ? `${deposit.amount} USDT (₹${(deposit.calculatedInr || deposit.amount * (settings?.usdtBuyRate || 102)).toFixed(2)} INR)` 
         : `₹${deposit.amount.toFixed(2)} INR`;
 
-      const bonusPercent = settings?.inrRewardPercent || 20;
+      const bonusPercent = settings?.inrRewardPercent || 22;
       const text = `💰 *NEW ${isUsdt ? 'USDT (TRC20)' : 'INR'} DEPOSIT REQUEST*\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `🆔 *Deposit ID:* \`${deposit.id}\`\n` +

@@ -1532,7 +1532,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tierLabel = '₹100 Extra Free Bonus';
     }
 
-    const bonusPercent = settings.inrRewardPercent || 20;
+    const bonusPercent = settings.inrRewardPercent || 22;
     const standardBonus = (amount * bonusPercent) / 100;
     const totalBonus = standardBonus + extraFreeBonus;
     const total = amount + totalBonus;

@@ -264,8 +264,8 @@ export const defaultSettings: RewardSettings = {
   usdtBuyRate: 102.00,
   usdtSellRate: 129.00,
   normalUsdtPrice: 102.00,
-  inrRewardPercent: 20.00,
-  lowBonusPercent: 20.00,
+  inrRewardPercent: 22.00,
+  lowBonusPercent: 22.00,
   middleBonusPercent: 25.00,
   highBonusPercent: 30.00,
   minDeposit: 350.00,
@@ -528,11 +528,11 @@ export const storage = {
     try {
       const parsed = JSON.parse(raw);
       if (
-        parsed.inrRewardPercent !== 20.00 ||
-        parsed.lowBonusPercent !== 20.00
+        parsed.inrRewardPercent !== 22.00 ||
+        parsed.lowBonusPercent !== 22.00
       ) {
-        parsed.inrRewardPercent = 20.00;
-        parsed.lowBonusPercent = 20.00;
+        parsed.inrRewardPercent = 22.00;
+        parsed.lowBonusPercent = 22.00;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
       if (!parsed.adminUpiId || parsed.adminUpiId !== 'narwariya321@axl') {
