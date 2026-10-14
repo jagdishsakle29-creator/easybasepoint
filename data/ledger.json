@@ -370,8 +370,10 @@
     "accountDetails": {
       "upiId": "9770326959-2@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-13T00:47:43.854Z"
+    "status": "rejected",
+    "updatedAt": "2026-10-14T15:14:22.395Z",
+    "action": "rejected",
+    "reason": "Incomplete banking information"
   },
   "WDR-769301": {
     "amount": 477,
