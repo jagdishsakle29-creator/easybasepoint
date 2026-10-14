@@ -160,8 +160,8 @@ export const DepositPage: React.FC = () => {
       addToast('error', err);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      const err = 'File size exceeds 5MB limit. Please upload a smaller screenshot.';
+    if (file.size > 25 * 1024 * 1024) {
+      const err = 'File size exceeds 25MB limit. Please upload a smaller screenshot.';
       setScreenshotError(err);
       addToast('error', err);
       return;
@@ -236,13 +236,9 @@ export const DepositPage: React.FC = () => {
       addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit for approval.');
       return;
     }
-    if (!screenshotUrl) {
-      addToast('error', 'Payment screenshot is required to complete payment verification.');
-      return;
-    }
     setIsProcessingTopUp(true);
     try {
-      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl, 'cousin');
+      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl || '', 'cousin');
       if (res && res.success) {
         setIsTopUpModalOpen(false);
         setUtrRef('');
@@ -1269,16 +1265,16 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                         <ImageIcon className="w-4 h-4 text-[#FF6B00]" />
-                        <span>Payment Screenshot *</span>
+                        <span>Payment Screenshot (Optional)</span>
                       </label>
                       {screenshotUrl ? (
                         <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          ✓ Payment screenshot uploaded
+                          ✓ Payment screenshot attached
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                          Compulsory *
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Optional (Recommended)
                         </span>
                       )}
                     </div>
@@ -1403,10 +1399,10 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot}
+                      disabled={isProcessingTopUp || !isUtrReady || isUploadingScreenshot}
                       onClick={handleConfirmTopUp}
                       className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                        isUtrReady && screenshotUrl
+                        isUtrReady
                           ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
                           : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                       }`}
@@ -1416,9 +1412,9 @@ export const DepositPage: React.FC = () => {
                         {isProcessingTopUp 
                           ? 'Submitting for Verification...' 
                           : !isUtrReady 
-                          ? 'Enter 12-Digit UTR to Continue' 
-                          : !screenshotUrl 
-                          ? 'Upload Payment Screenshot *' 
+                          ? 'Enter 12-Digit UTR to Submit' 
+                          : screenshotUrl 
+                          ? `Submit with Screenshot (₹${topUpAmount})` 
                           : `Submit for Verification (₹${topUpAmount})`}
                       </span>
                     </button>

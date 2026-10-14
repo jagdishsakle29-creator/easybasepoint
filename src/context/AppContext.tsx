@@ -1341,7 +1341,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     screenshotUrl?: string, 
     remark?: string
   ): Promise<{ success: boolean; message: string }> => {
-    if (!user) {
+    const activeUser: User | null = user || storage.getUser();
+    if (!activeUser) {
       addToast('error', 'Please log in to your account first.');
       return { success: false, message: 'Authentication required' };
     }
@@ -1351,19 +1352,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: `Minimum deposit amount is ₹${minDeposit}.` };
     }
 
-    // MANDATORY SCREENSHOT VALIDATION (Unless demo mode)
-    if (!settings.isDemoMode && (!screenshotUrl || screenshotUrl.trim().length === 0)) {
-      addToast('error', 'Payment screenshot is required to complete payment verification.');
-      return { success: false, message: 'Payment screenshot is required to complete payment verification.' };
-    }
-
     const cleanUtr = (refNumber || '').trim();
     if (!cleanUtr || cleanUtr.length !== 12) {
       addToast('error', '⚠️ 12-digit numeric UTR is mandatory.');
       return { success: false, message: 'Valid 12-digit UTR required' };
     }
-
-    const activeUser: User = user;
 
     // Extra Tier Free Bonus:
     // 50,000+ -> +5,000 Free
@@ -1409,7 +1402,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
-    await cloudSync.broadcastDeposit({
+    // Non-blocking high-speed broadcast to backend and ledger
+    cloudSync.broadcastDeposit({
       id: newDeposit.id,
       userId: activeUser.id,
       userPhone: activeUser.phone,
@@ -1423,7 +1417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paymentScreenshot: newDeposit.paymentScreenshot,
       remark: finalRemark,
       isDemo: settings.isDemoMode,
-    });
+    }).catch((err) => console.warn('[APP] Background broadcast error:', err));
 
     cloudSync.createTransaction({
       transactionId: newDeposit.id,
