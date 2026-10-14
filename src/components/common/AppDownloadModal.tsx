@@ -17,10 +17,11 @@ interface AppDownloadModalProps {
 }
 
 export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onClose }) => {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(() => (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null));
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [installStep, setInstallStep] = useState<'idle' | 'installing' | 'installed'>('idle');
+  const [showManualGuide, setShowManualGuide] = useState<boolean>(false);
 
   useEffect(() => {
     // Detect iOS
@@ -28,13 +29,23 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
     const isIosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIOS(isIosDevice);
 
+    if ((window as any).deferredInstallPrompt) {
+      setDeferredPrompt((window as any).deferredInstallPrompt);
+    }
+
     // Listen for PWA install prompt
-    const handleBeforeInstall = (e: Event) => {
+    const handleBeforeInstall = (e: any) => {
       e.preventDefault();
+      (window as any).deferredInstallPrompt = e;
       setDeferredPrompt(e);
     };
 
+    const handleCustomPwa = (e: any) => {
+      setDeferredPrompt(e.detail || (window as any).deferredInstallPrompt);
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('ebp:can-install-pwa', handleCustomPwa);
 
     // Listen for app installed event
     window.addEventListener('appinstalled', () => {
@@ -50,32 +61,33 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('ebp:can-install-pwa', handleCustomPwa);
     };
   }, []);
 
   if (!isOpen) return null;
 
   const handleNativeInstall = async () => {
-    if (deferredPrompt) {
+    const promptEvent = deferredPrompt || (window as any).deferredInstallPrompt;
+    if (promptEvent) {
       setInstallStep('installing');
       try {
-        await deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+        await promptEvent.prompt();
+        const { outcome } = await promptEvent.userChoice;
         if (outcome === 'accepted') {
           setIsInstalled(true);
           setInstallStep('installed');
+          (window as any).deferredInstallPrompt = null;
+          setDeferredPrompt(null);
         } else {
           setInstallStep('idle');
         }
       } catch {
         setInstallStep('idle');
       }
-      setDeferredPrompt(null);
-    } else if (isIOS) {
-      // iOS: handled via guide below
     } else {
-      // Direct APK download fallback
-      window.location.href = '/EasyBasePoint.apk';
+      // Browser didn't provide programmatic prompt: open instant manual guide
+      setShowManualGuide(true);
     }
   };
 
@@ -200,6 +212,20 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
             Upar daayein kone me <strong>3 dots (⋮)</strong> dabayein aur <strong>"Open in Chrome" / "Open in Browser"</strong> chunein. Isse APK seedha download ho jayega aur ek click me install ho jayega.
           </p>
         </div>
+
+        {/* Android Chrome 1-Tap Manual Guide */}
+        {(!isIOS && showManualGuide) && (
+          <div className="p-4 bg-orange-500/15 rounded-2xl border-2 border-[#FF6B00] text-xs space-y-2 animate-fadeIn">
+            <div className="font-black text-amber-300 font-outfit text-sm flex items-center gap-1.5">
+              <span>📲 Chrome me 1-Click me App Kaise Lagayein:</span>
+            </div>
+            <ol className="text-xs text-slate-200 space-y-1.5 pl-4 list-decimal leading-relaxed">
+              <li>Chrome browser me sabse upar daayein (top right) kone me <strong>3 dots (⋮)</strong> dabayein.</li>
+              <li>Menu me <strong>'Install app'</strong> ya <strong>'Add to Home screen'</strong> chunein.</li>
+              <li>Neeche <strong>'Install'</strong> button dabayein — App turant phone par install ho jayegi!</li>
+            </ol>
+          </div>
+        )}
 
         {/* iOS Safari Guide (if iPhone/iPad) */}
         {isIOS && (

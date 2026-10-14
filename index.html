@@ -49,6 +49,13 @@
   <body class="bg-[#F3F6FD] text-slate-800 font-sans antialiased selection:bg-orange-500 selection:text-white">
     <div id="root"></div>
     <script>
+      window.deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredInstallPrompt = e;
+        window.dispatchEvent(new CustomEvent('ebp:can-install-pwa', { detail: e }));
+      });
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
           navigator.serviceWorker.register('/sw.js').catch(function() {});
