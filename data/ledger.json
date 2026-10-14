@@ -503,5 +503,23 @@
     "credited": true,
     "approvedAt": "2026-10-14T13:12:00.169Z",
     "creditedAt": "2026-10-14T13:12:00.169Z"
+  },
+  "WDR-958419": {
+    "amount": 200,
+    "totalInr": 200,
+    "method": "upi",
+    "userPhone": "9630020285",
+    "utrNumber": "",
+    "createdAt": "2026-10-14T13:22:08.752Z",
+    "id": "WDR-958419",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "fee": 0,
+    "netAmount": 200,
+    "accountDetails": {
+      "upiId": "Lxn@ptyes "
+    },
+    "status": "pending",
+    "updatedAt": "2026-10-14T13:22:10.545Z"
   }
 }
