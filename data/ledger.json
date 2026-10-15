@@ -907,5 +907,14 @@
     "fee": 0,
     "netAmount": 500,
     "updatedAt": "2026-10-15T19:37:42.170Z"
+  },
+  "DEP-TEST999": {
+    "id": "DEP-TEST999",
+    "amount": 500,
+    "userPhone": "9999999999",
+    "paymentScreenshot": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "createdAt": "2026-10-15T19:42:17.985Z",
+    "status": "pending_verification",
+    "updatedAt": "2026-10-15T19:42:18.134Z"
   }
 }
