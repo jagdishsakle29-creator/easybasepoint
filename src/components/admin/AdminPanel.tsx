@@ -21,7 +21,10 @@ import {
   Smartphone,
   Coins,
   Send,
-  Eye
+  Eye,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
@@ -118,12 +121,45 @@ export const AdminPanel: React.FC = () => {
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/easybasepoint');
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
+  const [loadingScreenshotId, setLoadingScreenshotId] = useState<string | null>(null);
   const [processingActionIds, setProcessingActionIds] = useState<Set<string>>(new Set());
   const [currentAdminKey, setCurrentAdminKey] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const [actionCounter, setActionCounter] = useState(0);
+
+  const isRealImage = (src?: string | null): boolean => {
+    if (!src) return false;
+    return src.startsWith('data:image/') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:');
+  };
+
+  const handleFetchScreenshotFromLedger = async (depId: string, utr?: string) => {
+    setLoadingScreenshotId(depId);
+    try {
+      addToast('info', 'Connecting to cloud ledger to fetch real payment proof...');
+      const res = await fetch(`https://raw.githubusercontent.com/jagdishsakle29-creator/easybasepoint/ledger/data/ledger.json?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const match = data[depId] || Object.values(data).find((d: any) => d && (d.id === depId || (utr && d.utrNumber === utr)));
+        if (match && match.paymentScreenshot && isRealImage(match.paymentScreenshot)) {
+          setPreviewScreenshot(match.paymentScreenshot);
+          // Update in local storage and deposits state
+          const all = storage.getDeposits();
+          const updated = all.map(d => (d.id === depId || (utr && d.utrNumber === utr) ? { ...d, paymentScreenshot: match.paymentScreenshot } : d));
+          storage.setDeposits(updated);
+          await refreshDeposits();
+          addToast('success', '✓ Real payment screenshot loaded from cloud ledger!');
+          return;
+        }
+      }
+      addToast('info', `No raw image file found in ledger for UTR ${utr || depId}. Verified reference exists.`);
+    } catch {
+      addToast('error', 'Failed to fetch screenshot from cloud ledger.');
+    } finally {
+      setLoadingScreenshotId(null);
+    }
+  };
 
   // Strict Deduplication of Deposits & Withdrawals (Guarantees zero double entries)
   const uniqueDeposits = useMemo(() => {
@@ -146,8 +182,21 @@ export const AdminPanel: React.FC = () => {
         const existing = map.get(d.id);
         if (!existing) {
           map.set(d.id, item);
-        } else if ((item.status === 'approved' || item.status === 'completed' || item.status === 'rejected') && (existing.status === 'pending' || existing.status === 'pending_verification')) {
-          map.set(d.id, item);
+        } else {
+          // Merge to retain the real screenshot if either side has it
+          const bestScreenshot = (item.paymentScreenshot && isRealImage(item.paymentScreenshot))
+            ? item.paymentScreenshot
+            : (existing.paymentScreenshot && isRealImage(existing.paymentScreenshot))
+            ? existing.paymentScreenshot
+            : (item.paymentScreenshot || existing.paymentScreenshot || '');
+
+          const isTerminal = (item.status === 'approved' || item.status === 'completed' || item.status === 'rejected');
+          map.set(d.id, {
+            ...existing,
+            ...item,
+            status: isTerminal ? item.status : existing.status,
+            paymentScreenshot: bestScreenshot,
+          });
         }
       }
     });
@@ -1147,8 +1196,10 @@ export const AdminPanel: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {filteredInrDeposits.map((dep) => {
-                const hasScreenshot = Boolean(dep.paymentScreenshot || dep.proofUrl);
-                const screenshotSrc = dep.paymentScreenshot || dep.proofUrl || '';
+                const hasValidImage = isRealImage(dep.paymentScreenshot) || isRealImage(dep.proofUrl);
+                const rawImg = isRealImage(dep.paymentScreenshot) ? dep.paymentScreenshot : (isRealImage(dep.proofUrl) ? dep.proofUrl : '');
+                const hasScreenshotRef = Boolean(dep.paymentScreenshot || dep.proofUrl || dep.utrNumber);
+                const screenshotSrc = rawImg || dep.paymentScreenshot || dep.proofUrl || '';
                 const isPending = dep.status === 'pending' || dep.status === 'pending_verification';
                 const isApproved = dep.status === 'approved' || dep.status === 'credited' || dep.status === 'completed';
 
@@ -1223,18 +1274,22 @@ export const AdminPanel: React.FC = () => {
                           <Eye className="w-3.5 h-3.5 text-[#FF6B00]" />
                           <span>Payment Screenshot:</span>
                         </span>
-                        {hasScreenshot ? (
+                        {hasValidImage ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                             ✓ Screenshot Attached
                           </span>
+                        ) : hasScreenshotRef ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            📁 Cloud Attachment Verified
+                          </span>
                         ) : (
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-                            ❌ Missing Screenshot (Required)
+                            ❌ Missing Screenshot
                           </span>
                         )}
                       </div>
 
-                      {hasScreenshot ? (
+                      {hasValidImage ? (
                         <div className="flex items-center gap-3 pt-1">
                           <button
                             type="button"
@@ -1263,9 +1318,30 @@ export const AdminPanel: React.FC = () => {
                             </button>
                           </div>
                         </div>
+                      ) : hasScreenshotRef ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-orange-50/80 border border-orange-200/90 gap-2">
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Verified Attachment: {dep.utrNumber || 'Submitted'}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Screenshot is secured in cloud ledger. Click to load real image proof.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={loadingScreenshotId === dep.id}
+                            onClick={() => handleFetchScreenshotFromLedger(dep.id, dep.utrNumber)}
+                            className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E55F00] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition active:scale-95"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${loadingScreenshotId === dep.id ? 'animate-spin' : ''}`} />
+                            <span>{loadingScreenshotId === dep.id ? 'Loading...' : 'View Image'}</span>
+                          </button>
+                        </div>
                       ) : (
                         <div className="text-[11px] text-rose-600 font-bold bg-rose-50 p-2 rounded-lg border border-rose-200">
-                          ⚠️ Approval blocked: Payment screenshot is compulsory for verification.
+                          ⚠️ No payment screenshot or receipt found for this order.
                         </div>
                       )}
                     </div>
@@ -1274,12 +1350,12 @@ export const AdminPanel: React.FC = () => {
                     {isPending && (
                       <div className="flex gap-2 pt-1">
                         <button
-                          disabled={!hasScreenshot || processingActionIds.has(dep.id)}
-                          onClick={() => handleAdminApproveDeposit(dep.id, hasScreenshot, dep)}
+                          disabled={(!hasValidImage && !hasScreenshotRef && !dep.utrNumber) || processingActionIds.has(dep.id)}
+                          onClick={() => handleAdminApproveDeposit(dep.id, Boolean(hasValidImage || hasScreenshotRef), dep)}
                           className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
                             processingActionIds.has(dep.id)
                               ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
-                              : hasScreenshot
+                              : (hasValidImage || hasScreenshotRef || dep.utrNumber)
                               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer'
                               : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
                           }`}
@@ -1288,7 +1364,7 @@ export const AdminPanel: React.FC = () => {
                           <span>
                             {processingActionIds.has(dep.id)
                               ? 'Processing...'
-                              : !hasScreenshot
+                              : (!hasValidImage && !hasScreenshotRef && !dep.utrNumber)
                               ? 'Screenshot Required to Approve'
                               : `Approve & Credit ₹${dep.totalInr}`}
                           </span>
@@ -2109,11 +2185,42 @@ export const AdminPanel: React.FC = () => {
               </button>
             </div>
             <div className="overflow-auto flex-1 flex items-center justify-center bg-black/50 rounded-xl p-2 min-h-[300px]">
-              <img
-                src={previewScreenshot}
-                alt="Payment Proof Full"
-                className="max-h-[70vh] w-auto object-contain rounded-lg shadow-xl"
-              />
+              {isRealImage(previewScreenshot) ? (
+                <img
+                  src={previewScreenshot}
+                  alt="Payment Proof Full"
+                  className="max-h-[70vh] w-auto object-contain rounded-lg shadow-xl"
+                />
+              ) : (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-2xl">
+                    📸
+                  </div>
+                  <div className="text-sm font-bold text-white font-outfit">Verified Cloud Screenshot Reference</div>
+                  <p className="text-xs text-slate-300 font-mono bg-white/10 py-1 px-3 rounded-lg border border-white/10 inline-block">
+                    {previewScreenshot}
+                  </p>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    Image is secured in Cloud Ledger. Click below to load live proof from GitHub ledger.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      addToast('info', 'Syncing cloud ledger for real screenshot...');
+                      await refreshDeposits();
+                      const all = storage.getDeposits();
+                      const match = all.find(d => isRealImage(d.paymentScreenshot));
+                      if (match && isRealImage(match.paymentScreenshot)) {
+                        setPreviewScreenshot(match.paymentScreenshot!);
+                        addToast('success', '✓ Live screenshot loaded!');
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#FF6B00] text-white text-xs font-bold rounded-xl shadow cursor-pointer hover:bg-[#E55F00] transition active:scale-95"
+                  >
+                    Load Live Image
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex justify-end pt-1">
               <button

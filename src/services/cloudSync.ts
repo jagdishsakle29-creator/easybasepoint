@@ -579,7 +579,13 @@ export const cloudSync = {
                 const attJson = await attRes.json();
                 const dep = attJson.deposit || (attJson.type === 'NEW_DEPOSIT' ? attJson.deposit : (attJson.id ? attJson : null));
                 if (dep && dep.id) {
-                  collectedMap.set(dep.id, dep);
+                  const existing = collectedMap.get(dep.id);
+                  const bestScreenshot = (existing?.paymentScreenshot && existing.paymentScreenshot.startsWith('data:image/'))
+                    ? existing.paymentScreenshot
+                    : (dep.paymentScreenshot && dep.paymentScreenshot.startsWith('data:image/'))
+                    ? dep.paymentScreenshot
+                    : (dep.paymentScreenshot || existing?.paymentScreenshot || '');
+                  collectedMap.set(dep.id, { ...existing, ...dep, paymentScreenshot: bestScreenshot });
                 }
               }
             } else if (obj.message) {
@@ -587,7 +593,13 @@ export const cloudSync = {
                 const msg = JSON.parse(obj.message);
                 const dep = msg.deposit || (msg.type === 'NEW_DEPOSIT' ? msg.deposit : (msg.id ? msg : null));
                 if (dep && dep.id) {
-                  collectedMap.set(dep.id, dep);
+                  const existing = collectedMap.get(dep.id);
+                  const bestScreenshot = (existing?.paymentScreenshot && existing.paymentScreenshot.startsWith('data:image/'))
+                    ? existing.paymentScreenshot
+                    : (dep.paymentScreenshot && dep.paymentScreenshot.startsWith('data:image/'))
+                    ? dep.paymentScreenshot
+                    : (dep.paymentScreenshot || existing?.paymentScreenshot || '');
+                  collectedMap.set(dep.id, { ...existing, ...dep, paymentScreenshot: bestScreenshot });
                 }
               } catch {}
             }

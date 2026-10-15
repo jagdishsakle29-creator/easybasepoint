@@ -85,9 +85,9 @@ export const DepositPage: React.FC = () => {
     const checkCooldown = () => {
       const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
       const now = Date.now();
-      const TWO_MINUTES_MS = 2 * 60 * 1000;
-      if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
-        setCooldownSeconds(Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000));
+      const COOLDOWN_MS = 15 * 1000;
+      if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
+        setCooldownSeconds(Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000));
       } else {
         setCooldownSeconds(0);
       }
@@ -333,15 +333,15 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    // Strict 2: Rate Limit - 1 payment screenshot every 2 minutes per user
+    // Safety Rate Limit: 15 seconds between submissions to prevent double clicks
     const userIdentifier = user?.id || user?.phone || 'active_user';
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
     const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
     const now = Date.now();
-    const TWO_MINUTES_MS = 2 * 60 * 1000;
-    if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
-      const remainingSec = Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000);
-      addToast('error', `⏳ Kripya prateeksha karein! Ek user 2 minute me 1 hi payment screenshot bhej sakta hai (${remainingSec}s bache hain).`);
+    const COOLDOWN_MS = 15 * 1000;
+    if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
+      const remainingSec = Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000);
+      addToast('error', `⏳ Kripya prateeksha karein (${remainingSec}s bache hain).`);
       return;
     }
 

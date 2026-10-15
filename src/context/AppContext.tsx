@@ -802,8 +802,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               remark: bd.remark || 'cousin',
             });
           } else {
-            const updatedScreenshot = bd.paymentScreenshot || bd.proofUrl || existingDep.paymentScreenshot || existingDep.proofUrl || '';
-            const updatedProof = bd.proofUrl || bd.paymentScreenshot || existingDep.proofUrl || '';
+            const isBdImg = bd.paymentScreenshot && bd.paymentScreenshot.startsWith('data:image/');
+            const isLocalImg = existingDep.paymentScreenshot && existingDep.paymentScreenshot.startsWith('data:image/');
+            const updatedScreenshot = isBdImg
+              ? bd.paymentScreenshot
+              : isLocalImg
+              ? existingDep.paymentScreenshot
+              : (bd.paymentScreenshot || existingDep.paymentScreenshot || bd.proofUrl || existingDep.proofUrl || '');
+
+            const updatedProof = isBdImg
+              ? bd.paymentScreenshot
+              : isLocalImg
+              ? existingDep.paymentScreenshot
+              : (bd.proofUrl || bd.paymentScreenshot || existingDep.proofUrl || '');
             
             // STRICT TERMINAL STATE: If already approved or rejected, NEVER revert to pending!
             let finalStatus: DepositStatus = existingDep.status;
@@ -1662,10 +1673,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
     const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
     const now = Date.now();
-    const TWO_MINUTES_MS = 2 * 60 * 1000;
-    if (lastDepTime && now - lastDepTime < TWO_MINUTES_MS) {
-      const remainingSec = Math.ceil((TWO_MINUTES_MS - (now - lastDepTime)) / 1000);
-      addToast('error', `⏳ Rate limit: Only 1 payment screenshot is allowed per 2 minutes (${remainingSec}s remaining).`);
+    const COOLDOWN_MS = 15 * 1000;
+    if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
+      const remainingSec = Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000);
+      addToast('error', `⏳ Please wait (${remainingSec}s remaining).`);
       return { success: false, message: 'Rate limit active' };
     }
     localStorage.setItem(lastDepositKey, now.toString());

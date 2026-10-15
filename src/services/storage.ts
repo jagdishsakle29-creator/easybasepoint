@@ -395,32 +395,42 @@ export const storage = {
     }
   },
   setDeposits(deposits: DepositOrder[]): void {
-    // Never auto-prune or delete records; preserve all history permanently while optimizing heavy screenshots to save localStorage quota
-    const cleaned = (deposits || [])
-      .filter((d) => Boolean(d && d.id))
-      .map((d) => {
-        const isHeavyScreenshot = d.paymentScreenshot && d.paymentScreenshot.length > 500;
-        const isHeavyProof = d.proofUrl && d.proofUrl.length > 500;
-        return {
-          ...d,
-          paymentScreenshot: isHeavyScreenshot ? (d.utrNumber ? `ATTACHED_${d.utrNumber}` : 'ATTACHED') : d.paymentScreenshot,
-          proofUrl: isHeavyProof ? (d.utrNumber ? `ATTACHED_${d.utrNumber}` : 'ATTACHED') : d.proofUrl,
-        };
-      });
+    const valid = (deposits || []).filter((d) => Boolean(d && d.id));
+    const sorted = [...valid].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const sorted = [...cleaned].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     try {
+      // First attempt: save with all full screenshots intact!
       localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(sorted));
     } catch (e) {
-      console.warn('[STORAGE] LocalStorage quota exceeded for deposits:', e);
+      console.warn('[STORAGE] LocalStorage quota exceeded for deposits, preserving pending & recent screenshots:', e);
       try {
-        const light = sorted.map((d) => ({
-          ...d,
-          paymentScreenshot: '',
-          proofUrl: d.utrNumber || '',
-        }));
-        localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(light));
-      } catch {}
+        // If quota exceeded, ONLY prune screenshots for old closed records beyond recent 15
+        const optimized = sorted.map((d, index) => {
+          const isPending = d.status === 'pending' || d.status === 'pending_verification';
+          if (isPending || index < 15) {
+            return d; // Keep 100% full screenshot intact for pending and recent 15 records!
+          }
+          return {
+            ...d,
+            paymentScreenshot: d.paymentScreenshot?.startsWith('data:image/') ? `ATTACHED_${d.utrNumber || d.id}` : d.paymentScreenshot,
+            proofUrl: d.proofUrl?.startsWith('data:image/') ? `ATTACHED_${d.utrNumber || d.id}` : d.proofUrl,
+          };
+        });
+        localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(optimized));
+      } catch (e2) {
+        try {
+          const light = sorted.map((d) => {
+            const isPending = d.status === 'pending' || d.status === 'pending_verification';
+            if (isPending) return d;
+            return {
+              ...d,
+              paymentScreenshot: '',
+              proofUrl: d.utrNumber || '',
+            };
+          });
+          localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(light));
+        } catch {}
+      }
     }
   },
 
