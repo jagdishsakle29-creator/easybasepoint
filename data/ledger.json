@@ -746,9 +746,10 @@
     "accountDetails": {
       "upiId": "9770326959-2@ybl"
     },
-    "status": "pending",
+    "status": "completed",
     "type": "withdrawal",
-    "updatedAt": "2026-10-15T09:03:19.598Z"
+    "updatedAt": "2026-10-15T10:46:24.048Z",
+    "action": "approved"
   },
   "DEP-686858": {
     "amount": 2500,
