@@ -867,5 +867,22 @@
     "credited": true,
     "approvedAt": "2026-10-15T18:07:29.752Z",
     "creditedAt": "2026-10-15T18:07:29.752Z"
+  },
+  "WDR-688603": {
+    "id": "WDR-688603",
+    "userId": "usr-1792085192598",
+    "userName": "Manas Singh",
+    "userPhone": "9277389208",
+    "amount": 477,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 477,
+    "accountDetails": {
+      "upiId": "9277389208@mbkns"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-15T18:08:26.545Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-15T18:08:26.985Z"
   }
 }
