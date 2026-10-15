@@ -399,5 +399,47 @@
     ],
     "updatedAt": "2026-10-15T16:09:18.947Z",
     "allowInitialPasswordSet": false
+  },
+  "8132965472": {
+    "user": {
+      "id": "usr-1792083280262",
+      "name": "Albab",
+      "email": "albabhussain846@gmail.com",
+      "phone": "8132965472",
+      "referralCode": "EBP-79430",
+      "referredBy": "EBP-91675",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "782435",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-15T16:54:40.262Z"
+    },
+    "password": "Razz@123",
+    "transactionPin": "782435",
+    "wallet": {
+      "userId": "usr-1792083280262",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-124947",
+        "userId": "usr-1792083280262",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-15T16:54:40.262Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-15T16:54:40.611Z"
   }
 }
