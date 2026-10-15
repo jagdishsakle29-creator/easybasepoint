@@ -708,21 +708,24 @@
     "creditedAt": "2026-10-15T05:06:22.386Z"
   },
   "WDR-875129": {
+    "amount": 427,
+    "totalInr": 0,
+    "method": "upi",
+    "userPhone": "9630020285",
+    "utrNumber": "",
+    "createdAt": "2026-10-15T05:49:26.471Z",
     "id": "WDR-875129",
     "userId": "usr-1789220593374",
     "userName": "YOUTUBE Bro",
-    "userPhone": "9630020285",
-    "amount": 427,
-    "method": "upi",
     "fee": 0,
     "netAmount": 427,
     "accountDetails": {
       "upiId": "Lxn@ptyes"
     },
-    "status": "pending",
-    "createdAt": "2026-10-15T05:49:26.471Z",
+    "status": "completed",
     "type": "withdrawal",
-    "updatedAt": "2026-10-15T05:49:26.737Z"
+    "updatedAt": "2026-10-15T06:12:29.551Z",
+    "action": "approved"
   },
   "DEP-383984": {
     "amount": 2500,
