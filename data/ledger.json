@@ -933,22 +933,5 @@
     "netAmount": 500,
     "userId": "",
     "updatedAt": "2026-10-15T19:42:28.300Z"
-  },
-  "WDR_TEST_PROBE": {
-    "id": "WDR_TEST_PROBE",
-    "amount": 500,
-    "userPhone": "9999999999",
-    "method": "upi",
-    "accountDetails": {
-      "upiId": "test@upi"
-    },
-    "type": "withdrawal",
-    "createdAt": "2026-10-15T19:54:27.029Z",
-    "status": "pending",
-    "fee": 0,
-    "netAmount": 500,
-    "userId": "",
-    "userName": "",
-    "updatedAt": "2026-10-15T19:54:27.029Z"
   }
 }
