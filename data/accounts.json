@@ -297,17 +297,28 @@
     "transactionPin": "123456",
     "wallet": {
       "userId": "usr-1792032040691",
-      "balance": 50,
+      "balance": 120,
       "quota": 0,
-      "referralBalance": 0,
+      "referralBalance": 70,
       "todayReceive": 0,
-      "teamCommission": 0,
-      "todayTeamRecharge": 0,
+      "teamCommission": 70,
+      "todayTeamRecharge": 350,
       "todayTeamMembers": 0,
-      "totalTeamRecharge": 0,
+      "totalTeamRecharge": 350,
       "totalTeamMembers": 0
     },
     "transactions": [
+      {
+        "id": "TXN-REF-205449",
+        "userId": "usr-1792032040691",
+        "type": "commission",
+        "amount": 70,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-15T18:07:29.750Z",
+        "note": "🔥 20% Direct Referral Commission from Member (9277***208)",
+        "referenceId": "DEP-545172"
+      },
       {
         "id": "TXN-341399",
         "userId": "usr-1792032040691",
@@ -337,7 +348,7 @@
         "note": "₹50 Signup Welcome Cash Bonus"
       }
     ],
-    "updatedAt": "2026-10-15T16:14:46.289Z",
+    "updatedAt": "2026-10-15T18:07:30.273Z",
     "allowInitialPasswordSet": false
   },
   "7080878379": {
