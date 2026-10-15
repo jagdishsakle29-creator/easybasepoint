@@ -257,5 +257,46 @@
       }
     ],
     "updatedAt": "2026-10-14T20:19:59.018Z"
+  },
+  "8787064164": {
+    "user": {
+      "id": "usr-1792032040691",
+      "name": "Ansh singh",
+      "email": "ashuashhuu22@gmail.com",
+      "phone": "8787064164",
+      "referralCode": "EBP-91675",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "123456",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-15T02:40:40.691Z"
+    },
+    "password": "Ansh@8787",
+    "transactionPin": "123456",
+    "wallet": {
+      "userId": "usr-1792032040691",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-265067",
+        "userId": "usr-1792032040691",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-15T02:40:40.705Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-15T02:40:41.930Z"
   }
 }
