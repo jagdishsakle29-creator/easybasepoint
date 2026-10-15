@@ -320,5 +320,65 @@
       }
     ],
     "updatedAt": "2026-10-15T02:42:44.280Z"
+  },
+  "7080878379": {
+    "user": {
+      "id": "usr-1792032040691",
+      "name": "Ashu singh",
+      "email": "ashuashhuu22@gmail.com",
+      "phone": "7080878379",
+      "referralCode": "EBP-91675",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "123456",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-15T02:40:40.691Z"
+    },
+    "password": "Ansh@8787",
+    "transactionPin": "123456",
+    "wallet": {
+      "userId": "usr-1792032040691",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-341399",
+        "userId": "usr-1792032040691",
+        "type": "deposit",
+        "amount": 427,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-15T02:56:58.804Z",
+        "note": "INR Deposit: ₹350 + 22% Bonus (₹77) = ₹427.00",
+        "referenceId": "DEP-931260",
+        "metadata": {
+          "baseAmount": 350,
+          "bonusInr": 77,
+          "totalAmount": 427,
+          "utrNumber": "032049780380",
+          "method": "INR"
+        }
+      },
+      {
+        "id": "TXN-265067",
+        "userId": "usr-1792032040691",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-15T02:40:40.705Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-15T16:09:18.947Z",
+    "allowInitialPasswordSet": false
   }
 }
