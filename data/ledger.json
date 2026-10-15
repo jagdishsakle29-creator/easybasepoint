@@ -887,5 +887,25 @@
     "type": "withdrawal",
     "updatedAt": "2026-10-15T18:12:22.799Z",
     "action": "approved"
+  },
+  "WDR-642042": {
+    "amount": 500,
+    "userId": "test-user-123",
+    "userName": "Test Debug",
+    "userPhone": "9999999999",
+    "method": "bank",
+    "accountDetails": {
+      "accountHolder": "Test",
+      "bankName": "SBI",
+      "accountNumber": "1234567890",
+      "ifscCode": "SBIN0001"
+    },
+    "status": "pending",
+    "id": "WDR-642042",
+    "type": "withdrawal",
+    "createdAt": "2026-10-15T19:37:42.170Z",
+    "fee": 0,
+    "netAmount": 500,
+    "updatedAt": "2026-10-15T19:37:42.170Z"
   }
 }
