@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     try {
       const { data } = await fetchLedger();
       let list = Object.values(data || {})
-        .filter((item) => item && (item.type === "withdrawal" || (item.id && item.id.startsWith("WDR-"))));
+        .filter((item) => item && (item.type === "withdrawal" || (item.id && item.id.toUpperCase().startsWith("WDR"))));
 
       const { userId, phone } = req.query || {};
       if (userId || phone) {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   User, 
   Wallet, 
@@ -644,15 +644,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     reconcileWallet();
   }, [sanitizeWalletBalance, reconcileWallet, user]);
 
+  const isSyncingRef = useRef(false);
+
   // Reusable Cloud Sync Function
   const syncWithBackend = useCallback(async () => {
-    sanitizeWalletBalance();
-    const backendDeps = await cloudSync.fetchAllDeposits();
-    const currentU = storage.getUser();
-    const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
-    const currentW = storage.getWallet();
-    const creditedList = Array.isArray(currentW.creditedDepositIds) ? currentW.creditedDepositIds : [];
-    const allDeps = storage.getDeposits();
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    try {
+      sanitizeWalletBalance();
+      const backendDeps = await cloudSync.fetchAllDeposits();
+      const currentU = storage.getUser();
+      const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
+      const currentW = storage.getWallet();
+      const creditedList = Array.isArray(currentW.creditedDepositIds) ? currentW.creditedDepositIds : [];
+      const allDeps = storage.getDeposits();
 
     // Check authoritative server wallet first
     if (currentU) {
@@ -925,6 +930,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
     }
+  } finally {
+    isSyncingRef.current = false;
+  }
   }, [creditWalletForDeposit]);
 
   const refreshWithdrawals = useCallback(async (): Promise<WithdrawalRequest[]> => {
@@ -1151,7 +1159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeSSE = cloudSync.subscribeToApprovals(applyApprovalEvent);
 
     syncWithBackend();
-    const intervalId = setInterval(syncWithBackend, 2500);
+    const intervalId = setInterval(syncWithBackend, 4000);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {

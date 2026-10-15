@@ -74,7 +74,7 @@ export default async function handler(req, res) {
     try {
       const { data } = await fetchLedger();
       let list = Object.values(data || {})
-        .filter((item) => item && item.type !== "withdrawal" && (!item.id || !item.id.startsWith("WDR-")));
+        .filter((item) => item && item.type !== "withdrawal" && (!item.id || !item.id.toUpperCase().startsWith("WDR")));
 
       const { userId, phone } = req.query || {};
       if (userId || phone) {
@@ -112,9 +112,9 @@ export default async function handler(req, res) {
 
       let { data, sha } = await fetchLedger();
 
-      // Strict 2-minute rate limit: only 1 payment screenshot per 2-minute period per user
+      // Safety rate limit: 15s between submissions per user to prevent double clicks
       const now = Date.now();
-      const TWO_MINS_MS = 2 * 60 * 1000;
+      const COOLDOWN_MS = 15 * 1000;
       const userPhoneClean = (body.userPhone || "").replace(/[^0-9]/g, "");
       const userId = body.userId || "";
       if (!isDemo) {
@@ -124,9 +124,9 @@ export default async function handler(req, res) {
           const isSameUser = (userId && item.userId === userId) || (userPhoneClean.length >= 10 && itemPhone.endsWith(userPhoneClean.slice(-10)));
           if (isSameUser) {
             const itemTime = new Date(item.createdAt).getTime();
-            if (now - itemTime < TWO_MINS_MS) {
-              const waitSec = Math.ceil((TWO_MINS_MS - (now - itemTime)) / 1000);
-              return res.status(429).json({ ok: false, error: `Rate limit: Only 1 payment screenshot is allowed per 2 minutes. Please wait ${waitSec}s.` });
+            if (now - itemTime < COOLDOWN_MS) {
+              const waitSec = Math.ceil((COOLDOWN_MS - (now - itemTime)) / 1000);
+              return res.status(429).json({ ok: false, error: `Rate limit: Please wait ${waitSec}s before submitting another deposit.` });
             }
           }
         }

@@ -234,25 +234,28 @@ export const AdminPanel: React.FC = () => {
     );
   }, [withdrawals, actionCounter]);
 
-  const pendingDeposits = uniqueDeposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
-  
+  // Status Helper Predicates (Guarantees zero dropped records)
+  const isPendingWith = (w: any) => w.status === 'pending' || (w.status as string) === 'processing' || !w.status;
+  const isCompletedWith = (w: any) => w.status === 'completed' || w.status === 'approved';
+  const isRejectedWith = (w: any) => w.status === 'rejected';
+
   // Dedicated Withdrawal Metrics & Filtered List
   const [withFilter, setWithFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
-  const pendingWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'pending' || (w.status as string) === 'processing');
-  const completedWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'completed');
-  const rejectedWithdrawals = uniqueWithdrawals.filter((w) => w.status === 'rejected');
+  const pendingWithdrawals = uniqueWithdrawals.filter(isPendingWith);
+  const completedWithdrawals = uniqueWithdrawals.filter(isCompletedWith);
+  const rejectedWithdrawals = uniqueWithdrawals.filter(isRejectedWith);
 
   const filteredWithdrawals = uniqueWithdrawals.filter((w) => {
     if (withFilter === 'all') return true;
-    if (withFilter === 'pending') return w.status === 'pending' || (w.status as string) === 'processing';
-    if (withFilter === 'completed') return w.status === 'completed';
-    if (withFilter === 'rejected') return w.status === 'rejected';
+    if (withFilter === 'pending') return isPendingWith(w);
+    if (withFilter === 'completed') return isCompletedWith(w);
+    if (withFilter === 'rejected') return isRejectedWith(w);
     return true;
   });
 
   // Dedicated USDT Metrics
   const usdtDeposits = uniqueDeposits.filter((d) => d.method === 'USDT' || d.id.startsWith('USDT'));
-  const pendingUsdtDeposits = usdtDeposits.filter((d) => d.status === 'pending');
+  const pendingUsdtDeposits = usdtDeposits.filter((d) => d.status === 'pending' || !d.status);
   const approvedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'approved');
   const creditedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'credited' || (d.status === 'completed' && d.credited !== false));
   const rejectedUsdtDeposits = usdtDeposits.filter((d) => d.status === 'rejected');
@@ -263,23 +266,27 @@ export const AdminPanel: React.FC = () => {
   const [inrFilter, setInrFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
   const [usdtFilter, setUsdtFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
 
+  const isPendingDep = (d: any) => d.status === 'pending' || d.status === 'pending_verification' || d.status === 'processing' || !d.status;
+  const isCompletedDep = (d: any) => d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
+  const isRejectedDep = (d: any) => d.status === 'rejected';
+
   // INR Deposit Metrics & Filtered List
   const inrDeposits = uniqueDeposits.filter((d) => d.method !== 'USDT' && !d.id.startsWith('USDT'));
-  const pendingInrDeposits = inrDeposits.filter((d) => d.status === 'pending' || d.status === 'pending_verification');
-  const completedInrDeposits = inrDeposits.filter((d) => d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true);
-  const rejectedInrDeposits = inrDeposits.filter((d) => d.status === 'rejected');
+  const pendingInrDeposits = inrDeposits.filter(isPendingDep);
+  const completedInrDeposits = inrDeposits.filter(isCompletedDep);
+  const rejectedInrDeposits = inrDeposits.filter(isRejectedDep);
 
   const filteredInrDeposits = inrDeposits.filter((d) => {
     if (inrFilter === 'all') return true;
-    if (inrFilter === 'pending') return d.status === 'pending' || d.status === 'pending_verification';
-    if (inrFilter === 'completed') return d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
-    if (inrFilter === 'rejected') return d.status === 'rejected';
+    if (inrFilter === 'pending') return isPendingDep(d);
+    if (inrFilter === 'completed') return isCompletedDep(d);
+    if (inrFilter === 'rejected') return isRejectedDep(d);
     return true;
   });
 
   const filteredUsdtDeposits = usdtDeposits.filter((d) => {
     if (usdtFilter === 'all') return true;
-    if (usdtFilter === 'pending') return d.status === 'pending';
+    if (usdtFilter === 'pending') return d.status === 'pending' || !d.status;
     if (usdtFilter === 'completed') return d.status === 'completed' || d.status === 'credited' || d.status === 'approved' || d.credited === true;
     if (usdtFilter === 'rejected') return d.status === 'rejected';
     return true;
@@ -503,7 +510,7 @@ export const AdminPanel: React.FC = () => {
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
           { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, badge: pendingWithdrawals.length },
-          { id: 'deposits', label: 'INR Deposits', icon: ArrowDownToLine, badge: pendingDeposits.filter(d => d.method !== 'USDT' && !d.id.startsWith('USDT')).length },
+          { id: 'deposits', label: 'INR Deposits', icon: ArrowDownToLine, badge: pendingInrDeposits.length },
           { id: 'usdt', label: 'USDT Management', icon: Coins, badge: pendingUsdtDeposits.length },
           { id: 'packages', label: 'Packages', icon: Package },
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
@@ -1155,15 +1162,36 @@ export const AdminPanel: React.FC = () => {
          ======================================================= */}
       {activeAdminTab === 'deposits' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-              INR Deposit Approvals ({inrDeposits.length} Total, {pendingInrDeposits.length} Pending)
-            </h3>
-            {pendingInrDeposits.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
-                {pendingInrDeposits.length} Requires Approval
-              </span>
-            )}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                INR Deposit Approvals ({inrDeposits.length} Total, {pendingInrDeposits.length} Pending)
+              </h3>
+              {pendingInrDeposits.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
+                  {pendingInrDeposits.length} Requires Approval
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={isSyncingCloud}
+              onClick={async () => {
+                setIsSyncingCloud(true);
+                try {
+                  await refreshDeposits();
+                  await refreshWithdrawals();
+                  addToast('info', '✓ Synced latest deposits from cloud ledger.');
+                } finally {
+                  setIsSyncingCloud(false);
+                }
+              }}
+              className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Force refresh deposits list"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+              <span>Sync Live</span>
+            </button>
           </div>
 
           {/* Status Filter Tabs: ALL, PENDING, SUCCESSFUL, REJECTED */}
@@ -1404,15 +1432,22 @@ export const AdminPanel: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  refreshWithdrawals();
-                  addToast('info', 'Synced withdrawals from cloud ledger.');
+                disabled={isSyncingCloud}
+                onClick={async () => {
+                  setIsSyncingCloud(true);
+                  try {
+                    await refreshWithdrawals();
+                    await refreshDeposits();
+                    addToast('info', '✓ Synced withdrawals & deposits from cloud ledger.');
+                  } finally {
+                    setIsSyncingCloud(false);
+                  }
                 }}
-                className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer"
+                className={`px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer ${isSyncingCloud ? 'opacity-70 cursor-not-allowed' : ''}`}
                 title="Force refresh withdrawals list"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Sync Live</span>
+                <RotateCcw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                <span>{isSyncingCloud ? 'Syncing...' : 'Sync Live'}</span>
               </button>
 
               {/* Status Filter Tabs */}

@@ -84,8 +84,13 @@ function base64ToUtf8(b64: string): string {
 function utf8ToBase64(str: string): string {
   try {
     const bytes = new TextEncoder().encode(str);
-    const binString = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
-    return btoa(binString);
+    let binary = '';
+    const len = bytes.byteLength;
+    const chunkSize = 0x8000;
+    for (let i = 0; i < len; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + chunkSize, len))));
+    }
+    return btoa(binary);
   } catch {
     return btoa(unescape(encodeURIComponent(str)));
   }
@@ -94,9 +99,9 @@ function utf8ToBase64(str: string): string {
 async function saveToGitHubLedger(entry: any): Promise<boolean> {
   if (!entry || !entry.id) return false;
   try {
-    let sha = '';
-    let ledger: any = {};
     for (let attempt = 0; attempt < 3; attempt++) {
+      let sha = '';
+      let ledger: any = {};
       const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger&t=${Date.now()}`, {
         headers: {
           Authorization: `token ${GITHUB_TOKEN}`,
@@ -109,60 +114,71 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
         sha = json.sha;
         const rawContent = base64ToUtf8(json.content);
         ledger = JSON.parse(rawContent || '{}');
-        break;
       }
-      await new Promise(r => setTimeout(r, 400));
-    }
-    if (!sha) return false;
 
-    const existing = ledger[entry.id] || {};
-    ledger[entry.id] = {
-      amount: existing.amount || entry.amount || 0,
-      totalInr: existing.totalInr || entry.totalInr || entry.amount || 0,
-      method: existing.method || entry.method || (entry.id?.startsWith('USDT') ? 'USDT' : 'INR'),
-      userPhone: existing.userPhone || entry.userPhone || '',
-      utrNumber: existing.utrNumber || entry.utrNumber || '',
-      createdAt: existing.createdAt || entry.createdAt || new Date().toISOString(),
-      ...existing,
-      ...entry,
-      updatedAt: new Date().toISOString(),
-    };
+      if (!sha) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
 
-    // Keep all ledger entries permanently; only strip large screenshots for old closed entries
-    const now = Date.now();
-    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
-    for (const [id, rawItem] of Object.entries(ledger)) {
-      const item = rawItem as any;
-      if (!item) continue;
-      const t = item.createdAt ? new Date(item.createdAt).getTime() : now;
-      if ((item.status === 'completed' || item.status === 'rejected') && (now - t > TWO_DAYS_MS)) {
-        if (item.paymentScreenshot && item.paymentScreenshot.length > 200) {
-          item.paymentScreenshot = 'ARCHIVED_CLOSED';
+      const existing = ledger[entry.id] || {};
+      ledger[entry.id] = {
+        amount: existing.amount || entry.amount || 0,
+        totalInr: existing.totalInr || entry.totalInr || entry.amount || 0,
+        method: existing.method || entry.method || (entry.id?.startsWith('USDT') ? 'USDT' : 'INR'),
+        userPhone: existing.userPhone || entry.userPhone || '',
+        utrNumber: existing.utrNumber || entry.utrNumber || '',
+        createdAt: existing.createdAt || entry.createdAt || new Date().toISOString(),
+        ...existing,
+        ...entry,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Keep all ledger entries permanently; strip large raw screenshots for older records to keep JSON light
+      const now = Date.now();
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      for (const [, rawItem] of Object.entries(ledger)) {
+        const item = rawItem as any;
+        if (!item) continue;
+        const t = item.createdAt ? new Date(item.createdAt).getTime() : now;
+        if ((item.status === 'completed' || item.status === 'rejected') && (now - t > ONE_DAY_MS)) {
+          if (item.paymentScreenshot && item.paymentScreenshot.length > 200) {
+            item.paymentScreenshot = 'ARCHIVED_CLOSED';
+          }
+          if (item.proofUrl && item.proofUrl.length > 200) {
+            item.proofUrl = item.utrNumber || 'ARCHIVED_CLOSED';
+          }
         }
-        if (item.proofUrl && item.proofUrl.length > 200) {
-          item.proofUrl = item.utrNumber || 'ARCHIVED_CLOSED';
+        if (item.proofUrl && item.paymentScreenshot && item.proofUrl === item.paymentScreenshot) {
+          item.proofUrl = item.utrNumber || 'SCREENSHOT_ATTACHED';
         }
       }
-      if (item.proofUrl && item.paymentScreenshot && item.proofUrl === item.paymentScreenshot) {
-        item.proofUrl = item.utrNumber || 'SCREENSHOT_ATTACHED';
+
+      const updatedRaw = JSON.stringify(ledger, null, 2);
+      const b64 = utf8ToBase64(updatedRaw);
+      const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Sync ${entry.id}`,
+          content: b64,
+          sha,
+          branch: 'ledger',
+        }),
+      });
+
+      if (putRes.ok) return true;
+      if (putRes.status === 409) {
+        // SHA conflict: retry with latest commit SHA
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
       }
+      break;
     }
-    const updatedRaw = JSON.stringify(ledger, null, 2);
-    const b64 = utf8ToBase64(updatedRaw);
-    const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: `Sync ${entry.id}`,
-        content: b64,
-        sha,
-        branch: 'ledger',
-      }),
-    });
-    return putRes.ok;
+    return false;
   } catch (err) {
     console.warn('[CLOUD_SYNC] Direct GitHub ledger sync error:', err);
     return false;
@@ -171,6 +187,10 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
 
 const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && window.location) {
+    // If running on localhost/127.0.0.1, proxy requests to production Vercel backend
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'https://easybasepoint.vercel.app/api';
+    }
     return `${window.location.origin}/api`;
   }
   return 'https://easybasepoint.vercel.app/api';
@@ -233,57 +253,77 @@ export const cloudSync = {
     }
   },
 
-  // Broadcast a new deposit submission to Backend & Admin Panel in real time (Zero delay & Single Event)
+  // Broadcast a new deposit submission to Backend & Admin Panel in real time (Zero delay & Multi-channel)
   async broadcastDeposit(deposit: CloudDepositPayload): Promise<boolean> {
+    let savedToApi = false;
+    // 1. Post to Serverless backend endpoint first
     try {
-      // 1. Single direct GitHub Cloud Ledger Persistence
-      saveToGitHubLedger(deposit).catch(() => {});
-
-      // 2. Single high-speed pub/sub broadcast for instant Admin Panel SSE update
-      fetch(NTFY_DEPOSITS_PUB, {
+      const res = await fetch(`${getApiBaseUrl()}/deposits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'NEW_DEPOSIT', deposit }),
-      }).catch(() => {});
-
-      return true;
-    } catch {
-      return false;
+        body: JSON.stringify(deposit),
+      });
+      if (res.ok) {
+        savedToApi = true;
+      }
+    } catch (err) {
+      console.warn('[CLOUD_SYNC] /api/deposits broadcast error:', err);
     }
+
+    // 2. Direct GitHub Cloud Ledger Persistence fallback if API was unreachable
+    if (!savedToApi) {
+      saveToGitHubLedger(deposit).catch(() => {});
+    }
+
+    // 3. Pub/Sub notification broadcast
+    fetch(NTFY_DEPOSITS_PUB, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'NEW_DEPOSIT', deposit }),
+    }).catch(() => {});
+
+    return true;
   },
 
-  // Broadcast a new withdrawal request to Backend & Admin in real time (Zero delay & Single Event)
+  // Broadcast a new withdrawal request to Backend & Admin in real time (Zero delay & Multi-channel)
   async broadcastWithdrawal(withdrawal: any): Promise<boolean> {
-    try {
-      const payload = { ...withdrawal, type: 'withdrawal' };
+    const payload = { ...withdrawal, type: 'withdrawal' };
+    let savedToApi = false;
 
-      // 1. Post to Serverless backend endpoints
-      fetch(`${getApiBaseUrl()}/withdrawals`, {
+    // 1. Post to Serverless backend endpoints
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/withdrawals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch(() => {
-        return fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
+      });
+      if (res.ok) {
+        savedToApi = true;
+      }
+    } catch {
+      try {
+        const res2 = await fetch(`${getApiBaseUrl()}/bot/withdrawals`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-      }).catch(() => {});
-
-      // 2. Direct GitHub Cloud Ledger Persistence fallback
-      saveToGitHubLedger(payload).catch(() => {});
-
-      // 3. High-speed pub/sub broadcast for instant Admin Panel SSE update
-      fetch(NTFY_DEPOSITS_PUB, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'NEW_WITHDRAWAL', withdrawal: payload }),
-      }).catch(() => {});
-
-      return true;
-    } catch {
-      return false;
+        if (res2.ok) savedToApi = true;
+      } catch {}
     }
+
+    // 2. Direct GitHub Cloud Ledger Persistence fallback if API was unreachable
+    if (!savedToApi) {
+      saveToGitHubLedger(payload).catch(() => {});
+    }
+
+    // 3. Pub/Sub notification broadcast
+    fetch(NTFY_DEPOSITS_PUB, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'NEW_WITHDRAWAL', withdrawal: payload }),
+    }).catch(() => {});
+
+    return true;
   },
 
   // Broadcast a withdrawal approval or rejection
@@ -350,11 +390,27 @@ export const cloudSync = {
     }
   },
 
-  // Fetch all withdrawals from backend database (with rock-solid GitHub ledger, ntfy & serverless fallback)
+  // Fetch all withdrawals from backend database (Serverless API first with GitHub ledger fallback)
   async fetchAllWithdrawals(): Promise<any[]> {
     const collectedMap = new Map<string, any>();
 
-    // 1. Authoritative GitHub Cloud Ledger (Real-Time API first, with zero CDN cache lag)
+    // 1. Primary: Serverless Endpoint (Fast, reliable, zero CORS/rate-limit lag)
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/withdrawals?t=${Date.now()}`, { cache: 'no-store' })
+        .catch(() => fetch(`${getApiBaseUrl()}/bot/withdrawals?t=${Date.now()}`, { cache: 'no-store' }));
+      if (res && res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          data.forEach((w) => {
+            if (w && w.id) collectedMap.set(w.id, w);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[CLOUD_SYNC] /api/withdrawals fetch error:', err);
+    }
+
+    // 2. Direct GitHub Cloud Ledger API (Authoritative real-time persistence)
     try {
       let ghData: any = null;
       try {
@@ -383,58 +439,15 @@ export const cloudSync = {
 
       if (ghData && typeof ghData === 'object') {
         Object.values(ghData).forEach((item: any) => {
-          if (item && item.id && (item.id.startsWith('WDR') || item.type === 'withdrawal')) {
-            collectedMap.set(item.id, item);
+          if (item && item.id && (item.id.toUpperCase().startsWith('WDR') || item.type === 'withdrawal')) {
+            const existing = collectedMap.get(item.id);
+            collectedMap.set(item.id, { ...existing, ...item });
           }
         });
       }
     } catch (e) {
       console.warn('[CLOUD_SYNC] GitHub ledger withdrawals fetch error:', e);
     }
-
-    // 2. Fetch from Ntfy Topic
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 2000);
-      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(tid));
-      if (ntfyRes.ok) {
-        const text = await ntfyRes.text();
-        const lines = text.trim().split('\n');
-        for (const line of lines) {
-          if (!line) continue;
-          try {
-            const obj = JSON.parse(line);
-            if (obj.attachment && obj.attachment.url) {
-              const attRes = await fetch(obj.attachment.url);
-              if (attRes.ok) {
-                const attJson = await attRes.json();
-                const wdr = attJson.withdrawal || (attJson.type === 'NEW_WITHDRAWAL' ? attJson.withdrawal : (attJson.id && attJson.id.startsWith('WDR-') ? attJson : null));
-                if (wdr && wdr.id) collectedMap.set(wdr.id, wdr);
-              }
-            } else if (obj.message) {
-              try {
-                const msg = JSON.parse(obj.message);
-                const wdr = msg.withdrawal || (msg.type === 'NEW_WITHDRAWAL' ? msg.withdrawal : (msg.id && msg.id.startsWith('WDR-') ? msg : null));
-                if (wdr && wdr.id) collectedMap.set(wdr.id, wdr);
-              } catch {}
-            }
-          } catch {}
-        }
-      }
-    } catch {}
-
-    // 3. Try Vercel Serverless Endpoint
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/withdrawals`, { cache: 'no-store' }).catch(() => fetch(`${getApiBaseUrl()}/bot/withdrawals`, { cache: 'no-store' }));
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          data.forEach((w) => {
-            if (w && w.id) collectedMap.set(w.id, w);
-          });
-        }
-      }
-    } catch {}
 
     const list = Array.from(collectedMap.values()).sort((a: any, b: any) => {
       const tA = new Date(a.createdAt || 0).getTime();
@@ -517,14 +530,29 @@ export const cloudSync = {
     }
   },
 
-  // Fetch all deposits from the backend database (with rock-solid GitHub ledger, ntfy & serverless fallback)
+  // Fetch all deposits from backend database (Serverless API first with GitHub ledger fallback)
   async fetchAllDeposits(): Promise<any[]> {
     const collectedMap = new Map<string, any>();
 
-    // 1. Authoritative GitHub Cloud Ledger (Real-Time API first, with zero CDN cache lag)
+    // 1. Primary: Serverless Endpoint (Fast, reliable, zero CORS/rate-limit lag)
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/deposits?t=${Date.now()}`, { cache: 'no-store' })
+        .catch(() => fetch(`${getApiBaseUrl()}/bot/deposits?t=${Date.now()}`, { cache: 'no-store' }));
+      if (res && res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          data.forEach((d) => {
+            if (d && d.id) collectedMap.set(d.id, d);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[CLOUD_SYNC] /api/deposits fetch error:', err);
+    }
+
+    // 2. Direct GitHub Cloud Ledger API (Authoritative real-time persistence)
     try {
       let ghData: any = null;
-      // Direct API fetch with token for instantaneous real-time sync
       try {
         const apiRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json?ref=ledger&t=${Date.now()}`, {
           headers: {
@@ -542,7 +570,6 @@ export const cloudSync = {
         }
       } catch {}
 
-      // Fallback to RAW if API didn't return
       if (!ghData) {
         const ghRes = await fetch(`${GITHUB_LEDGER_RAW}?t=${Date.now()}`, { cache: 'no-store' });
         if (ghRes.ok) {
@@ -552,76 +579,20 @@ export const cloudSync = {
 
       if (ghData && typeof ghData === 'object') {
         Object.values(ghData).forEach((item: any) => {
-          if (item && item.id && !item.id.startsWith('WDR') && item.type !== 'withdrawal') {
-            collectedMap.set(item.id, item);
+          if (item && item.id && !item.id.toUpperCase().startsWith('WDR') && item.type !== 'withdrawal') {
+            const existing = collectedMap.get(item.id);
+            const bestScreenshot = (existing?.paymentScreenshot && existing.paymentScreenshot.startsWith('data:image/'))
+              ? existing.paymentScreenshot
+              : (item.paymentScreenshot && item.paymentScreenshot.startsWith('data:image/'))
+              ? item.paymentScreenshot
+              : (item.paymentScreenshot || existing?.paymentScreenshot || '');
+            collectedMap.set(item.id, { ...existing, ...item, paymentScreenshot: bestScreenshot });
           }
         });
       }
     } catch (e) {
-      console.warn('[CLOUD_SYNC] GitHub ledger fetch error:', e);
+      console.warn('[CLOUD_SYNC] GitHub ledger deposits fetch error:', e);
     }
-
-    // 2. Secondary Real-time Feed: Ntfy Cloud Topic (Stores all deposits + attachments)
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 2000);
-      const ntfyRes = await fetch(`${NTFY_DEPOSITS_PUB}/json?poll=1`, { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(tid));
-      if (ntfyRes.ok) {
-        const text = await ntfyRes.text();
-        const lines = text.trim().split('\n');
-        for (const line of lines) {
-          if (!line) continue;
-          try {
-            const obj = JSON.parse(line);
-            if (obj.attachment && obj.attachment.url) {
-              const attRes = await fetch(obj.attachment.url);
-              if (attRes.ok) {
-                const attJson = await attRes.json();
-                const dep = attJson.deposit || (attJson.type === 'NEW_DEPOSIT' ? attJson.deposit : (attJson.id ? attJson : null));
-                if (dep && dep.id) {
-                  const existing = collectedMap.get(dep.id);
-                  const bestScreenshot = (existing?.paymentScreenshot && existing.paymentScreenshot.startsWith('data:image/'))
-                    ? existing.paymentScreenshot
-                    : (dep.paymentScreenshot && dep.paymentScreenshot.startsWith('data:image/'))
-                    ? dep.paymentScreenshot
-                    : (dep.paymentScreenshot || existing?.paymentScreenshot || '');
-                  collectedMap.set(dep.id, { ...existing, ...dep, paymentScreenshot: bestScreenshot });
-                }
-              }
-            } else if (obj.message) {
-              try {
-                const msg = JSON.parse(obj.message);
-                const dep = msg.deposit || (msg.type === 'NEW_DEPOSIT' ? msg.deposit : (msg.id ? msg : null));
-                if (dep && dep.id) {
-                  const existing = collectedMap.get(dep.id);
-                  const bestScreenshot = (existing?.paymentScreenshot && existing.paymentScreenshot.startsWith('data:image/'))
-                    ? existing.paymentScreenshot
-                    : (dep.paymentScreenshot && dep.paymentScreenshot.startsWith('data:image/'))
-                    ? dep.paymentScreenshot
-                    : (dep.paymentScreenshot || existing?.paymentScreenshot || '');
-                  collectedMap.set(dep.id, { ...existing, ...dep, paymentScreenshot: bestScreenshot });
-                }
-              } catch {}
-            }
-          } catch {}
-        }
-      }
-    } catch (e) {
-      console.warn('[CLOUD_SYNC] ntfy deposit fetch error:', e);
-    }
-
-    // 3. Tertiary: Try Vercel Serverless Endpoint
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/deposits`, { cache: 'no-store' }).catch(() => fetch(`${getApiBaseUrl()}/bot/deposits`, { cache: 'no-store' }));
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          data.forEach((d) => {
-            if (d && d.id) collectedMap.set(d.id, d);
-          });
-        }
-      }
-    } catch {}
 
     const list = Array.from(collectedMap.values()).sort((a: any, b: any) => {
       const tA = new Date(a.createdAt || 0).getTime();
