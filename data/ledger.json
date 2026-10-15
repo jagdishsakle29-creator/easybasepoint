@@ -910,13 +910,15 @@
       "accountNumber": "1234567890",
       "ifscCode": "SBIN0001"
     },
-    "status": "pending",
+    "status": "completed",
     "id": "WDR-642042",
     "type": "withdrawal",
     "createdAt": "2026-10-15T19:37:42.170Z",
     "fee": 0,
     "netAmount": 500,
-    "updatedAt": "2026-10-15T19:37:42.170Z"
+    "updatedAt": "2026-10-15T20:16:48.503Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:16:48.503Z"
   },
   "DEP-TEST999": {
     "id": "DEP-TEST999",
@@ -924,8 +926,11 @@
     "userPhone": "9999999999",
     "paymentScreenshot": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
     "createdAt": "2026-10-15T19:42:17.985Z",
-    "status": "pending_verification",
-    "updatedAt": "2026-10-15T19:42:18.134Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:16:48.503Z",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-15T20:16:48.503Z"
   },
   "WDR-TEST999": {
     "id": "WDR-TEST999",
@@ -938,10 +943,12 @@
     },
     "type": "withdrawal",
     "createdAt": "2026-10-15T19:42:28.300Z",
-    "status": "pending",
+    "status": "completed",
     "fee": 0,
     "netAmount": 500,
     "userId": "",
-    "updatedAt": "2026-10-15T19:42:28.300Z"
+    "updatedAt": "2026-10-15T20:16:48.503Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:16:48.503Z"
   }
 }
