@@ -12,7 +12,9 @@ import {
   Plus,
   MessageCircle,
   Link as LinkIcon,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
@@ -130,32 +132,82 @@ export const TeamPage: React.FC = () => {
       </div>
 
       {/* Large Orange Earning Card */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FF6B00] via-[#FF7E1D] to-[#FFA24D] text-white p-5 sm:p-6 shadow-orange-glow">
-        <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-white/90 uppercase tracking-wider">
-                Your Earning
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-white/25 text-[10px] font-black uppercase">
-                20% Lifetime Bonus
-              </span>
-            </div>
-            <div className="text-3xl sm:text-4xl font-extrabold font-outfit tracking-tight">
-              ₹{wallet.teamCommission.toFixed(2)}
-            </div>
-            <p className="text-[11px] text-white/90">
-              Earn lifetime <strong>20% on every deposit</strong> made by your referred members!
-            </p>
-          </div>
+      {(() => {
+        const referralEarnings = (wallet.teamCommission || 0) > 0 ? (wallet.teamCommission || 0) : (wallet.referralBalance || 0);
+        const minReferralWithdrawal = settings.minReferralWithdrawal || 2000;
+        const isReferralUnlocked = referralEarnings >= minReferralWithdrawal;
+        const progressPercent = Math.min(100, Math.floor((referralEarnings / minReferralWithdrawal) * 100));
 
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-sm flex-shrink-0">
-            <Gift className="w-7 h-7" />
+        return (
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FF6B00] via-[#FF7E1D] to-[#FFA24D] text-white p-5 sm:p-6 shadow-orange-glow space-y-4">
+            <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-white/90 uppercase tracking-wider">
+                    Your Earning
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/25 text-[10px] font-black uppercase">
+                    20% Lifetime Bonus
+                  </span>
+                </div>
+                <div className="text-3xl sm:text-4xl font-extrabold font-outfit tracking-tight">
+                  ₹{referralEarnings.toFixed(2)}
+                </div>
+                <p className="text-[11px] text-white/90">
+                  Earn lifetime <strong>20% on every deposit</strong> made by your referred members!
+                </p>
+              </div>
+
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-sm flex-shrink-0">
+                <Gift className="w-7 h-7" />
+              </div>
+            </div>
+
+            {/* Referral Withdrawal Unlock Progress (Threshold: ₹2,000) */}
+            <div className="relative z-10 pt-3 border-t border-white/25 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="flex items-center gap-1.5">
+                  {isReferralUnlocked ? (
+                    <span className="flex items-center gap-1 text-emerald-100 font-extrabold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                      <span>Withdrawal Unlocked!</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-white font-extrabold">
+                      <Lock className="w-3.5 h-3.5 text-amber-200" />
+                      <span>Withdrawal Unlocks at ₹{minReferralWithdrawal.toLocaleString('en-IN')}</span>
+                    </span>
+                  )}
+                </span>
+                <span className="font-extrabold text-white text-[11px] px-2 py-0.5 rounded-full bg-black/20 backdrop-blur-xs">
+                  {isReferralUnlocked 
+                    ? 'Eligible for Payout' 
+                    : `₹${referralEarnings.toFixed(2)} / ₹${minReferralWithdrawal.toLocaleString('en-IN')}`
+                  }
+                </span>
+              </div>
+
+              {!isReferralUnlocked && (
+                <div className="w-full bg-black/25 rounded-full h-2 overflow-hidden border border-white/20">
+                  <div 
+                    className="bg-white h-full rounded-full transition-all duration-500 shadow-sm"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
+
+              <p className="text-[10px] text-white/90 leading-tight">
+                {isReferralUnlocked
+                  ? '🎉 Badhai! Aapka referral balance ₹2,000 ho chuka hai, aap ise Withdraw page se nikaal sakte hain.'
+                  : `🔒 Referral commission ₹${minReferralWithdrawal.toLocaleString('en-IN')} hone par hi withdraw hoga. (Abhi ₹${Math.max(0, minReferralWithdrawal - referralEarnings).toFixed(2)} aur chahiye).`
+                }
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Statistics Grid */}
       <div className="grid grid-cols-2 gap-3">

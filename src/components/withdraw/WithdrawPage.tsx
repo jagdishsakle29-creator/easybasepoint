@@ -128,11 +128,19 @@ export const WithdrawPage: React.FC = () => {
   const feeAmount = 0.00;
   const netAmount = amount;
 
+  // Referral Lock Calculations
+  const refBal = (wallet.referralBalance || 0) > 0 ? (wallet.referralBalance || 0) : (wallet.teamCommission || 0);
+  const minReferralWithdrawal = settings.minReferralWithdrawal || 2000;
+  const isReferralLocked = refBal > 0 && refBal < minReferralWithdrawal;
+  // If referral earnings are locked (< 2000), user can only withdraw their non-referral balance (game profits / deposits)
+  const withdrawableBalance = Math.max(0, wallet.balance - (isReferralLocked ? refBal : 0));
+
   const handlePercentageSelect = (percent: number) => {
+    const basisBalance = isReferralLocked ? withdrawableBalance : wallet.balance;
     if (percent === 100) {
-      setAmount(parseFloat(wallet.balance.toFixed(2)));
+      setAmount(parseFloat(basisBalance.toFixed(2)));
     } else {
-      const calculated = Math.floor((wallet.balance * percent) / 100);
+      const calculated = Math.floor((basisBalance * percent) / 100);
       setAmount(calculated);
     }
   };
@@ -143,6 +151,11 @@ export const WithdrawPage: React.FC = () => {
     const minAmount = Math.max(200, settings.minWithdrawal || 200);
     if (amount < minAmount) {
       addToast('error', `Minimum withdrawal amount is ₹${minAmount}.`);
+      return;
+    }
+
+    if (isReferralLocked && amount > withdrawableBalance) {
+      addToast('error', `Referral balance of ₹${refBal.toFixed(2)} is locked until it reaches ₹${minReferralWithdrawal.toLocaleString('en-IN')}. Maximum withdrawable right now: ₹${withdrawableBalance.toFixed(2)}`);
       return;
     }
 
@@ -285,18 +298,78 @@ export const WithdrawPage: React.FC = () => {
       </div>
 
       {/* Available Balance Display Card */}
-      <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          AVAILABLE BALANCE
+      <div className="glass-card rounded-3xl p-5 border border-slate-200/80 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            AVAILABLE BALANCE
+          </div>
+          <span className="text-xs font-medium text-slate-500">
+            Min Withdrawal: ₹{settings.minWithdrawal}
+          </span>
         </div>
         <div className="flex items-baseline justify-between mt-1">
           <div className="text-3xl font-extrabold text-[#0B1528] font-outfit">
             ₹{wallet.balance.toFixed(2)}
           </div>
-          <span className="text-xs font-medium text-slate-500">
-            Min: ₹{settings.minWithdrawal}
-          </span>
+          {isReferralLocked && (
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Withdrawable Now</span>
+              <span className="text-base font-extrabold text-emerald-600 font-outfit">
+                ₹{withdrawableBalance.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Referral Lock Notice & Progress Card */}
+        {refBal > 0 && (
+          <div className={`p-3.5 rounded-2xl border transition-all ${
+            isReferralLocked 
+              ? 'bg-amber-50/90 border-amber-200 text-amber-900' 
+              : 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+          }`}>
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold flex items-center gap-1.5">
+                {isReferralLocked ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Referral Commission (Locked until ₹{minReferralWithdrawal.toLocaleString('en-IN')})</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Referral Commission (Unlocked & Ready)</span>
+                  </>
+                )}
+              </span>
+              <span className="font-extrabold font-outfit text-sm">
+                ₹{refBal.toFixed(2)}
+              </span>
+            </div>
+
+            {isReferralLocked ? (
+              <div className="mt-2 space-y-1.5">
+                <div className="w-full bg-amber-200/60 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-amber-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.floor((refBal / minReferralWithdrawal) * 100))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-amber-800">
+                  <span>Current: ₹{refBal.toFixed(2)}</span>
+                  <span className="font-semibold">Target: ₹{minReferralWithdrawal.toLocaleString('en-IN')} (Need ₹{Math.max(0, minReferralWithdrawal - refBal).toFixed(2)} more)</span>
+                </div>
+                <p className="text-[11px] text-amber-700 pt-0.5 leading-snug">
+                  ℹ️ Referral commission ₹2,000 hone ke baad hi withdraw hoga. Aap apna game / profit balance (₹{withdrawableBalance.toFixed(2)}) abhi withdraw kar sakte hain.
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 mt-1">
+                🎉 Badhai! Aapki referral commission ₹{minReferralWithdrawal.toLocaleString('en-IN')} target poori ho chuki hai aur withdraw ke liye available hai.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -384,9 +457,22 @@ export const WithdrawPage: React.FC = () => {
                 setAmount(sanitized === '' ? 0 : parseFloat(sanitized) || 0);
               }}
               placeholder={`Min ₹${settings.minWithdrawal}`}
-              className="w-full pl-9 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200 font-extrabold font-outfit text-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+              className={`w-full pl-9 pr-4 py-3.5 bg-white rounded-2xl border font-extrabold font-outfit text-xl text-slate-900 focus:outline-none focus:ring-2 ${
+                isReferralLocked && amount > withdrawableBalance
+                  ? 'border-rose-400 focus:ring-rose-500'
+                  : 'border-slate-200 focus:ring-[#FF6B00]'
+              }`}
             />
           </div>
+
+          {isReferralLocked && amount > withdrawableBalance && (
+            <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500" />
+              <span>
+                Referral balance of ₹{refBal.toFixed(2)} is locked until ₹{minReferralWithdrawal.toLocaleString('en-IN')}. Max withdrawable now: ₹{withdrawableBalance.toFixed(2)}.
+              </span>
+            </div>
+          )}
 
           {/* Quick Percentage Presets */}
           <div className="grid grid-cols-4 gap-2">

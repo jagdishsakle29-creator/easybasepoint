@@ -157,6 +157,7 @@ export interface RewardSettings {
   highBonusPercent: number; // e.g. 9
   minDeposit?: number; // e.g. 390
   minWithdrawal: number; // e.g. 200
+  minReferralWithdrawal?: number; // e.g. 2000
   withdrawalFeePercent: number; // e.g. 5
   referralL1Percent: number; // e.g. 10
   referralL2Percent: number; // e.g. 5

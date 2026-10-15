@@ -270,6 +270,7 @@ export const defaultSettings: RewardSettings = {
   highBonusPercent: 30.00,
   minDeposit: 350.00,
   minWithdrawal: 200.00,
+  minReferralWithdrawal: 2000.00,
   withdrawalFeePercent: 0.00,
   referralL1Percent: 20.00,
   referralL2Percent: 5.00,

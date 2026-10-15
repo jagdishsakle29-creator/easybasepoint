@@ -102,6 +102,7 @@ export const AdminPanel: React.FC = () => {
   const [feePercent, setFeePercent] = useState(settings.withdrawalFeePercent);
   const [minDeposit, setMinDeposit] = useState(settings.minDeposit || 350);
   const [minWithdraw, setMinWithdraw] = useState(settings.minWithdrawal);
+  const [minReferralWithdraw, setMinReferralWithdraw] = useState(settings.minReferralWithdrawal ?? 2000);
 
   // Gateway form state
   const [adminUpiId, setAdminUpiId] = useState(settings.adminUpiId || 'narwariya321@axl');
@@ -289,6 +290,7 @@ export const AdminPanel: React.FC = () => {
       withdrawalFeePercent: feePercent,
       minDeposit,
       minWithdrawal: minWithdraw,
+      minReferralWithdrawal: minReferralWithdraw,
     });
     addToast('success', 'Platform reward & deposit/withdrawal settings updated!');
   };
@@ -1781,6 +1783,18 @@ export const AdminPanel: React.FC = () => {
                   type="number"
                   value={minWithdraw}
                   onChange={(e) => setMinWithdraw(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500">
+                  Min Referral Withdrawal (INR)
+                </label>
+                <input
+                  type="number"
+                  value={minReferralWithdraw}
+                  onChange={(e) => setMinReferralWithdraw(Number(e.target.value))}
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>

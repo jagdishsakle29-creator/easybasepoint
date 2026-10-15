@@ -1899,6 +1899,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast('error', msg);
       return { success: false, message: msg };
     }
+
+    // 2. Referral Commission 2,000 threshold enforcement
+    const minReferralWithdrawal = Number(settings.minReferralWithdrawal) || 2000;
+    const refBal = Number(wallet.referralBalance || wallet.teamCommission) || 0;
+    const isReferralLocked = refBal > 0 && refBal < minReferralWithdrawal;
+    const nonRefBalance = Math.max(0, parseFloat((wallet.balance - (isReferralLocked ? refBal : 0)).toFixed(2)));
+
+    if (isReferralLocked && amount > nonRefBalance) {
+      const remainingNeeded = (minReferralWithdrawal - refBal).toFixed(2);
+      const msg = `⚠️ Referral Commission requires a minimum of ₹${minReferralWithdrawal.toLocaleString('en-IN')} to withdraw. You currently have ₹${refBal.toFixed(2)} (₹${remainingNeeded} more needed). Max withdrawable from game balance: ₹${nonRefBalance.toFixed(2)}.`;
+      addToast('error', msg);
+      return { success: false, message: msg };
+    }
+
     if (wallet.balance < amount) {
       const msg = `Insufficient balance. Available: ₹${wallet.balance.toFixed(2)}`;
       addToast('error', msg);
@@ -1908,9 +1922,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fee = 0.00; // 0% withdrawal fee (Zero deductions)
     const netAmount = amount;
 
+    const deductRef = refBal >= minReferralWithdrawal ? Math.min(refBal, amount) : 0;
+
     setWallet((prev) => ({
       ...prev,
       balance: parseFloat((prev.balance - amount).toFixed(2)),
+      referralBalance: parseFloat(Math.max(0, (prev.referralBalance || 0) - deductRef).toFixed(2)),
     }));
 
     const newWithdrawal: WithdrawalRequest = {
