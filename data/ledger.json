@@ -765,5 +765,23 @@
     "remark": "cousin",
     "isDemo": false,
     "updatedAt": "2026-10-15T10:41:04.709Z"
+  },
+  "WDR_TEST_1792060927720": {
+    "id": "WDR_TEST_1792060927720",
+    "userId": "USER_TEST_1",
+    "userName": "Test Player",
+    "userPhone": "9876543210",
+    "amount": 1500,
+    "fee": 0,
+    "netAmount": 1500,
+    "method": "bank",
+    "accountDetails": {
+      "accountHolder": "Test Player",
+      "accountNumber": "1234567890",
+      "ifscCode": "HDFC0001234"
+    },
+    "status": "pending",
+    "type": "withdrawal",
+    "createdAt": "2026-10-15T10:42:08.820Z"
   }
 }
