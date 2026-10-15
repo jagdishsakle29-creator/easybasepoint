@@ -746,12 +746,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Merge deposits into React state & storage with STRICT terminal status guarantees
-    if (backendDeps && backendDeps.length > 0) {
+    if (backendDeps) {
       const processedDeps = getProcessedDeposits();
+      const backendIds = new Set(backendDeps.map((b: any) => b.id));
 
       setDeposits((prev) => {
         const map = new Map();
-        prev.forEach((d) => map.set(d.id, d));
+        // Only keep locally created pending deposits that haven't synced to backend yet
+        prev.forEach((d) => {
+          if (d && (d.status === 'pending' || d.status === 'pending_verification') && !backendIds.has(d.id)) {
+            map.set(d.id, d);
+          }
+        });
         backendDeps.forEach((bd: any) => {
           if (!bd || !bd.id) return;
 
@@ -857,12 +863,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Merge withdrawals into React state & storage from backend with strict terminal state guarantees
     const backendWiths = await cloudSync.fetchAllWithdrawals();
-    if (backendWiths && backendWiths.length > 0) {
+    if (backendWiths) {
       const processedWdrs = getProcessedWithdrawals();
+      const backendWithIds = new Set((backendWiths || []).map((bw: any) => bw.id));
 
       setWithdrawals((prev) => {
         const map = new Map();
-        prev.forEach((w) => map.set(w.id, w));
+        // Only keep locally created pending withdrawals that haven't synced yet
+        (prev || []).forEach((w) => {
+          if (w && w.status === 'pending' && !backendWithIds.has(w.id)) {
+            map.set(w.id, w);
+          }
+        });
         backendWiths.forEach((bw: any) => {
           if (!bw || !bw.id) return;
           const existing = map.get(bw.id);
@@ -938,20 +950,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshWithdrawals = useCallback(async (): Promise<WithdrawalRequest[]> => {
     try {
       const backendWiths = await cloudSync.fetchAllWithdrawals().catch(() => []);
-      const localWiths = storage.getWithdrawals();
       const processedWdrs = getProcessedWithdrawals();
+      const backendWithIds = new Set((backendWiths || []).map((bw: any) => bw.id));
 
       setWithdrawals((prev) => {
         const map = new Map<string, WithdrawalRequest>();
-        // 1. Load existing state
+        // Only keep locally created pending withdrawals that haven't synced yet
         (prev || []).forEach((w) => {
-          if (w && w.id) map.set(w.id, w);
+          if (w && w.id && w.status === 'pending' && !backendWithIds.has(w.id)) {
+            map.set(w.id, w);
+          }
         });
-        // 2. Load all storage & transaction-recovered withdrawals
-        (localWiths || []).forEach((lw) => {
-          if (lw && lw.id && !map.has(lw.id)) map.set(lw.id, lw);
-        });
-        // 3. Merge backend cloud withdrawals
+        // Merge backend cloud withdrawals
         (backendWiths || []).forEach((bw: any) => {
           if (!bw || !bw.id) return;
           const existing = map.get(bw.id);
