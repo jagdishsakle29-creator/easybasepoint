@@ -706,5 +706,22 @@
     "credited": true,
     "approvedAt": "2026-10-15T05:06:22.386Z",
     "creditedAt": "2026-10-15T05:06:22.386Z"
+  },
+  "WDR-875129": {
+    "id": "WDR-875129",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 427,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 427,
+    "accountDetails": {
+      "upiId": "Lxn@ptyes"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-15T05:49:26.471Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-15T05:49:26.737Z"
   }
 }
