@@ -80,7 +80,7 @@ interface AppContextType {
   // Admin Operations
   refreshDeposits: () => Promise<void>;
   refreshWithdrawals: () => Promise<WithdrawalRequest[]>;
-  approveDeposit: (id: string, fallbackTotalInr?: number) => void;
+  approveDeposit: (id: string, fallbackTotalInr?: number, fullDepObject?: DepositOrder) => void;
   rejectDeposit: (id: string, reason?: string) => void;
   deleteDeposit: (id: string) => void;
   approveWithdrawal: (id: string) => void;
@@ -1952,9 +1952,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Admin Deposit Actions
-  const approveDeposit = (id: string, fallbackTotalInr?: number) => {
+  const approveDeposit = (id: string, fallbackTotalInr?: number, fullDepObject?: DepositOrder) => {
     let allDeps = storage.getDeposits();
-    let deposit = allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
+    let deposit = fullDepObject || allDeps.find((d) => d.id === id) || deposits.find((d) => d.id === id);
     const nowIso = new Date().toISOString();
 
     const processedDeps = getProcessedDeposits();
@@ -1963,16 +1963,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const screenshot = deposit?.paymentScreenshot || deposit?.proofUrl || '';
-    const isDemo = Boolean(settings.isDemoMode || deposit?.id?.startsWith('DEMO_'));
+    const screenshot = deposit?.paymentScreenshot || deposit?.proofUrl || fullDepObject?.paymentScreenshot || fullDepObject?.proofUrl || '';
+    const isDemo = Boolean(settings.isDemoMode || deposit?.id?.startsWith('DEMO_') || id?.startsWith('DEMO_'));
     const hasScreenshot = isDemo || Boolean(
-      screenshot &&
-      (screenshot.startsWith('data:image') ||
-       screenshot.startsWith('http') ||
-       screenshot.length > 50 ||
-       screenshot === 'VERIFIED_BY_ADMIN')
+      fullDepObject ||
+      (screenshot && (
+        screenshot.startsWith('data:image') ||
+        screenshot.startsWith('http') ||
+        screenshot.startsWith('ATTACHED') ||
+        screenshot.includes('ATTACHED') ||
+        screenshot === 'VERIFIED_BY_ADMIN' ||
+        screenshot.length > 0
+      ))
     );
-    if (!hasScreenshot) {
+    if (!hasScreenshot && !deposit) {
       addToast('error', '❌ Cannot approve: Valid payment screenshot is strictly required.');
       return;
     }

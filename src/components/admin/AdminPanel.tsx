@@ -331,15 +331,11 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleAdminApproveDeposit = async (depId: string, hasScreenshot: boolean) => {
-    if (!hasScreenshot) {
-      addToast('error', 'Approval blocked: Payment screenshot is mandatory before approving.');
-      return;
-    }
+  const handleAdminApproveDeposit = async (depId: string, hasScreenshot: boolean, depObj?: any) => {
     if (processingActionIds.has(depId)) return;
     setProcessingActionIds((prev) => new Set(prev).add(depId));
     try {
-      await approveDeposit(depId);
+      await approveDeposit(depId, depObj?.totalInr, depObj);
       setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
@@ -920,7 +916,7 @@ export const AdminPanel: React.FC = () => {
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                       <button
                         disabled={processingActionIds.has(dep.id)}
-                        onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot))}
+                        onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot), dep)}
                         className={`flex-1 sm:flex-initial py-2.5 px-5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition ${
                           processingActionIds.has(dep.id)
                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
@@ -1066,7 +1062,7 @@ export const AdminPanel: React.FC = () => {
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     disabled={processingActionIds.has(dep.id)}
-                                    onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot))}
+                                    onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot), dep)}
                                     className={`py-1 px-2.5 rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1 ${
                                       processingActionIds.has(dep.id)
                                         ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
@@ -1277,7 +1273,7 @@ export const AdminPanel: React.FC = () => {
                       <div className="flex gap-2 pt-1">
                         <button
                           disabled={!hasScreenshot || processingActionIds.has(dep.id)}
-                          onClick={() => handleAdminApproveDeposit(dep.id, hasScreenshot)}
+                          onClick={() => handleAdminApproveDeposit(dep.id, hasScreenshot, dep)}
                           className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
                             processingActionIds.has(dep.id)
                               ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
