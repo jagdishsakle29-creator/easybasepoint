@@ -293,7 +293,7 @@
       "status": "active",
       "createdAt": "2026-10-15T02:40:40.691Z"
     },
-    "password": "Ansh@8787",
+    "password": "Ansh@87",
     "transactionPin": "123456",
     "wallet": {
       "userId": "usr-1792032040691",
@@ -309,6 +309,24 @@
     },
     "transactions": [
       {
+        "id": "TXN-341399",
+        "userId": "usr-1792032040691",
+        "type": "deposit",
+        "amount": 427,
+        "currency": "INR",
+        "status": "pending",
+        "timestamp": "2026-10-15T02:56:58.804Z",
+        "note": "INR Deposit: ₹350 + 22% Bonus (₹77) = ₹427.00",
+        "referenceId": "DEP-931260",
+        "metadata": {
+          "baseAmount": 350,
+          "bonusInr": 77,
+          "totalAmount": 427,
+          "utrNumber": "032049780380",
+          "method": "INR"
+        }
+      },
+      {
         "id": "TXN-265067",
         "userId": "usr-1792032040691",
         "type": "reward",
@@ -319,7 +337,8 @@
         "note": "₹50 Signup Welcome Cash Bonus"
       }
     ],
-    "updatedAt": "2026-10-15T02:42:44.280Z"
+    "updatedAt": "2026-10-15T16:11:57.640Z",
+    "allowInitialPasswordSet": false
   },
   "7080878379": {
     "user": {
