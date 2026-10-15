@@ -3,6 +3,7 @@ import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkl
 import { useApp } from '../../context/AppContext';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { AppDownloadModal } from './AppDownloadModal';
+import { AdminAccessModal } from './AdminAccessModal';
 import { isAppMode } from '../../utils/appDetector';
 
 interface HeaderProps {
@@ -23,10 +24,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
 
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showAppModal, setShowAppModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const [logoTapCount, setLogoTapCount] = useState(0);
   const tapResetTimerRef = React.useRef<any>(null);
 
-  const handleELogoClick = async (e: React.MouseEvent) => {
+  const handleELogoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (tapResetTimerRef.current) {
       clearTimeout(tapResetTimerRef.current);
@@ -35,32 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
 
     if (nextCount >= 5) {
       setLogoTapCount(0);
-      const key = prompt('🔑 Admin Access: Enter Secret Key (lord12):');
-      if (!key) return;
-      try {
-        const res = await fetch('/api/auth/admin-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key }),
-        });
-        const data = await res.json();
-        if ((data && data.ok && data.token) || key === 'lord12') {
-          if (data?.token) sessionStorage.setItem('ebp_admin_token', data.token);
-          sessionStorage.setItem('ebp_admin_key', key);
-          setActiveTab('admin');
-          addToast('success', '🔓 Secret Admin Panel Unlocked!');
-        } else {
-          addToast('error', '❌ Invalid admin secret key.');
-        }
-      } catch {
-        if (key === 'lord12') {
-          sessionStorage.setItem('ebp_admin_key', 'lord12');
-          setActiveTab('admin');
-          addToast('success', '🔓 Admin Panel Unlocked!');
-        } else {
-          addToast('error', 'Authentication service unavailable.');
-        }
-      }
+      setShowAdminModal(true);
       return;
     }
 
@@ -248,6 +225,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
       <AppDownloadModal 
         isOpen={showAppModal} 
         onClose={() => setShowAppModal(false)} 
+      />
+
+      {/* Secret Admin Access Modal */}
+      <AdminAccessModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
       />
     </>
   );

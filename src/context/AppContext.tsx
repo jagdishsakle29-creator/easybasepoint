@@ -725,8 +725,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         backendDeps.forEach((bd: any) => {
           if (!bd || !bd.id) return;
 
-          // If this deposit was already rejected or deleted by admin, NEVER resurrect it!
-          if (processedDeps[bd.id] === 'rejected' || processedDeps[bd.id] === 'deleted') {
+          // If deposit is rejected, maintain it with rejected status so history is never lost
+          if (processedDeps[bd.id] === 'rejected' || bd.status === 'rejected') {
+            const current = map.get(bd.id);
+            map.set(bd.id, {
+              ...(current || bd),
+              status: 'rejected',
+              credited: false,
+            });
+            return;
+          }
+
+          // Only remove if explicitly marked deleted by admin
+          if (processedDeps[bd.id] === 'deleted') {
             map.delete(bd.id);
             return;
           }
@@ -2221,12 +2232,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deposit = deposits.find((d) => d.id === id);
     if (!deposit) return;
 
-    // Instantly remove and delete from active deposits list
-    const updatedDeposits = deposits.filter((d) => d.id !== id);
+    // Keep rejected deposit in state and storage so it appears under Cancelled tab with clear status
+    const updatedDeposits = deposits.map((d) =>
+      d.id === id ? { ...d, status: 'rejected' as DepositStatus, rejectionReason: reason || 'Rejected by Admin' } : d
+    );
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
-    // Delete from GitHub cloud database immediately
+    // Sync rejection to cloud ledger and notifications
     cloudSync.broadcastApproval(id, 'rejected');
     cloudSync.deleteFromGitHubLedger(id);
 

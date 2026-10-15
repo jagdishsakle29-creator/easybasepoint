@@ -15,6 +15,7 @@ import {
 import { COMPANY_CONFIG, openOfficialTelegramChannel } from '../../config/constants';
 import { useApp } from '../../context/AppContext';
 import { UsdtOtcCard } from '../common/UsdtOtcCard';
+import { AdminAccessModal } from '../common/AdminAccessModal';
 
 interface LandingPageProps {
   onEnterApp: () => void;
@@ -25,9 +26,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
   const { user, wallet, setActiveTab, addToast } = useApp();
 
   const [logoTapCount, setLogoTapCount] = useState(0);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const tapResetTimerRef = React.useRef<any>(null);
 
-  const handleELogoClick = async (e: React.MouseEvent) => {
+  const handleELogoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (tapResetTimerRef.current) {
       clearTimeout(tapResetTimerRef.current);
@@ -36,32 +38,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
 
     if (nextCount >= 5) {
       setLogoTapCount(0);
-      const key = prompt('🔑 Admin Access: Enter Secret Key (lord12):');
-      if (!key) return;
-      try {
-        const res = await fetch('/api/auth/admin-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key }),
-        });
-        const data = await res.json();
-        if ((data && data.ok && data.token) || key === 'lord12') {
-          if (data?.token) sessionStorage.setItem('ebp_admin_token', data.token);
-          sessionStorage.setItem('ebp_admin_key', key);
-          setActiveTab('admin');
-          addToast('success', '🔓 Secret Admin Panel Unlocked!');
-        } else {
-          addToast('error', '❌ Invalid admin secret key.');
-        }
-      } catch {
-        if (key === 'lord12') {
-          sessionStorage.setItem('ebp_admin_key', 'lord12');
-          setActiveTab('admin');
-          addToast('success', '🔓 Admin Panel Unlocked!');
-        } else {
-          addToast('error', 'Authentication service unavailable.');
-        }
-      }
+      setShowAdminModal(true);
       return;
     }
 
@@ -341,6 +318,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
           Official Support: <button onClick={handleJoinTelegram} className="text-sky-400 hover:underline">@easybasepoint on Telegram</button>
         </p>
       </footer>
+
+      {/* Secret Admin Access Modal */}
+      <AdminAccessModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+      />
     </div>
   );
 };

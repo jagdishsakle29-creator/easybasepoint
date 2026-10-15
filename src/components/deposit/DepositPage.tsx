@@ -65,7 +65,7 @@ export const DepositPage: React.FC = () => {
   const [topUpAmount, setTopUpAmount] = useState<number>(350);
   const [utrRef, setUtrRef] = useState<string>('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
-  const [depositStatusFilter, setDepositStatusFilter] = useState<'successful' | 'pending' | 'cancelled' | null>(null);
+  const [depositStatusFilter, setDepositStatusFilter] = useState<'all' | 'successful' | 'pending' | 'cancelled'>('all');
 
   // Mandatory Payment Screenshot State
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
@@ -892,10 +892,9 @@ export const DepositPage: React.FC = () => {
             )}
           </div>
 
-          {/* Recent Deposit Orders Section with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
+          {/* Recent Deposit Orders Section with Clean Look: New on Top, Old at Bottom */}
           {(() => {
             if (!user) return null;
-            const TWENTY_MINS_MS = 20 * 60 * 1000;
             const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
 
             const isOwner = (d: typeof deposits[0]) => {
@@ -914,17 +913,8 @@ export const DepositPage: React.FC = () => {
             const isDepCancelled = (d: typeof deposits[0]) =>
               d.status === 'rejected' || d.status === 'failed' || (d.status as string) === 'cancelled';
 
-            // Filter ONLY current user's deposits AND filter out pending verification orders older than 20 minutes
-            const activeDeposits = deposits.filter((d) => {
-              if (!isOwner(d)) return false;
-              if (isDepPending(d)) {
-                const time = new Date(d.createdAt).getTime();
-                if (!isNaN(time) && Date.now() - time > TWENTY_MINS_MS) {
-                  return false; // Auto-hide expired pending (>20 mins)
-                }
-              }
-              return true;
-            });
+            // Filter ONLY current user's deposits - Never auto-hide pending deposits
+            const activeDeposits = deposits.filter((d) => isOwner(d));
 
             if (activeDeposits.length === 0) return null;
 
@@ -941,10 +931,10 @@ export const DepositPage: React.FC = () => {
             const pendingTotal = pendingDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
             const cancelledTotal = cancelledDeps.reduce((sum, d) => sum + (d.totalInr || d.amount), 0);
 
-            // If user hasn't selected a filter yet, default to pending if any pending exist, otherwise successful (or cancelled)
-            const activeFilter = depositStatusFilter ?? (pendingDeps.length > 0 ? 'pending' : (successfulDeps.length > 0 ? 'successful' : 'cancelled'));
+            const activeFilter = depositStatusFilter || 'all';
 
             const filteredDeps = sortedDeposits.filter((d) => {
+              if (activeFilter === 'all') return true;
               if (activeFilter === 'successful') return isDepSuccessful(d);
               if (activeFilter === 'pending') return isDepPending(d);
               if (activeFilter === 'cancelled') return isDepCancelled(d);
@@ -963,7 +953,7 @@ export const DepositPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* 3 Status Summary Stat Cards */}
+                {/* Status Summary Stat Cards */}
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
@@ -1035,23 +1025,23 @@ export const DepositPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Status Segment Filter Buttons: Successful | Pending | Cancelled */}
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold font-outfit">
+                {/* Status Segment Filter Buttons: All | Successful | Pending | Cancelled */}
+                <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold font-outfit">
                   <button
                     type="button"
-                    onClick={() => setDepositStatusFilter('successful')}
-                    className={`flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
-                      activeFilter === 'successful'
-                        ? 'bg-emerald-600 text-white shadow-xs font-black'
-                        : 'text-emerald-700 hover:text-emerald-900 bg-white/60'
+                    onClick={() => setDepositStatusFilter('all')}
+                    className={`py-1.5 px-1 rounded-lg transition-all text-center cursor-pointer truncate ${
+                      activeFilter === 'all'
+                        ? 'bg-slate-900 text-white shadow-xs font-black'
+                        : 'text-slate-700 hover:text-slate-900 bg-white/60'
                     }`}
                   >
-                    ✅ Successful ({successfulDeps.length})
+                    📋 All ({activeDeposits.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setDepositStatusFilter('pending')}
-                    className={`flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-lg transition-all text-center cursor-pointer truncate ${
                       activeFilter === 'pending'
                         ? 'bg-amber-500 text-white shadow-xs font-black'
                         : 'text-amber-800 hover:text-amber-950 bg-white/60'
@@ -1061,14 +1051,25 @@ export const DepositPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setDepositStatusFilter('successful')}
+                    className={`py-1.5 px-1 rounded-lg transition-all text-center cursor-pointer truncate ${
+                      activeFilter === 'successful'
+                        ? 'bg-emerald-600 text-white shadow-xs font-black'
+                        : 'text-emerald-700 hover:text-emerald-900 bg-white/60'
+                    }`}
+                  >
+                    ✅ Done ({successfulDeps.length})
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setDepositStatusFilter('cancelled')}
-                    className={`flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-lg transition-all text-center cursor-pointer truncate ${
                       activeFilter === 'cancelled'
                         ? 'bg-rose-600 text-white shadow-xs font-black'
                         : 'text-rose-700 hover:text-rose-900 bg-white/60'
                     }`}
                   >
-                    ❌ Cancelled ({cancelledDeps.length})
+                    ❌ Cancel ({cancelledDeps.length})
                   </button>
                 </div>
 

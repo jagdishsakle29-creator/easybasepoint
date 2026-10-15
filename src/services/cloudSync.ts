@@ -128,18 +128,13 @@ async function saveToGitHubLedger(entry: any): Promise<boolean> {
       updatedAt: new Date().toISOString(),
     };
 
-    // Auto-prune entries older than 7 days & strip old screenshots
+    // Keep all ledger entries permanently; only strip large screenshots for old closed entries
     const now = Date.now();
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
     for (const [id, rawItem] of Object.entries(ledger)) {
       const item = rawItem as any;
       if (!item) continue;
       const t = item.createdAt ? new Date(item.createdAt).getTime() : now;
-      if (now - t > SEVEN_DAYS_MS) {
-        delete ledger[id];
-        continue;
-      }
       if ((item.status === 'completed' || item.status === 'rejected') && (now - t > TWO_DAYS_MS)) {
         if (item.paymentScreenshot && item.paymentScreenshot.length > 200) {
           item.paymentScreenshot = 'ARCHIVED_CLOSED';
@@ -211,7 +206,9 @@ export const cloudSync = {
       const rawContent = atob(json.content.replace(/\s/g, ''));
       const ledger = JSON.parse(rawContent || '{}');
       if (ledger[id]) {
-        delete ledger[id];
+        ledger[id].status = 'rejected';
+        ledger[id].credited = false;
+        ledger[id].rejectedAt = new Date().toISOString();
         const updatedRaw = JSON.stringify(ledger, null, 2);
         const b64 = utf8ToBase64(updatedRaw);
         const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/ledger.json`, {
@@ -221,7 +218,7 @@ export const cloudSync = {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            message: `Delete rejected deposit ${id}`,
+            message: `Mark rejected deposit ${id}`,
             content: b64,
             sha,
             branch: 'ledger',

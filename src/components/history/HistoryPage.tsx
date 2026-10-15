@@ -47,13 +47,8 @@ export const HistoryPage: React.FC = () => {
   const combinedItems = useMemo(() => {
     if (!user) return [];
 
-    const TWENTY_MINUTES_MS = 20 * 60 * 1000;
-    const isPendingExpired = (status: string, timeStr?: string) => {
-      const cat = getStatusCategory(status);
-      if (cat !== 'pending') return false;
-      const t = new Date(timeStr || '').getTime();
-      return !isNaN(t) && Date.now() - t > TWENTY_MINUTES_MS;
-    };
+    // Never auto-hide pending items; all orders stay visible until resolved by Admin
+    const isPendingExpired = (_status: string, _timeStr?: string) => false;
 
     const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
 

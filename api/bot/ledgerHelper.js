@@ -229,8 +229,15 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
   }
 
   if (!isApproved) {
-    // Immediate deletion of rejected deposit from cloud database
-    delete data[depId];
+    // Keep rejected deposit in cloud ledger with status rejected so history is preserved
+    data[depId] = {
+      ...existing,
+      id: depId,
+      status: 'rejected',
+      credited: false,
+      rejectionReason: meta.reason || 'Rejected by Admin',
+      rejectedAt: nowIso,
+    };
     await saveLedgerToGitHub(data);
 
     const rejectionEvent = {

@@ -357,25 +357,18 @@ export const storage = {
     if (!raw) return defaultTransactions;
     try {
       const parsed: Transaction[] = JSON.parse(raw);
-      const TWENTY_MINS_MS = 20 * 60 * 1000;
-      const valid = parsed.filter((t) => {
-        const isPending = t.status === 'pending' || (t.status as string) === 'processing' || (t.status as string) === 'pending_verification';
-        if (isPending) {
-          const time = new Date(t.timestamp).getTime();
-          if (!isNaN(time) && Date.now() - time > TWENTY_MINS_MS) {
-            return false; // Auto-hide expired pending (>20m)
-          }
-        }
-        return true;
-      });
-      return valid.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return parsed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch {
       return defaultTransactions;
     }
   },
   setTransactions(transactions: Transaction[]): void {
     const sorted = [...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(sorted));
+    try {
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(sorted));
+    } catch (e) {
+      console.warn('[STORAGE] Quota exceeded saving transactions:', e);
+    }
   },
 
   getUserTransactions(userId: string, userPhone?: string): Transaction[] {
@@ -401,38 +394,29 @@ export const storage = {
     }
   },
   setDeposits(deposits: DepositOrder[]): void {
-    const now = Date.now();
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    
-    // Auto-prune records older than 7 days & strip heavy screenshots for old closed records
+    // Never auto-prune or delete records; preserve all history permanently while optimizing heavy screenshots to save localStorage quota
     const cleaned = (deposits || [])
-      .filter((d) => {
-        if (!d) return false;
-        const t = d.createdAt ? new Date(d.createdAt).getTime() : now;
-        return now - t <= SEVEN_DAYS_MS;
-      })
+      .filter((d) => Boolean(d && d.id))
       .map((d) => {
-        const t = d.createdAt ? new Date(d.createdAt).getTime() : now;
-        const isClosed = d.status === 'completed' || d.status === 'rejected' || d.credited === true;
-        if (isClosed && now - t > 24 * 60 * 60 * 1000) {
-          return {
-            ...d,
-            paymentScreenshot: d.paymentScreenshot && d.paymentScreenshot.length > 200 ? 'ARCHIVED' : d.paymentScreenshot,
-            proofUrl: d.proofUrl && d.proofUrl.length > 200 ? (d.utrNumber || 'ARCHIVED') : d.proofUrl,
-          };
-        }
-        return d;
+        const isHeavyScreenshot = d.paymentScreenshot && d.paymentScreenshot.length > 500;
+        const isHeavyProof = d.proofUrl && d.proofUrl.length > 500;
+        return {
+          ...d,
+          paymentScreenshot: isHeavyScreenshot ? (d.utrNumber ? `ATTACHED_${d.utrNumber}` : 'ATTACHED') : d.paymentScreenshot,
+          proofUrl: isHeavyProof ? (d.utrNumber ? `ATTACHED_${d.utrNumber}` : 'ATTACHED') : d.proofUrl,
+        };
       });
 
     const sorted = [...cleaned].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     try {
       localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(sorted));
     } catch (e) {
-      console.warn('[STORAGE] LocalStorage quota exceeded for deposits, archiving completed screenshots:', e);
+      console.warn('[STORAGE] LocalStorage quota exceeded for deposits:', e);
       try {
         const light = sorted.map((d) => ({
           ...d,
-          paymentScreenshot: (d.status === 'pending' || d.status === 'pending_verification') ? d.paymentScreenshot : '',
+          paymentScreenshot: '',
+          proofUrl: d.utrNumber || '',
         }));
         localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(light));
       } catch {}

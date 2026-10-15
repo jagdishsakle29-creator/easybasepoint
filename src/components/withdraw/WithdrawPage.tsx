@@ -804,10 +804,9 @@ export const WithdrawPage: React.FC = () => {
         </button>
       </form>
 
-      {/* Recent Withdrawal Requests with Clean Look: New on Top, Old at Bottom, Expired Pending (>20m) Hidden */}
+      {/* Recent Withdrawal Requests with Clean Look: New on Top, Old at Bottom */}
       {(() => {
         if (!user) return null;
-        const TWENTY_MINS_MS = 20 * 60 * 1000;
         const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
 
         const isOwner = (w: typeof withdrawals[0]) => {
@@ -820,13 +819,9 @@ export const WithdrawPage: React.FC = () => {
         };
 
         const isWithPending = (w: typeof withdrawals[0]) => w.status === 'pending' || w.status === 'processing';
-        const isWithExpired = (w: typeof withdrawals[0]) => {
-          if (!isWithPending(w)) return false;
-          const time = new Date(w.createdAt).getTime();
-          return !isNaN(time) && (Date.now() - time > TWENTY_MINS_MS);
-        };
 
-        const activeWithdrawals = withdrawals.filter((w) => isOwner(w) && !isWithExpired(w));
+        // Keep all user withdrawals visible permanently until resolved by Admin
+        const activeWithdrawals = withdrawals.filter((w) => isOwner(w));
         if (activeWithdrawals.length === 0) return null;
 
         const sortedWiths = [...activeWithdrawals].sort(

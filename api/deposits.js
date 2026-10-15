@@ -32,10 +32,7 @@ async function saveLedger(data, sha) {
     for (const [id, item] of Object.entries(data || {})) {
       if (!item) continue;
       const createdTime = item.createdAt ? new Date(item.createdAt).getTime() : now;
-      if (now - createdTime > SEVEN_DAYS_MS) {
-        delete data[id];
-        continue;
-      }
+      // Never delete history items! Only archive bulky screenshots for old closed records to keep JSON light
       if ((item.status === "completed" || item.status === "rejected") && (now - createdTime > TWO_DAYS_MS)) {
         if (item.paymentScreenshot && item.paymentScreenshot.length > 200) item.paymentScreenshot = "ARCHIVED_CLOSED";
         if (item.proofUrl && item.proofUrl.length > 200) item.proofUrl = item.utrNumber || "ARCHIVED_CLOSED";
