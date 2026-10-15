@@ -118,7 +118,7 @@ export const AdminPanel: React.FC = () => {
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
   const [processingActionIds, setProcessingActionIds] = useState<Set<string>>(new Set());
-  const [currentAdminKey, setCurrentAdminKey] = useState(sessionStorage.getItem('ebp_admin_key') || 'lord12');
+  const [currentAdminKey, setCurrentAdminKey] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
@@ -1798,9 +1798,9 @@ export const AdminPanel: React.FC = () => {
             </button>
           </form>
 
-          {/* Admin Security & Password Recovery */}
-          <div className="glass-card rounded-3xl p-5 space-y-4 border border-amber-300/80 bg-gradient-to-br from-white to-amber-50/30">
-            <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+          {/* Admin Security & Password Settings */}
+          <div className="glass-card rounded-3xl p-5 space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center">
                   <Lock className="w-4 h-4" />
@@ -1810,29 +1810,13 @@ export const AdminPanel: React.FC = () => {
                     Admin Password & Security Settings
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Recover, reset, or verify your administrator credentials
+                    Update or verify administrator security credentials
                   </p>
                 </div>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 Active Session
               </span>
-            </div>
-
-            <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-2">
-              <div className="font-bold flex items-center gap-1.5">
-                <span>🔑 Admin Login Credentials:</span>
-              </div>
-              <div className="font-mono text-xs bg-white/90 p-2.5 rounded-xl border border-amber-200 flex items-center justify-between">
-                <span>Default Admin Password:</span>
-                <strong className="text-orange-600 font-black tracking-wider text-sm">lord12</strong>
-              </div>
-              <p className="text-[11px] text-slate-600">
-                <strong>Quick Direct Link:</strong> Access the admin panel at any time by navigating to <code className="bg-white px-1.5 py-0.5 rounded text-orange-600 border border-amber-200">/?admin=lord12</code> in your browser.
-              </p>
-              <p className="text-[11px] text-slate-600">
-                <strong>Custom Production Password:</strong> Set <code className="bg-white px-1.5 py-0.5 rounded text-orange-600 border border-amber-200">ADMIN_SECRET_KEY</code> in your Vercel / server environment variables, or update it below.
-              </p>
             </div>
 
             {/* Password Reset Form */}
@@ -1846,10 +1830,10 @@ export const AdminPanel: React.FC = () => {
                     Current Admin Password / Key
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     value={currentAdminKey}
                     onChange={(e) => setCurrentAdminKey(e.target.value)}
-                    placeholder="Enter current password (default: lord12)"
+                    placeholder="Enter current password"
                     className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
                   />
                 </div>
@@ -1893,7 +1877,7 @@ export const AdminPanel: React.FC = () => {
                         if (data.token) {
                           sessionStorage.setItem('ebp_admin_token', data.token);
                         }
-                        setCurrentAdminKey(newAdminPassword.trim());
+                        setCurrentAdminKey('');
                         setNewAdminPassword('');
                         addToast('success', 'Admin password changed successfully!');
                       } else {
@@ -1917,15 +1901,19 @@ export const AdminPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={async () => {
+                    if (!currentAdminKey.trim()) {
+                      addToast('error', 'Please enter your current admin password.');
+                      return;
+                    }
                     try {
                       const res = await fetch('/api/auth/admin-verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: currentAdminKey }),
+                        body: JSON.stringify({ key: currentAdminKey.trim() }),
                       });
                       const data = await res.json();
                       if (data.ok && data.success) {
-                        addToast('success', `Password verified! Key "${currentAdminKey}" is valid.`);
+                        addToast('success', 'Admin key verified successfully!');
                       } else {
                         addToast('error', 'Password check failed: ' + (data.error || 'Invalid key'));
                       }

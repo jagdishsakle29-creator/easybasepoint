@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Copy, 
@@ -11,17 +11,33 @@ import {
   ExternalLink,
   Plus,
   MessageCircle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
 import { TeamMember } from '../../types';
 
 export const TeamPage: React.FC = () => {
-  const { user, wallet, team, settings, addToast } = useApp();
+  const { user, wallet, team, settings, addToast, refreshAccountsFromCloud } = useApp();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTier, setActiveTier] = useState<'ALL' | 1 | 2>('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Sync latest cloud registrations when Team page is opened
+  useEffect(() => {
+    refreshAccountsFromCloud?.();
+  }, [refreshAccountsFromCloud]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshAccountsFromCloud?.();
+    setTimeout(() => {
+      setIsRefreshing(false);
+      addToast('info', 'Team members synced!');
+    }, 400);
+  };
 
   const referralCode = user?.referralCode || 'EBP-98241';
   const referralUrl = typeof window !== 'undefined' ? `${window.location.origin}/?ref=${referralCode}` : `/?ref=${referralCode}`;
@@ -97,7 +113,17 @@ export const TeamPage: React.FC = () => {
     <div className="space-y-4 pb-20 animate-fadeIn">
       {/* Page Title */}
       <div className="flex items-center justify-between px-1">
-        <h1 className="text-xl font-black text-[#0B1528] font-outfit">Team Referral</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-black text-[#0B1528] font-outfit">Team Referral</h1>
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="p-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition border border-orange-200 cursor-pointer active:scale-95"
+            title="Refresh team members from cloud"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
         <span className="text-xs font-black text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
           🔥 Direct: {settings.referralL1Percent}% Lifetime | L2: {settings.referralL2Percent}%
         </span>

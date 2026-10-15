@@ -873,6 +873,36 @@ export const cloudSync = {
   },
 
   /**
+   * Fetch All Cloud Registered Accounts (Used for Team Referrals, Direct Commission & Admin Verification)
+   */
+  async fetchAllCloudAccounts(): Promise<RegisteredAccount[]> {
+    // 1. Direct GitHub data/accounts.json on ledger branch (raw, fast, highly available)
+    try {
+      const ghRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/accounts.json?t=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (ghRes.ok) {
+        const accounts = await ghRes.json();
+        const accountList: RegisteredAccount[] = Object.values(accounts || {});
+        return accountList.filter((a) => a && a.user);
+      }
+    } catch {}
+
+    // 2. Serverless /api/auth/account?all=true endpoint fallback
+    try {
+      const res = await fetch(`/api/auth/account?all=true&t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.accounts)) {
+          return json.accounts.filter((a: any) => a && a.user);
+        }
+      }
+    } catch {}
+
+    return [];
+  },
+
+  /**
    * Cloud Account Registry & Cross-Device Account Recovery
    */
   async fetchCloudAccount(query: string): Promise<RegisteredAccount | null> {

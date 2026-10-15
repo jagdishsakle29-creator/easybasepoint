@@ -168,21 +168,6 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <div className="flex items-center justify-between mt-2 px-1">
-              <span className="text-[11px] text-slate-400">
-                Default key: <span className="text-amber-400 font-mono font-bold">lord12</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminKey('lord12');
-                  if (errorMessage) setErrorMessage('');
-                }}
-                className="text-[11px] text-orange-400 hover:text-orange-300 font-bold transition cursor-pointer"
-              >
-                Use Quick Key
-              </button>
-            </div>
           </div>
 
           {/* Action Buttons */}

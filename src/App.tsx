@@ -63,7 +63,9 @@ const AppContent: React.FC = () => {
           if (user.referralCode && user.referralCode.trim().toUpperCase() === cleanRef) {
             addToast('info', 'ℹ️ This is your own referral link. Share it with friends to earn 20% commission!');
           } else {
-            addToast('info', `ℹ️ Referral invitation (${cleanRef}) detected! Sign out to register a new account.`);
+            addToast('info', `ℹ️ Referral invitation (${cleanRef}) detected!`);
+            setAuthInitialMode('register');
+            setIsAuthOpen(true);
           }
         }
       }

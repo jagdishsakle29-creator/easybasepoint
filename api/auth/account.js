@@ -62,8 +62,14 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 1. GET: Lookup account by phone, email, or userId
+  // 1. GET: Lookup account by phone, email, or userId, OR return all accounts if all=true
   if (req.method === 'GET') {
+    if (req.query.all === 'true') {
+      const { data: accounts } = await fetchGitHubFile(ACCOUNTS_PATH);
+      const accountList = Object.values(accounts || {}).filter(a => a && a.user);
+      return res.status(200).json({ ok: true, count: accountList.length, accounts: accountList });
+    }
+
     const query = (req.query.query || req.query.phone || req.query.email || '').trim().toLowerCase();
     const queryDigits = cleanDigits(query);
 

@@ -57,6 +57,7 @@ interface AppContextType {
   register: (name: string, email: string, phone: string, pass: string, refCode?: string, pin?: string) => Promise<{ success: boolean; message: string; alreadyExists?: boolean }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
+  refreshAccountsFromCloud: () => Promise<void>;
   
   // Transactions & Flows
   buyQuota: (pkgOrId: QuotaPackage | string, idempotencyKey?: string) => { success: boolean; message: string; transaction?: Transaction };
@@ -268,7 +269,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return teamList;
   }, [settings.referralL1Percent, settings.referralL2Percent]);
 
-  // Synchronize team and wallet team stats whenever user or deposits change
+  // Real-time Cloud Account Registry Sync (Fetches referred members from all devices)
+  const [accountsVersion, setAccountsVersion] = useState(0);
+
+  const refreshAccountsFromCloud = useCallback(async () => {
+    try {
+      const cloudAccounts = await cloudSync.fetchAllCloudAccounts();
+      if (cloudAccounts && cloudAccounts.length > 0) {
+        storage.syncAccounts(cloudAccounts);
+        setAccountsVersion((v) => v + 1);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshAccountsFromCloud();
+    const interval = setInterval(refreshAccountsFromCloud, 10000);
+    const handleForceRefresh = () => refreshAccountsFromCloud();
+    window.addEventListener('ebp:refresh-accounts', handleForceRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('ebp:refresh-accounts', handleForceRefresh);
+    };
+  }, [refreshAccountsFromCloud]);
+
+  // Synchronize team and wallet team stats whenever user, deposits or accounts change
   useEffect(() => {
     if (user) {
       const liveTeam = buildTeamForUser(user);
@@ -302,7 +327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updated;
       });
     }
-  }, [user, deposits, buildTeamForUser]);
+  }, [user, deposits, buildTeamForUser, accountsVersion]);
 
   // Real-time cross-tab synchronization (e.g. Admin approves in one tab, Game wallet updates in other tab)
   useEffect(() => {
@@ -1362,46 +1387,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanPass = pass.trim();
 
     // Check if account already exists locally or in cloud
-    let existingAccount = storage.findAccount(phone) || (email ? storage.findAccount(email) : null);
+    const cleanDigits = phone.replace(/[^0-9]/g, '');
+    let existingAccount = storage.findAccount(cleanDigits) || (email ? storage.findAccount(cleanEmail) : null);
     if (!existingAccount) {
-      const cloudAcc = await cloudSync.fetchCloudAccount(phone);
+      const cloudAcc = await cloudSync.fetchCloudAccount(cleanDigits);
       if (cloudAcc) {
         existingAccount = cloudAcc;
       }
     }
 
-    // IF ACCOUNT ALREADY EXISTS (prevent duplicate block / claim account seamlessly):
+    // IF ACCOUNT ALREADY EXISTS: Stop and inform user to sign in
     if (existingAccount) {
-      const updatedUser: User = {
-        ...existingAccount.user,
-        name: name.trim() || existingAccount.user.name,
-        email: cleanEmail || existingAccount.user.email,
-        phone: cleanPhone || existingAccount.user.phone,
-        transactionPin: cleanPin || existingAccount.transactionPin || existingAccount.user.transactionPin,
+      addToast('error', '⚠️ This mobile number is already registered. Please Sign In.');
+      return { 
+        success: false, 
+        alreadyExists: true, 
+        message: 'This mobile number is already registered. Please tap "Sign In" above to access your account.' 
       };
-
-      const updatedAccount: RegisteredAccount = {
-        ...existingAccount,
-        user: updatedUser,
-        password: cleanPass || existingAccount.password,
-        transactionPin: cleanPin || existingAccount.transactionPin,
-        allowInitialPasswordSet: false,
-      };
-
-      storage.saveAccount(updatedAccount);
-      cloudSync.saveCloudAccount(updatedAccount);
-
-      setUser(updatedUser);
-      setWallet(updatedAccount.wallet || defaultWallet);
-      storage.setUser(updatedUser);
-      storage.setWallet(updatedAccount.wallet || defaultWallet);
-      if (updatedAccount.transactions && updatedAccount.transactions.length > 0) {
-        setTransactions(updatedAccount.transactions);
-      }
-
-      addToast('success', `Welcome back, ${updatedUser.name}! Account connected successfully.`);
-      window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
-      return { success: true, message: 'Account connected successfully' };
     }
 
     const cleanRef = (refCode || '').trim().toUpperCase();
@@ -1454,7 +1456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Save registered account to local persistence AND cloud
     storage.saveAccount(newAccount);
-    cloudSync.saveCloudAccount(newAccount);
+    await cloudSync.saveCloudAccount(newAccount);
 
     // If registered with a referral code, link and increment referrer's team
     if (cleanRef) {
@@ -1476,12 +1478,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    // Immediately isolate and switch active session to new account
     setUser(newUser);
     setWallet(initialWallet);
+    setTeam([]);
     storage.setUser(newUser);
     storage.setWallet(initialWallet);
-
+    storage.setTeam([]);
     setTransactions([welcomeTx]);
+
+    // Force background account list refresh
+    refreshAccountsFromCloud();
+
     addToast('success', 'Account registered! ₹50 Welcome Bonus credited to your wallet!');
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     return { success: true, message: 'Registration successful' };
@@ -2459,6 +2467,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         register,
         logout,
         updateProfile,
+        refreshAccountsFromCloud,
         buyQuota,
         submitInrDeposit,
         submitUsdtDeposit,

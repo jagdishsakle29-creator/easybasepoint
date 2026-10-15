@@ -35,7 +35,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   isForced = false 
 }) => {
-  const { login, register, addToast, user } = useApp();
+  const { login, register, logout, addToast, user } = useApp();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
 
   // Form states
@@ -238,6 +238,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="p-3 bg-rose-950/80 rounded-2xl border-2 border-rose-500 text-rose-200 font-bold text-xs flex items-start gap-2.5 shadow-lg animate-fadeIn">
             <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
             <span className="leading-snug">{formError}</span>
+          </div>
+        )}
+
+        {/* Currently logged-in status banner */}
+        {user && (
+          <div className="p-3 bg-blue-950/70 rounded-2xl border border-blue-500/40 flex items-center justify-between text-xs">
+            <div className="text-slate-300">
+              <span className="text-[10px] uppercase font-bold text-blue-400 block">Logged In Account:</span>
+              <span className="font-bold text-white">{user.name} ({user.phone || user.email})</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                addToast('info', 'Logged out. You can now register or sign into another account.');
+              }}
+              className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              Log Out
+            </button>
           </div>
         )}
 
@@ -555,7 +575,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {mode === 'login'
                     ? '⚡ Sign In & Enter EasyBasePoint'
                     : mode === 'register'
-                    ? '🎁 Verify WhatsApp & Claim ₹50 Bonus'
+                    ? '🎁 Complete Registration (+₹50 Bonus)'
                     : 'Send WhatsApp Reset Link'}
                 </span>
                 <ArrowRight className="w-4 h-4" />

@@ -670,6 +670,38 @@ export const storage = {
     }
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
   },
+  syncAccounts(incoming: RegisteredAccount[]): void {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    const existing = this.getAccounts();
+    const map = new Map<string, RegisteredAccount>();
+
+    // Index existing
+    existing.forEach((a) => {
+      if (!a?.user) return;
+      const phoneDigits = (a.user.phone || '').replace(/[^0-9]/g, '');
+      const key = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : (a.user.id || a.user.email);
+      if (key) map.set(key, a);
+    });
+
+    // Merge incoming
+    incoming.forEach((a) => {
+      if (!a?.user) return;
+      const phoneDigits = (a.user.phone || '').replace(/[^0-9]/g, '');
+      const key = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : (a.user.id || a.user.email);
+      if (key) {
+        const prev = map.get(key);
+        map.set(key, {
+          ...prev,
+          ...a,
+          user: { ...(prev?.user || {}), ...a.user },
+          wallet: { ...(prev?.wallet || {}), ...a.wallet },
+        });
+      }
+    });
+
+    const merged = Array.from(map.values());
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(merged));
+  },
   findAccountByReferralCode(code: string): RegisteredAccount | undefined {
     if (!code) return undefined;
     const clean = code.trim().toLowerCase();
@@ -682,67 +714,31 @@ export const storage = {
     const clean = emailOrPhoneOrId.trim().toLowerCase();
     const cleanDigits = emailOrPhoneOrId.replace(/[^0-9]/g, '');
 
-    // 1. Check direct ID or Referral Code match in accounts
-    const byIdOrRef = accounts.find((a) => {
-      if (!a?.user) return false;
-      const idMatch = a.user.id && a.user.id.trim().toLowerCase() === clean;
-      const refMatch = a.user.referralCode && a.user.referralCode.trim().toLowerCase() === clean;
-      return idMatch || refMatch;
-    });
-    if (byIdOrRef) return byIdOrRef;
+    // 1. Strict ID Match
+    const byId = accounts.find((a) => a?.user?.id && a.user.id.trim().toLowerCase() === clean);
+    if (byId) return byId;
 
-    // 2. Check phone, email, or full name match in accounts
-    const byPhoneOrEmailOrName = accounts.find((a) => {
+    // 2. Strict Phone (exact 10 digits) or Strict Email Match
+    const byPhoneOrEmail = accounts.find((a) => {
       if (!a || !a.user) return false;
       const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
-      const aName = (a.user.name || '').toLowerCase().trim();
-      
-      // Check phone match (match last 10 digits or exact)
-      if (cleanDigits.length >= 8 && aPhone.length >= 8) {
-        if (aPhone.endsWith(cleanDigits.slice(-10)) || cleanDigits.endsWith(aPhone.slice(-10)) || aPhone === cleanDigits) {
+
+      // Check phone match (strictly match last 10 digits)
+      if (cleanDigits.length >= 10 && aPhone.length >= 10) {
+        if (aPhone.slice(-10) === cleanDigits.slice(-10)) {
           return true;
         }
       }
-      // Check email match (exact or prefix)
-      if (aEmail && (aEmail === clean || aEmail.split('@')[0] === clean || (clean.includes('@') && clean === aEmail))) {
+
+      // Check exact email match
+      if (clean.includes('@') && aEmail && aEmail === clean) {
         return true;
       }
-      // Check user name match
-      if (clean.length >= 3 && aName && (aName === clean || aName.includes(clean) || clean.includes(aName))) {
-        return true;
-      }
+
       return false;
     });
-    if (byPhoneOrEmailOrName) return byPhoneOrEmailOrName;
-
-    // 3. Fallback: Check currently active user in localStorage (heals any local storage desync)
-    const currentUser = this.getUser();
-    if (currentUser) {
-      const uPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
-      const uEmail = (currentUser.email || '').toLowerCase().trim();
-      const uName = (currentUser.name || '').toLowerCase().trim();
-      const uId = (currentUser.id || '').toLowerCase().trim();
-      const uRef = (currentUser.referralCode || '').toLowerCase().trim();
-
-      const matches =
-        (cleanDigits.length >= 8 && uPhone.length >= 8 && (uPhone.endsWith(cleanDigits.slice(-10)) || cleanDigits.endsWith(uPhone.slice(-10)))) ||
-        (uEmail && (uEmail === clean || uEmail.split('@')[0] === clean)) ||
-        (clean.length >= 3 && uName && (uName === clean || uName.includes(clean))) ||
-        (uId && uId === clean) ||
-        (uRef && uRef === clean);
-
-      if (matches) {
-        const reconstructed: RegisteredAccount = {
-          user: currentUser,
-          wallet: this.getWallet(),
-          transactions: this.getUserTransactions(currentUser.id, currentUser.phone),
-          allowInitialPasswordSet: true,
-        };
-        this.saveAccount(reconstructed);
-        return reconstructed;
-      }
-    }
+    if (byPhoneOrEmail) return byPhoneOrEmail;
 
     return undefined;
   },
