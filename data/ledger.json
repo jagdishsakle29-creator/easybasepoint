@@ -826,5 +826,22 @@
     "rejectionReason": "Payout Rejected by Admin - Refunded to Game Balance",
     "rejectedAt": "2026-10-15T10:43:20.468Z",
     "updatedAt": "2026-10-15T10:43:20.468Z"
+  },
+  "WDR-569032": {
+    "id": "WDR-569032",
+    "userId": "usr-1789220593374",
+    "userName": "YOUTUBE Bro",
+    "userPhone": "9630020285",
+    "amount": 6100,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 6100,
+    "accountDetails": {
+      "upiId": "Lxn@axl"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-15T10:45:38.701Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-15T10:45:38.881Z"
   }
 }
