@@ -441,5 +441,47 @@
       }
     ],
     "updatedAt": "2026-10-15T16:59:24.234Z"
+  },
+  "9277389208": {
+    "user": {
+      "id": "usr-1792085192598",
+      "name": "Manas Singh",
+      "email": "manassingh9277@gmail.com",
+      "phone": "9277389208",
+      "referralCode": "EBP-31441",
+      "referredBy": "EBP-91675",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "123456",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-15T17:26:32.598Z"
+    },
+    "password": "manaS@9214",
+    "transactionPin": "123456",
+    "wallet": {
+      "userId": "usr-1792085192598",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-653113",
+        "userId": "usr-1792085192598",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-15T17:26:32.611Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-15T17:26:33.175Z"
   }
 }
