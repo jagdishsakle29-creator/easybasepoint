@@ -746,5 +746,22 @@
     "credited": true,
     "approvedAt": "2026-10-15T06:12:25.653Z",
     "creditedAt": "2026-10-15T06:12:25.653Z"
+  },
+  "WDR-222596": {
+    "id": "WDR-222596",
+    "userId": "usr-1791780128094",
+    "userName": "Sonu",
+    "userPhone": "9179588609",
+    "amount": 450,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 450,
+    "accountDetails": {
+      "upiId": "9770326959-2@ybl"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-15T09:03:14.218Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-15T09:03:15.733Z"
   }
 }
