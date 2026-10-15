@@ -869,20 +869,23 @@
     "creditedAt": "2026-10-15T18:07:29.752Z"
   },
   "WDR-688603": {
+    "amount": 477,
+    "totalInr": 0,
+    "method": "upi",
+    "userPhone": "9277389208",
+    "utrNumber": "",
+    "createdAt": "2026-10-15T18:08:26.545Z",
     "id": "WDR-688603",
     "userId": "usr-1792085192598",
     "userName": "Manas Singh",
-    "userPhone": "9277389208",
-    "amount": 477,
-    "method": "upi",
     "fee": 0,
     "netAmount": 477,
     "accountDetails": {
       "upiId": "9277389208@mbkns"
     },
-    "status": "pending",
-    "createdAt": "2026-10-15T18:08:26.545Z",
+    "status": "completed",
     "type": "withdrawal",
-    "updatedAt": "2026-10-15T18:08:26.985Z"
+    "updatedAt": "2026-10-15T18:12:22.799Z",
+    "action": "approved"
   }
 }
