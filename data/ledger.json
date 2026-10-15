@@ -91,8 +91,10 @@
     "accountDetails": {
       "upiId": "paytm.s2vw1k6@pty"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-11T16:01:44.592Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:14:36.392Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:14:36.392Z"
   },
   "WDR_TEST_1791736229630": {
     "id": "WDR_TEST_1791736229630",
@@ -256,8 +258,10 @@
     "accountDetails": {
       "upiId": "lvbhg@axl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-12T15:35:20.359Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:14:36.392Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:14:36.392Z"
   },
   "WDR-640956": {
     "amount": 200,
@@ -320,8 +324,10 @@
     "accountDetails": {
       "upiId": "9770326959-2@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-12T16:07:39.440Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:14:36.392Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:14:36.392Z"
   },
   "WDR-726036": {
     "amount": 250,
@@ -380,8 +386,10 @@
     "accountDetails": {
       "upiId": "9770326959@ybl"
     },
-    "status": "pending",
-    "updatedAt": "2026-10-13T01:00:34.686Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:14:36.392Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:14:36.392Z"
   },
   "WDR-637444": {
     "amount": 357,
@@ -516,8 +524,10 @@
     "accountDetails": {
       "upiId": "Lxn@ptyes "
     },
-    "status": "pending",
-    "updatedAt": "2026-10-14T13:22:10.545Z"
+    "status": "completed",
+    "updatedAt": "2026-10-15T20:14:36.392Z",
+    "action": "approved",
+    "approvedAt": "2026-10-15T20:14:36.392Z"
   },
   "WDR-890677": {
     "amount": 277,
