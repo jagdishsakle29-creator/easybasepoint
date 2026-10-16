@@ -488,5 +488,46 @@
       }
     ],
     "updatedAt": "2026-10-15T17:29:22.215Z"
+  },
+  "8865888901": {
+    "user": {
+      "id": "usr-1792133872061",
+      "name": "Sudhir Pal",
+      "email": "sp4584764@gmail.com",
+      "phone": "8865888901",
+      "referralCode": "EBP-32516",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "123456",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-16T06:57:52.075Z"
+    },
+    "password": "Raja9090",
+    "transactionPin": "123456",
+    "wallet": {
+      "userId": "usr-1792133872061",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-352512",
+        "userId": "usr-1792133872061",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-16T06:57:52.086Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-16T06:57:54.351Z"
   }
 }
