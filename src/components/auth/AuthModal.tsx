@@ -161,7 +161,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setFormError('');
           onClose();
         } else if (res.alreadyExists) {
-          setFormError('⚠️ Account already registered! This mobile number is already registered. Please tap "Sign In" above.');
+          // Attempt auto-login if they entered their correct password
+          const autoRes = await login(cleanDigits, password);
+          if (autoRes.success) {
+            addToast('success', '✓ Welcome back! Logged in successfully.');
+            setFormError('');
+            onClose();
+          } else {
+            setMode('login');
+            setLoginCredential(cleanDigits);
+            setFormError('⚠️ Yeh mobile number pehle se registered hai! Kripya apna password enter karke Sign In karein.');
+            addToast('info', 'Account already exists. Please Sign In with your password.');
+          }
         } else {
           setFormError(res.message || 'Registration failed.');
         }

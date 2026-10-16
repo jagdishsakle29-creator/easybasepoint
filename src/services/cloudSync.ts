@@ -891,7 +891,8 @@ export const cloudSync = {
   async fetchCloudAccount(query: string): Promise<RegisteredAccount | null> {
     if (!query) return null;
     const cleanQ = query.trim().toLowerCase();
-    const cleanDigits = query.replace(/[^0-9]/g, '');
+    const isEmail = cleanQ.includes('@');
+    const cleanDigits = isEmail ? '' : query.replace(/[^0-9]/g, '');
 
     // 1. Try serverless /api/auth/account endpoint
     try {
@@ -916,7 +917,7 @@ export const cloudSync = {
           const aEmail = (acc.user.email || '').toLowerCase().trim();
           const aId = (acc.user.id || '').trim();
 
-          if (cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) return true;
+          if (!isEmail && cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) return true;
           if (cleanQ.includes('@') && aEmail === cleanQ) return true;
           if (aId && aId === cleanQ) return true;
           return false;
@@ -934,7 +935,7 @@ export const cloudSync = {
           const it = item as any;
           if (!it) continue;
           const itPhone = (it.userPhone || '').replace(/[^0-9]/g, '');
-          if (cleanDigits.length >= 10 && itPhone.length >= 10 && itPhone.endsWith(cleanDigits.slice(-10))) {
+          if (!isEmail && cleanDigits.length >= 10 && itPhone.length >= 10 && itPhone.endsWith(cleanDigits.slice(-10))) {
             const reconstructed: RegisteredAccount = {
               user: {
                 id: it.userId || `usr-${Date.now()}`,

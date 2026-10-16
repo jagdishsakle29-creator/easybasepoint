@@ -783,7 +783,8 @@ export const storage = {
     if (!emailOrPhoneOrId) return undefined;
     const accounts = this.getAccounts();
     const clean = emailOrPhoneOrId.trim().toLowerCase();
-    const cleanDigits = emailOrPhoneOrId.replace(/[^0-9]/g, '');
+    const isEmail = clean.includes('@');
+    const cleanDigits = isEmail ? '' : emailOrPhoneOrId.replace(/[^0-9]/g, '');
 
     // 1. Strict ID Match
     const byId = accounts.find((a) => a?.user?.id && a.user.id.trim().toLowerCase() === clean);
@@ -795,8 +796,8 @@ export const storage = {
       const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
 
-      // Check phone match (strictly match last 10 digits)
-      if (cleanDigits.length >= 10 && aPhone.length >= 10) {
+      // Check phone match ONLY if query is a phone number (strictly match last 10 digits)
+      if (!isEmail && cleanDigits.length >= 10 && aPhone.length >= 10) {
         if (aPhone.slice(-10) === cleanDigits.slice(-10)) {
           return true;
         }

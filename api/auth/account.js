@@ -71,7 +71,8 @@ export default async function handler(req, res) {
     }
 
     const query = (req.query.query || req.query.phone || req.query.email || '').trim().toLowerCase();
-    const queryDigits = cleanDigits(query);
+    const isEmail = query.includes('@');
+    const queryDigits = isEmail ? '' : cleanDigits(query);
 
     if (!query && !queryDigits) {
       return res.status(400).json({ ok: false, error: 'Query parameter required' });
