@@ -133,5 +133,22 @@
     "approvedAt": "2026-10-15T20:18:06.624Z",
     "creditedAt": "2026-10-15T20:18:06.624Z",
     "updatedAt": "2026-10-15T20:18:08.003Z"
+  },
+  "WDR-551769": {
+    "id": "WDR-551769",
+    "userId": "usr-1792085192598",
+    "userName": "Manas Singh",
+    "userPhone": "9277389208",
+    "amount": 477,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 477,
+    "accountDetails": {
+      "upiId": "9277389208-2@nyes"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-16T01:22:53.268Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-16T01:22:53.723Z"
   }
 }
