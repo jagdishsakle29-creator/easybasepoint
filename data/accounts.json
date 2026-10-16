@@ -529,5 +529,46 @@
       }
     ],
     "updatedAt": "2026-10-16T06:57:54.351Z"
+  },
+  "6296859349": {
+    "user": {
+      "id": "usr-1792134312750",
+      "name": "Anshu Yadav",
+      "email": "anshukaiih@gmail.com",
+      "phone": "6296859349",
+      "referralCode": "EBP-16042",
+      "isGoogleAuthEnabled": false,
+      "transactionPin": "731204",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-10-16T07:05:12.751Z"
+    },
+    "password": "Anexagen12",
+    "transactionPin": "731204",
+    "wallet": {
+      "userId": "usr-1792134312750",
+      "balance": 50,
+      "quota": 0,
+      "referralBalance": 0,
+      "todayReceive": 0,
+      "teamCommission": 0,
+      "todayTeamRecharge": 0,
+      "todayTeamMembers": 0,
+      "totalTeamRecharge": 0,
+      "totalTeamMembers": 0
+    },
+    "transactions": [
+      {
+        "id": "TXN-369236",
+        "userId": "usr-1792134312750",
+        "type": "reward",
+        "amount": 50,
+        "currency": "INR",
+        "status": "completed",
+        "timestamp": "2026-10-16T07:05:12.754Z",
+        "note": "₹50 Signup Welcome Cash Bonus"
+      }
+    ],
+    "updatedAt": "2026-10-16T07:05:13.146Z"
   }
 }
