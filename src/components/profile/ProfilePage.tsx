@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  Lock
+  Lock,
+  Crown
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
@@ -139,10 +140,19 @@ export const ProfilePage: React.FC = () => {
     'editProfile' | 'aboutUs' | 'telegram' | 'googleAuth' | 'contactUs' | 'privacy' | 'downloadApp' | 'paymentMethods' | null
   >(null);
 
+  // Check if current user is Manas Singh / Premium User
+  const isPremium = Boolean(
+    user?.isPremium ||
+    user?.membershipLevel === 'Premium User' ||
+    (user?.phone && user.phone.replace(/[^0-9]/g, '').endsWith('9277389208')) ||
+    (user?.email && user.email.toLowerCase() === 'manassingh9277@gmail.com') ||
+    (user?.name && user.name.toLowerCase() === 'manas singh')
+  );
+
   // Edit profile form state
-  const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [name, setName] = useState(user?.name || (isPremium ? 'Manas Singh' : ''));
+  const [phone, setPhone] = useState(user?.phone || (isPremium ? '9277389208' : ''));
+  const [email, setEmail] = useState(user?.email || (isPremium ? 'manassingh9277@gmail.com' : ''));
 
   // Telegram form state
   const [telegramHandle, setTelegramHandle] = useState(user?.telegram || '');
@@ -242,21 +252,29 @@ export const ProfilePage: React.FC = () => {
         {/* User Info & Identity */}
         <div className="flex items-center justify-between relative z-10 pb-4 border-b border-white/10">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-[#FF8526] text-white flex items-center justify-center font-black text-lg font-outfit shadow-md">
-              {user?.name ? user.name.slice(0, 1).toUpperCase() : 'E'}
+            <div className={`w-12 h-12 rounded-2xl ${isPremium ? 'bg-gradient-to-tr from-amber-400 via-amber-500 to-amber-600 text-slate-950 ring-2 ring-amber-300 shadow-md shadow-amber-500/20' : 'bg-gradient-to-tr from-[#FF6B00] to-[#FF8526] text-white'} flex items-center justify-center font-black text-lg font-outfit shadow-md relative`}>
+              {user?.name ? user.name.slice(0, 1).toUpperCase() : (isPremium ? 'M' : 'E')}
+              {isPremium && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 text-slate-950 rounded-full flex items-center justify-center shadow-xs border border-white">
+                  <Crown className="w-2.5 h-2.5 fill-slate-950" />
+                </div>
+              )}
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-outfit font-black text-lg tracking-tight">
-                  <span className="text-white">Easy</span>
-                  <span className="text-[#FF6B00]">BasePoint</span>
+                  <span className="text-white">{user?.name ? user.name : 'EasyBasePoint'}</span>
                 </span>
-                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-400/30">
-                  Verified
+                <span className="px-2 py-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 text-[10px] font-black rounded-full shadow-md border border-amber-200/90 flex items-center gap-1 uppercase tracking-wide">
+                  <Crown className="w-3 h-3 fill-slate-950 text-slate-950" />
+                  Premium User
                 </span>
               </div>
-              <div className="text-xs text-slate-300 font-mono mt-0.5">
-                UID: {accountId}
+              <div className="text-xs text-slate-300 font-mono mt-0.5 flex items-center gap-2">
+                <span>UID: {accountId}</span>
+                {(user?.phone || isPremium) && (
+                  <span className="text-slate-400 font-sans">• {user?.phone ? `+91 ${user.phone}` : '+91 9277389208'}</span>
+                )}
               </div>
             </div>
           </div>

@@ -24,7 +24,8 @@ import {
   Eye,
   RefreshCw,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Crown
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
@@ -1761,8 +1762,14 @@ export const AdminPanel: React.FC = () => {
                   className="glass-card rounded-2xl p-4 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-extrabold text-slate-900 text-sm">{acc.user.name}</span>
+                      {(acc.user.isPremium || acc.user.membershipLevel === 'Premium User' || acc.user.phone?.replace(/[^0-9]/g, '').endsWith('9277389208') || acc.user.email === 'manassingh9277@gmail.com') && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 border border-amber-200/80 shadow-xs flex items-center gap-1 uppercase tracking-wider">
+                          <Crown className="w-3 h-3 fill-slate-950 text-slate-950" />
+                          Premium User
+                        </span>
+                      )}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           acc.user.status === 'active'

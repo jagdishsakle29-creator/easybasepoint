@@ -13,6 +13,8 @@ export interface User {
   role: Role;
   status: 'active' | 'suspended';
   createdAt: string;
+  isPremium?: boolean;
+  membershipLevel?: string;
 }
 
 export interface Wallet {
