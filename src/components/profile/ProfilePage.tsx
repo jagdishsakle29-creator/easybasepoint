@@ -141,8 +141,17 @@ export const ProfilePage: React.FC = () => {
     'editProfile' | 'aboutUs' | 'telegram' | 'googleAuth' | 'contactUs' | 'privacy' | 'downloadApp' | 'paymentMethods' | null
   >(null);
 
+  // Check if current user is Admin / Ultra Premium User (YOUTUBE Bro / 9630020285)
+  const isUltraPremium = Boolean(
+    user?.membershipLevel === 'Ultra Premium User' ||
+    (user?.phone && user.phone.replace(/[^0-9]/g, '').endsWith('9630020285')) ||
+    (user?.email && user.email.toLowerCase() === 'ybro79592@gmail.com') ||
+    (user?.name && user.name.toLowerCase() === 'youtube bro')
+  );
+
   // Check if current user is Manas Singh / Premium User
   const isPremium = Boolean(
+    isUltraPremium ||
     user?.isPremium ||
     user?.membershipLevel === 'Premium User' ||
     (user?.phone && user.phone.replace(/[^0-9]/g, '').endsWith('9277389208')) ||
@@ -151,9 +160,15 @@ export const ProfilePage: React.FC = () => {
   );
 
   // Edit profile form state
-  const [name, setName] = useState(user?.name || (isPremium ? 'Manas Singh' : ''));
-  const [phone, setPhone] = useState(user?.phone || (isPremium ? '9277389208' : ''));
-  const [email, setEmail] = useState(user?.email || (isPremium ? 'manassingh9277@gmail.com' : ''));
+  const [name, setName] = useState(
+    user?.name || (isUltraPremium ? 'YOUTUBE Bro' : isPremium ? 'Manas Singh' : '')
+  );
+  const [phone, setPhone] = useState(
+    user?.phone || (isUltraPremium ? '9630020285' : isPremium ? '9277389208' : '')
+  );
+  const [email, setEmail] = useState(
+    user?.email || (isUltraPremium ? 'ybro79592@gmail.com' : isPremium ? 'manassingh9277@gmail.com' : '')
+  );
 
   // Telegram form state
   const [telegramHandle, setTelegramHandle] = useState(user?.telegram || '');
@@ -253,9 +268,9 @@ export const ProfilePage: React.FC = () => {
         {/* User Info & Identity */}
         <div className="flex items-center justify-between relative z-10 pb-4 border-b border-white/10">
           <div className="flex items-center gap-3.5">
-            <div className={`w-12 h-12 rounded-2xl ${isPremium ? 'bg-gradient-to-tr from-amber-400 via-amber-500 to-amber-600 text-slate-950 ring-2 ring-amber-300 shadow-md shadow-amber-500/20' : 'bg-gradient-to-tr from-[#FF6B00] to-[#FF8526] text-white'} flex items-center justify-center font-black text-lg font-outfit shadow-md relative`}>
-              {user?.name ? user.name.slice(0, 1).toUpperCase() : (isPremium ? 'M' : 'E')}
-              {isPremium && (
+            <div className={`w-12 h-12 rounded-2xl ${isUltraPremium ? 'bg-gradient-to-tr from-amber-300 via-orange-400 to-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-lg shadow-orange-500/30' : isPremium ? 'bg-gradient-to-tr from-amber-400 via-amber-500 to-amber-600 text-slate-950 ring-2 ring-amber-300 shadow-md shadow-amber-500/20' : 'bg-gradient-to-tr from-[#FF6B00] to-[#FF8526] text-white'} flex items-center justify-center font-black text-lg font-outfit shadow-md relative`}>
+              {user?.name ? user.name.slice(0, 1).toUpperCase() : (isUltraPremium ? 'Y' : isPremium ? 'M' : 'E')}
+              {(isUltraPremium || isPremium) && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 text-slate-950 rounded-full flex items-center justify-center shadow-xs border border-white">
                   <Crown className="w-2.5 h-2.5 fill-slate-950" />
                 </div>
@@ -264,17 +279,24 @@ export const ProfilePage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-outfit font-black text-lg tracking-tight">
-                  <span className="text-white">{user?.name ? user.name : 'EasyBasePoint'}</span>
+                  <span className="text-white">{user?.name ? user.name : (isUltraPremium ? 'YOUTUBE Bro' : 'EasyBasePoint')}</span>
                 </span>
-                <span className="px-2 py-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 text-[10px] font-black rounded-full shadow-md border border-amber-200/90 flex items-center gap-1 uppercase tracking-wide">
-                  <Crown className="w-3 h-3 fill-slate-950 text-slate-950" />
-                  Premium User
-                </span>
+                {isUltraPremium ? (
+                  <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 text-slate-950 text-[10px] font-black rounded-full shadow-lg border border-amber-200/90 flex items-center gap-1 uppercase tracking-wide">
+                    <Crown className="w-3 h-3 fill-slate-950 text-slate-950" />
+                    Ultra Premium User
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 text-[10px] font-black rounded-full shadow-md border border-amber-200/90 flex items-center gap-1 uppercase tracking-wide">
+                    <Crown className="w-3 h-3 fill-slate-950 text-slate-950" />
+                    Premium User
+                  </span>
+                )}
               </div>
               <div className="text-xs text-slate-300 font-mono mt-0.5 flex items-center gap-2">
                 <span>UID: {accountId}</span>
-                {(user?.phone || isPremium) && (
-                  <span className="text-slate-400 font-sans">• {user?.phone ? `+91 ${user.phone}` : '+91 9277389208'}</span>
+                {(user?.phone || isUltraPremium || isPremium) && (
+                  <span className="text-slate-400 font-sans">• {user?.phone ? `+91 ${user.phone}` : (isUltraPremium ? '+91 9630020285' : '+91 9277389208')}</span>
                 )}
               </div>
             </div>

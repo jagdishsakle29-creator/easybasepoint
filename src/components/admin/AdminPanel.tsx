@@ -1368,7 +1368,7 @@ export const AdminPanel: React.FC = () => {
                               {dep.proofUrl || dep.utrNumber || '—'}
                             </td>
                             <td className="py-3.5 px-3.5 text-right">
-                              {dep.status === 'pending' ? (
+                              {(dep.status === 'pending' || dep.status === 'rejected') ? (
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     disabled={processingActionIds.has(dep.id)}
@@ -1380,26 +1380,30 @@ export const AdminPanel: React.FC = () => {
                                     }`}
                                   >
                                     <Check className="w-3 h-3" />
-                                    <span>{processingActionIds.has(dep.id) ? '...' : 'Approve'}</span>
+                                    <span>{processingActionIds.has(dep.id) ? '...' : dep.status === 'rejected' ? 'Override & Approve' : 'Approve'}</span>
                                   </button>
-                                  <button
-                                    disabled={processingActionIds.has(dep.id)}
-                                    onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Refund issued')}
-                                    className="py-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                                    title="Reject and refund"
-                                  >
-                                    <RotateCcw className="w-3 h-3 text-amber-600" />
-                                    <span>Reject & Refund</span>
-                                  </button>
-                                  <button
-                                    disabled={processingActionIds.has(dep.id)}
-                                    onClick={() => handleAdminRejectDeposit(dep.id)}
-                                    className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                                    title="Reject without refund"
-                                  >
-                                    <X className="w-3 h-3" />
-                                    <span>Reject</span>
-                                  </button>
+                                  {dep.status === 'pending' && (
+                                    <>
+                                      <button
+                                        disabled={processingActionIds.has(dep.id)}
+                                        onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Refund issued')}
+                                        className="py-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                        title="Reject and refund"
+                                      >
+                                        <RotateCcw className="w-3 h-3 text-amber-600" />
+                                        <span>Reject & Refund</span>
+                                      </button>
+                                      <button
+                                        disabled={processingActionIds.has(dep.id)}
+                                        onClick={() => handleAdminRejectDeposit(dep.id)}
+                                        className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                        title="Reject without refund"
+                                      >
+                                        <X className="w-3 h-3" />
+                                        <span>Reject</span>
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 font-mono">
@@ -1681,12 +1685,12 @@ export const AdminPanel: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Action Buttons if Pending: Approve, Reject & Refund, Reject */}
-                    {isPending && (
+                    {/* Action Buttons: Pending OR Rejected (Allows Admin to Manually Override & Approve) */}
+                    {(isPending || dep.status === 'rejected') && (
                       <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
                         <button
                           disabled={(!hasValidImage && !hasScreenshotRef && !dep.utrNumber) || processingActionIds.has(dep.id)}
-                          onClick={() => handleAdminApproveDeposit(dep.id, Boolean(hasValidImage || hasScreenshotRef), dep)}
+                          onClick={() => handleAdminApproveDeposit(dep.id, Boolean(hasValidImage || hasScreenshotRef || dep.utrNumber), dep)}
                           className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
                             processingActionIds.has(dep.id)
                               ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
@@ -1699,31 +1703,37 @@ export const AdminPanel: React.FC = () => {
                           <span>
                             {processingActionIds.has(dep.id)
                               ? 'Processing...'
+                              : dep.status === 'rejected'
+                              ? `✓ Override & Manually Approve ₹${dep.totalInr}`
                               : (!hasValidImage && !hasScreenshotRef && !dep.utrNumber)
                               ? 'Screenshot Required'
                               : `Approve ₹${dep.totalInr}`}
                           </span>
                         </button>
 
-                        <button
-                          disabled={processingActionIds.has(dep.id)}
-                          onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Admin refund issued to user')}
-                          className="py-2.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
-                          title="Reject deposit and refund amount to user's wallet"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Reject & Refund</span>
-                        </button>
+                        {isPending && (
+                          <>
+                            <button
+                              disabled={processingActionIds.has(dep.id)}
+                              onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Admin refund issued to user')}
+                              className="py-2.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
+                              title="Reject deposit and refund amount to user's wallet"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Reject & Refund</span>
+                            </button>
 
-                        <button
-                          disabled={processingActionIds.has(dep.id)}
-                          onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid UTR, missing screenshot, or payment not received')}
-                          className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
-                          title="Reject deposit without refund"
-                        >
-                          <X className="w-4 h-4" />
-                          <span>Reject</span>
-                        </button>
+                            <button
+                              disabled={processingActionIds.has(dep.id)}
+                              onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid UTR, missing screenshot, or payment not received')}
+                              className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
+                              title="Reject deposit without refund"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

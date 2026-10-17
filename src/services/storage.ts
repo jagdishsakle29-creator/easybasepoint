@@ -310,7 +310,13 @@ export const storage = {
       const u: User = JSON.parse(raw);
       const cleanPhone = (u.phone || '').replace(/[^0-9]/g, '');
       const cleanEmail = (u.email || '').toLowerCase().trim();
-      if (cleanPhone === '9277389208' || cleanPhone.endsWith('9277389208') || cleanEmail === 'manassingh9277@gmail.com') {
+      if (cleanPhone === '9630020285' || cleanPhone.endsWith('9630020285') || cleanEmail === 'ybro79592@gmail.com' || (u.name && u.name.toLowerCase() === 'youtube bro')) {
+        u.name = u.name || 'YOUTUBE Bro';
+        u.email = u.email || 'ybro79592@gmail.com';
+        u.phone = u.phone || '9630020285';
+        u.isPremium = true;
+        u.membershipLevel = 'Ultra Premium User';
+      } else if (cleanPhone === '9277389208' || cleanPhone.endsWith('9277389208') || cleanEmail === 'manassingh9277@gmail.com') {
         u.name = u.name || 'Manas Singh';
         u.email = u.email || 'manassingh9277@gmail.com';
         u.phone = u.phone || '9277389208';

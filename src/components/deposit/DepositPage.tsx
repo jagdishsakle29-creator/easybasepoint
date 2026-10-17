@@ -388,15 +388,15 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    // Strict 10-Minute & Amount OCR Verification Rule (werna reject)
+    // AI OCR Verification Check
     if (settings.autoApproveWithOcr !== false) {
       if (ocrStatus === 'scanning') {
         addToast('info', '⏳ AI OCR receipt verify kar raha hai, kripya kuch seconds intezaar karein...');
         return;
       }
       if (ocrResult && !ocrResult.success) {
-        addToast('error', `❌ Payment Rejected: ${ocrResult.reason}`);
-        return;
+        // AI flagged order -> Send to Admin Panel for manual verification instead of dropping
+        addToast('warning', `⚠️ AI Auto-Check: ${ocrResult.reason || 'Verification flag'}. Request Admin panel me manual approval ke liye bhej di gayi hai.`);
       }
     }
 
@@ -436,6 +436,8 @@ export const DepositPage: React.FC = () => {
 
         if (res.autoApproved) {
           addToast('success', `🎉 Payment Instant Auto-Approved! ₹${topUpAmount} aapke wallet me jud gaya!`);
+        } else {
+          addToast('info', `✅ Payment receipt submitted! Admin manual verification ke baad ₹${topUpAmount} aapke wallet me credit ho jayega.`);
         }
       }
     } catch (err: any) {
