@@ -215,9 +215,9 @@ export const DepositPage: React.FC = () => {
   // Instant image preloading for zero-latency switching
   useEffect(() => {
     const imgClean = new Image();
-    imgClean.src = '/deposit_qr_clean.png?v=v8_ebp_lord';
+    imgClean.src = '/deposit_qr_clean.png?v=v9_official_user_qr';
     const imgOfficial = new Image();
-    imgOfficial.src = '/deposit_qr_lord.png?v=v8_ebp_lord';
+    imgOfficial.src = '/deposit_qr.png?v=v9_official_user_qr';
   }, []);
 
   // Filtered packages
@@ -791,7 +791,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src={dynamicQrDataUrl || (isBabyQr ? "/deposit_qr_clean.png?v=v8_ebp_lord" : "/deposit_qr_lord.png?v=v8_ebp_lord")} 
+                            src={dynamicQrDataUrl || (isBabyQr ? "/deposit_qr_clean.png?v=v9_official_user_qr" : "/deposit_qr.png?v=v9_official_user_qr")} 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1521,8 +1521,8 @@ export const DepositPage: React.FC = () => {
                       <img 
                         src={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord'))
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v9_official_user_qr' : '/deposit_qr.png?v=v9_official_user_qr')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v9_official_user_qr' : '/deposit_qr.png?v=v9_official_user_qr'))
                         } 
                         alt="Payment QR" 
                         loading="eager"
@@ -1544,8 +1544,8 @@ export const DepositPage: React.FC = () => {
                       <a
                         href={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord'))
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v9_official_user_qr' : '/deposit_qr.png?v=v9_official_user_qr')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v9_official_user_qr' : '/deposit_qr.png?v=v9_official_user_qr'))
                         }
                         download={`easybase_qr_${isBabyQr ? 'ebp' : 'lord'}_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
