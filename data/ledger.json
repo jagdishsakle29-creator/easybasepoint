@@ -265,5 +265,22 @@
     "remark": "cousin",
     "isDemo": false,
     "updatedAt": "2026-10-17T14:34:16.208Z"
+  },
+  "WDR-148703": {
+    "id": "WDR-148703",
+    "userId": "usr-1791815021235",
+    "userName": "lord",
+    "userPhone": "9876543210",
+    "amount": 200,
+    "method": "upi",
+    "fee": 0,
+    "netAmount": 200,
+    "accountDetails": {
+      "upiId": "BHBJNJ@YBL"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-17T14:35:04.518Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-17T14:35:04.712Z"
   }
 }
