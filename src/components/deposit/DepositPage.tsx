@@ -31,6 +31,7 @@ import { UsdtDepositTab } from './UsdtDepositTab';
 import QRCode from 'qrcode';
 import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
 import { openOfficialTelegramChannel } from '../../config/constants';
+import { PhonePeLogo, PaytmLogo, launchUpiPayment } from '../common/UpiLogos';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -505,7 +506,7 @@ export const DepositPage: React.FC = () => {
     return standardUpi;
   };
 
-  const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'amazonpay' | 'upi') => {
+  const handleLaunchUpi = (e: React.MouseEvent, appName: string, appKey: 'phonepe' | 'paytm' | 'gpay' | 'upi') => {
     e.preventDefault();
     const minDep = settings.minDeposit || 350;
     if (!topUpAmount || topUpAmount < minDep) {
@@ -513,70 +514,16 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    const upiId = activeUpiId;
-    const payee = activePayeeName;
-    const amt = topUpAmount;
-    const note = 'TopUp';
-
-    // 1. Always copy UPI ID to clipboard so user has it immediately
-    try {
-      navigator.clipboard.writeText(upiId);
-    } catch {}
-
-    // Open deposit verification modal so UTR and screenshot upload sections are ready
-    setIsTopUpModalOpen(true);
-
-    const onPhone = isMobileDevice();
-    if (!onPhone) {
-      addToast('info', `Selected ₹${topUpAmount} via ${appName}. Please scan the QR code with your phone or use UPI ID: ${upiId}`);
-      return;
-    }
-
-    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-
-    let primaryUrl = standardUpi;
-    let fallbackScheme = standardUpi;
-
-    if (appKey === 'phonepe') {
-      primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`
-        : `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-      fallbackScheme = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-    } else if (appKey === 'paytm') {
-      primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`
-        : `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-      fallbackScheme = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-    } else if (appKey === 'gpay') {
-      primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`
-        : `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-      fallbackScheme = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
-    }
-
-    addToast('success', `Opening ${appName} directly for ₹${amt}... (UPI copied)`);
-
-    // Direct invocation via user event
-    try {
-      window.location.href = primaryUrl;
-    } catch {
-      const link = document.createElement('a');
-      link.href = primaryUrl;
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    // Secondary fallback after 600ms if Android Chrome or WebView didn't catch intent
-    setTimeout(() => {
-      try {
-        window.location.href = fallbackScheme;
-      } catch {
-        window.location.href = standardUpi;
-      }
-    }, 600);
+    launchUpiPayment({
+      appKey,
+      appName,
+      upiId: activeUpiId,
+      payeeName: activePayeeName,
+      amount: topUpAmount,
+      note: 'TopUp',
+      onOpenModal: () => setIsTopUpModalOpen(true),
+      addToast,
+    });
   };
 
   return (
@@ -815,25 +762,25 @@ export const DepositPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Direct 1-Tap App Payment Buttons (PhonePe & Paytm) */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <a
-                        href={`phonepe://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount || 350}&cu=INR&tn=TopUp`}
-                        onClick={() => setIsTopUpModalOpen(true)}
-                        className="py-3 px-3 rounded-2xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit border border-purple-400/40"
+                    {/* Direct 1-Tap App Payment Buttons (PhonePe & Paytm) with Authentic Brand Logos */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
+                        className="py-3 px-3 rounded-2xl bg-gradient-to-r from-[#5f259f] to-[#732ec7] hover:from-[#521f8a] hover:to-[#5f259f] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40 border border-purple-400/40 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        <Smartphone className="w-4 h-4 text-purple-200" />
-                        <span>Pay via PhonePe ➔</span>
-                      </a>
+                        <PhonePeLogo className="w-5 h-5" />
+                        <span className="tracking-wide">Pay via PhonePe</span>
+                      </button>
 
-                      <a
-                        href={`paytmmp://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount || 350}&cu=INR&tn=TopUp`}
-                        onClick={() => setIsTopUpModalOpen(true)}
-                        className="py-3 px-3 rounded-2xl bg-[#002e6e] hover:bg-[#002252] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit border border-sky-400/40"
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
+                        className="py-3 px-3 rounded-2xl bg-gradient-to-r from-[#002e6e] to-[#004bb3] hover:from-[#002252] hover:to-[#002e6e] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-950/40 border border-sky-400/40 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        <CreditCard className="w-4 h-4 text-[#00baf2]" />
-                        <span>Pay via Paytm ➔</span>
-                      </a>
+                        <PaytmLogo className="px-1.5 py-0.5 text-[11px]" />
+                        <span className="tracking-wide">Pay via Paytm</span>
+                      </button>
                     </div>
 
                     {/* Scan QR / Other UPI Button */}
@@ -1572,27 +1519,18 @@ export const DepositPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
-                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#5f259f] to-[#6f2dbb] hover:from-[#521f8a] hover:to-[#5f259f] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40 border border-purple-400/30 active:scale-95 transition cursor-pointer font-outfit"
+                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#5f259f] to-[#732ec7] hover:from-[#521f8a] hover:to-[#5f259f] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40 border border-purple-400/30 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        {/* Authentic PhonePe Logo: Purple circle with white 'पे' */}
-                        <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center p-0.5 shadow-xs shrink-0">
-                          <div className="w-full h-full rounded-full bg-[#5F259F] flex items-center justify-center font-black text-white text-[12px] leading-none select-none font-sans">
-                            पे
-                          </div>
-                        </div>
+                        <PhonePeLogo className="w-5 h-5" />
                         <span className="tracking-wide">Pay via PhonePe</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
-                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#002e6e] to-[#004099] hover:from-[#002252] hover:to-[#002e6e] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-950/40 border border-sky-400/30 active:scale-95 transition cursor-pointer font-outfit"
+                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#002e6e] to-[#004bb3] hover:from-[#002252] hover:to-[#002e6e] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-950/40 border border-sky-400/30 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        {/* Authentic Paytm Logo: Navy 'Pay' + Cyan 'tm' */}
-                        <div className="px-1.5 py-0.5 rounded bg-white flex items-center justify-center shadow-xs shrink-0 font-outfit text-[11px] font-black tracking-tight leading-none">
-                          <span className="text-[#002E6E]">Pay</span>
-                          <span className="text-[#00BAF2]">tm</span>
-                        </div>
+                        <PaytmLogo className="px-1.5 py-0.5 text-[11px]" />
                         <span className="tracking-wide">Pay via Paytm</span>
                       </button>
                     </div>

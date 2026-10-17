@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Crown, X, Smartphone, ArrowRight, CheckCircle2, ShieldCheck, Copy, QrCode } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import QRCode from 'qrcode';
+import { PhonePeLogo, PaytmLogo, launchUpiPayment } from './UpiLogos';
 
 interface VipOffer {
   amount: number;
@@ -235,23 +236,45 @@ export const PremiumVipOfferPopup: React.FC = () => {
               </button>
             </div>
 
-            {/* 1-Tap App Links */}
+            {/* 1-Tap App Payment Buttons with Official Logos */}
             <div className="grid grid-cols-2 gap-1.5">
-              <a
-                href={`phonepe://pay?pa=${encodeURIComponent(vipUpiId)}&pn=${encodeURIComponent(vipPayeeName)}&am=${currentOffer.amount}&cu=INR&tn=TopUp`}
-                className="py-2 px-2 rounded-xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer"
+              <button
+                type="button"
+                onClick={() =>
+                  launchUpiPayment({
+                    appKey: 'phonepe',
+                    appName: 'PhonePe',
+                    upiId: vipUpiId,
+                    payeeName: vipPayeeName,
+                    amount: currentOffer.amount,
+                    note: 'TopUp',
+                    addToast,
+                  })
+                }
+                className="py-2 px-2 rounded-xl bg-gradient-to-r from-[#5f259f] to-[#732ec7] hover:from-[#521f8a] hover:to-[#5f259f] text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition"
               >
-                <Smartphone className="w-3 h-3 text-purple-200" />
+                <PhonePeLogo className="w-4 h-4" />
                 <span>PhonePe</span>
-              </a>
+              </button>
 
-              <a
-                href={`paytmmp://pay?pa=${encodeURIComponent(vipUpiId)}&pn=${encodeURIComponent(vipPayeeName)}&am=${currentOffer.amount}&cu=INR&tn=TopUp`}
-                className="py-2 px-2 rounded-xl bg-[#002e6e] hover:bg-[#002252] text-white font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer"
+              <button
+                type="button"
+                onClick={() =>
+                  launchUpiPayment({
+                    appKey: 'paytm',
+                    appName: 'Paytm',
+                    upiId: vipUpiId,
+                    payeeName: vipPayeeName,
+                    amount: currentOffer.amount,
+                    note: 'TopUp',
+                    addToast,
+                  })
+                }
+                className="py-2 px-2 rounded-xl bg-gradient-to-r from-[#002e6e] to-[#004bb3] hover:from-[#002252] hover:to-[#002e6e] text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition"
               >
-                <Smartphone className="w-3 h-3 text-sky-200" />
+                <PaytmLogo className="px-1 py-0.2 text-[10px]" />
                 <span>Paytm</span>
-              </a>
+              </button>
             </div>
 
             <button
