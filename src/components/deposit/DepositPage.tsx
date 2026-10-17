@@ -111,7 +111,7 @@ export const DepositPage: React.FC = () => {
   const isBabyQr = (topUpAmount || 350) < 800;
   const activeUpiId = isBabyQr ? (settings.adminUpiId || 'narwariya321@axl') : 'manishkey@fam';
   // Use clean human payee names (no "HACK" or "SELLER") to avoid "Risky Payment" warnings on PhonePe & Paytm!
-  const activePayeeName = isBabyQr ? 'Khushi Naravriya' : 'Manish Kumar';
+  const activePayeeName = isBabyQr ? 'Khushi Naravriya' : 'LORD PAID HACK SELLER';
 
   // Generate dynamic amount UPI QR code on any amount change (1st QR)
   useEffect(() => {
@@ -215,9 +215,9 @@ export const DepositPage: React.FC = () => {
   // Instant image preloading for zero-latency switching
   useEffect(() => {
     const imgClean = new Image();
-    imgClean.src = '/deposit_qr_clean.png?v=fixed_v7_baby_ebp';
+    imgClean.src = '/deposit_qr_clean.png?v=v8_ebp_lord';
     const imgOfficial = new Image();
-    imgOfficial.src = '/deposit_qr.png?v=fixed_v7_baby_ebp';
+    imgOfficial.src = '/deposit_qr_lord.png?v=v8_ebp_lord';
   }, []);
 
   // Filtered packages
@@ -758,7 +758,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src={dynamicQrDataUrl || "/deposit_qr_clean.png?v=fixed_v7_baby_ebp"} 
+                            src={dynamicQrDataUrl || (isBabyQr ? "/deposit_qr_clean.png?v=v8_ebp_lord" : "/deposit_qr_lord.png?v=v8_ebp_lord")} 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -766,7 +766,7 @@ export const DepositPage: React.FC = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-black text-amber-300 font-outfit truncate">
-                              Official UPI QR ({settings.adminUpiId || 'narwariya321@axl'})
+                              {isBabyQr ? 'EBP Instant QR (narwariya321@axl)' : 'Lord VIP QR (manishkey@fam)'}
                             </span>
                             <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase">
                               Active
@@ -1406,7 +1406,7 @@ export const DepositPage: React.FC = () => {
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-slate-400">
-                        {isBabyQr ? 'Baby QR Payee:' : 'VIP 2nd QR Payee:'}
+                        {isBabyQr ? 'EBP Instant Payee:' : 'Lord VIP Payee:'}
                       </span>
                       <span className="font-mono font-black text-amber-300 select-all">
                         {activeUpiId}
@@ -1437,7 +1437,7 @@ export const DepositPage: React.FC = () => {
                           <Sparkles className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-black text-slate-900 tracking-wider font-outfit uppercase">
-                          {isBabyQr ? 'BABY UPI PAY (ORDERS < ₹800)' : 'VIP SECOND UPI PAY (₹800+)'}
+                          {isBabyQr ? 'EBP UPI PAY (ORDERS < ₹800)' : 'LORD VIP UPI PAY (₹800+)'}
                         </span>
                       </div>
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase">
@@ -1467,7 +1467,7 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        🏛️ {isBabyQr ? 'Baby Official Poster' : '2nd Official Poster'}
+                        🏛️ {isBabyQr ? 'EBP Official Poster' : 'Lord Official Poster'}
                       </button>
                     </div>
 
@@ -1480,7 +1480,7 @@ export const DepositPage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
-                        {isBabyQr ? 'Baby QR (< ₹800)' : 'VIP QR (₹800+)'}
+                        {isBabyQr ? 'EBP QR (< ₹800)' : 'Lord VIP QR (₹800+)'}
                       </span>
                     </div>
 
@@ -1488,8 +1488,8 @@ export const DepositPage: React.FC = () => {
                       <img 
                         src={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp'))
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord'))
                         } 
                         alt="Payment QR" 
                         loading="eager"
@@ -1502,8 +1502,8 @@ export const DepositPage: React.FC = () => {
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
                       <span>
                         {isBabyQr 
-                          ? `Baby QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`
-                          : `2nd QR: ₹${topUpAmount} (High Volume Merchant)`}
+                          ? `EBP QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`
+                          : `Lord VIP QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`}
                       </span>
                     </div>
 
@@ -1511,10 +1511,10 @@ export const DepositPage: React.FC = () => {
                       <a
                         href={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp'))
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v8_ebp_lord' : '/deposit_qr_lord.png?v=v8_ebp_lord'))
                         }
-                        download={`easybase_qr_${isBabyQr ? 'baby' : 'vip'}_${topUpAmount}.png`}
+                        download={`easybase_qr_${isBabyQr ? 'ebp' : 'lord'}_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
