@@ -108,15 +108,49 @@ export const DepositPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [user]);
 
-  // Active QR routing based on ₹800 threshold:
-  // < 800: Baby ka QR (Khushi Naravriya - narwariya321@axl)
-  // >= 800: Dusra QR (Manish Kumar - manishkey@fam)
-  const isBabyQr = (topUpAmount || 350) < 800;
-  const activeUpiId = isBabyQr ? (settings.adminUpiId || 'narwariya321@axl') : 'manishkey@fam';
-  // Use clean human payee names (no "HACK" or "SELLER") to avoid "Risky Payment" warnings on PhonePe & Paytm!
-  const activePayeeName = isBabyQr ? 'Khushi Naravriya' : 'LORD PAID HACK SELLER';
+  // 3 QR Options requested by user:
+  // QR 1: Khushi (Main QR) - narwariya321@axl
+  // QR 2: Lord VIP QR - manishkey@fam
+  // QR 3: Pradeep QR - 9589022172@ybl
+  const qrOptions = useMemo(() => [
+    {
+      id: 'khushi' as const,
+      label: 'QR 1 (Main): Khushi',
+      tabLabel: '🌟 QR 1: Khushi',
+      upiId: settings.adminUpiId || 'narwariya321@axl',
+      payeeName: 'Khushi Naravriya',
+      imageSrc: '/deposit_qr_clean.png?v=v11_3qrs',
+      badge: 'MAIN QR',
+      subtitle: 'Official Main QR (narwariya321@axl)',
+    },
+    {
+      id: 'lord' as const,
+      label: 'QR 2: Lord VIP QR',
+      tabLabel: '👑 QR 2: Lord VIP',
+      upiId: 'manishkey@fam',
+      payeeName: 'LORD PAID HACK SELLER',
+      imageSrc: '/deposit_qr_lord.png?v=v11_3qrs',
+      badge: 'VIP QR',
+      subtitle: 'Lord VIP QR (manishkey@fam)',
+    },
+    {
+      id: 'pradeep' as const,
+      label: 'QR 3: Pradeep QR',
+      tabLabel: '⚡ QR 3: Pradeep',
+      upiId: '9589022172@ybl',
+      payeeName: 'PRADIP MANDLOI',
+      imageSrc: '/deposit_qr_pradeep.png?v=v11_3qrs',
+      badge: 'PRADEEP',
+      subtitle: 'PhonePe QR (9589022172@ybl)',
+    },
+  ], [settings.adminUpiId]);
 
-  // Generate dynamic amount UPI QR code on any amount change (1st QR)
+  const [selectedQrId, setSelectedQrId] = useState<'khushi' | 'lord' | 'pradeep'>('khushi');
+  const activeQr = qrOptions.find((q) => q.id === selectedQrId) || qrOptions[0];
+  const activeUpiId = activeQr.upiId;
+  const activePayeeName = activeQr.payeeName;
+
+  // Generate dynamic amount UPI QR code on any amount change
   useEffect(() => {
     let isCancelled = false;
     const amount = topUpAmount || 350;
@@ -215,12 +249,12 @@ export const DepositPage: React.FC = () => {
     };
   }, [topUpAmount, activeUpiId, activePayeeName]);
 
-  // Instant image preloading for zero-latency switching
+  // Instant image preloading for zero-latency switching across all 3 QRs
   useEffect(() => {
-    const imgClean = new Image();
-    imgClean.src = '/deposit_qr_clean.png?v=v10_both_qrs';
-    const imgOfficial = new Image();
-    imgOfficial.src = '/deposit_qr_lord.png?v=v10_both_qrs';
+    ['/deposit_qr_clean.png?v=v11_3qrs', '/deposit_qr_lord.png?v=v11_3qrs', '/deposit_qr_pradeep.png?v=v11_3qrs'].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
   }, []);
 
   // Filtered packages
@@ -644,8 +678,41 @@ export const DepositPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Clean QR & Official UPI Gateway Section (Direct external app intents removed to eliminate Danger warnings) */}
-                  <div className="space-y-2 pt-1">
+                  {/* Clean QR & Official UPI Gateway Section with 3 QR Selectors */}
+                  <div className="space-y-2.5 pt-1">
+                    {/* 3 QR Selectors on Card: Khushi (Main), Lord, Pradeep */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[11px] font-black text-amber-300 uppercase tracking-wide flex items-center gap-1 font-outfit">
+                          <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
+                          <span>Choose Payment QR Code (3 Options)</span>
+                        </span>
+                        <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 uppercase font-mono">
+                          {activeQr.badge}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/10 text-[11px] font-bold font-outfit">
+                        {qrOptions.map((q) => (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => setSelectedQrId(q.id)}
+                            className={`py-2 px-1 rounded-xl transition text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                              selectedQrId === q.id
+                                ? 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white shadow-md font-black'
+                                : 'text-slate-300 hover:text-white bg-white/5 hover:bg-white/10'
+                            }`}
+                          >
+                            <span className="truncate w-full text-[10px] sm:text-[11px]">{q.tabLabel}</span>
+                            <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${selectedQrId === q.id ? 'bg-black/30 text-amber-200' : 'bg-white/10 text-slate-400'}`}>
+                              {q.badge}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Live Active QR Banner Preview */}
                     <div 
                       onClick={() => setIsTopUpModalOpen(true)}
@@ -654,7 +721,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src={dynamicQrDataUrl || (isBabyQr ? "/deposit_qr_clean.png?v=v10_both_qrs" : "/deposit_qr_lord.png?v=v10_both_qrs")} 
+                            src={dynamicQrDataUrl || activeQr.imageSrc} 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -662,14 +729,14 @@ export const DepositPage: React.FC = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-black text-amber-300 font-outfit truncate">
-                              {isBabyQr ? 'EBP Instant QR (narwariya321@axl)' : 'Lord VIP QR (manishkey@fam)'}
+                              {activeQr.label} ({activeQr.upiId})
                             </span>
                             <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase">
                               Active
                             </span>
                           </div>
                           <div className="text-[10px] text-slate-300 truncate">
-                            Scan with PhonePe or Paytm
+                            Payee: {activeQr.payeeName} • PhonePe & Paytm
                           </div>
                           <div className="text-[10px] text-amber-400 font-bold group-hover:underline">
                             Tap to Open QR Scanner & Pay ₹{topUpAmount} ➔
@@ -1298,16 +1365,47 @@ export const DepositPage: React.FC = () => {
                     </div>
                   )}
 
+                  {/* 3 QR Selectors inside Modal */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center gap-1 font-outfit">
+                        <Sparkles className="w-3.5 h-3.5 text-[#FF6B00]" />
+                        <span>Select QR Code:</span>
+                      </span>
+                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        {activeQr.badge} Active
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-2xl border border-white/10 text-xs font-bold font-outfit">
+                      {qrOptions.map((q) => (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => setSelectedQrId(q.id)}
+                          className={`py-2 px-1 rounded-xl transition text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                            selectedQrId === q.id
+                              ? 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white shadow-md font-black'
+                              : 'text-slate-300 hover:text-white bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <span className="truncate w-full text-[10px] sm:text-xs">{q.tabLabel}</span>
+                          <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${selectedQrId === q.id ? 'bg-black/30 text-amber-200' : 'bg-white/10 text-slate-400'}`}>
+                            {q.badge}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Official UPI ID 1-Tap Copy Bar */}
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-400">
-                        {isBabyQr ? 'EBP Instant Payee:' : 'Lord VIP Payee:'}
-                      </span>
-                      <span className="font-mono font-black text-amber-300 select-all">
+                    <div className="flex items-center gap-2 text-xs min-w-0">
+                      <span className="text-slate-400 shrink-0">Payee:</span>
+                      <span className="font-mono font-black text-amber-300 select-all truncate">
                         {activeUpiId}
                       </span>
-                      <span className="text-[10px] text-amber-200 font-bold hidden sm:inline">
+                      <span className="text-[10px] text-amber-200 font-bold hidden sm:inline truncate">
                         ({activePayeeName})
                       </span>
                     </div>
@@ -1317,7 +1415,7 @@ export const DepositPage: React.FC = () => {
                         navigator.clipboard.writeText(activeUpiId);
                         addToast('success', `Copied ${activeUpiId} to clipboard!`);
                       }}
-                      className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95 active:scale-95 transition cursor-pointer flex items-center gap-1.5 shrink-0"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>Copy UPI</span>
@@ -1326,14 +1424,14 @@ export const DepositPage: React.FC = () => {
 
                   {/* QR Code and Official UPI */}
                   <div id="deposit-qr-section" className="bg-white rounded-3xl p-3.5 sm:p-4 text-center space-y-3 shadow-xl border-2 border-orange-400/30 overflow-hidden relative">
-                    {/* EASYBASE POINT Header Bar */}
+                    {/* Header Bar */}
                     <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#FF6B00] to-amber-500 flex items-center justify-center text-white shadow-xs">
                           <Sparkles className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-black text-slate-900 tracking-wider font-outfit uppercase">
-                          {isBabyQr ? 'EBP UPI PAY (ORDERS < ₹800)' : 'LORD VIP UPI PAY (₹800+)'}
+                          {activeQr.label} (₹{topUpAmount})
                         </span>
                       </div>
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase">
@@ -1363,7 +1461,7 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        🏛️ {isBabyQr ? 'EBP Official Poster' : 'Lord Official Poster'}
+                        🏛️ {activeQr.badge} Official Poster
                       </button>
                     </div>
 
@@ -1375,8 +1473,8 @@ export const DepositPage: React.FC = () => {
                           Auto Amount Locked: ₹{topUpAmount}
                         </span>
                       </div>
-                      <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
-                        {isBabyQr ? 'EBP QR (< ₹800)' : 'Lord VIP QR (₹800+)'}
+                      <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider font-mono">
+                        {activeQr.badge}
                       </span>
                     </div>
 
@@ -1384,8 +1482,8 @@ export const DepositPage: React.FC = () => {
                       <img 
                         src={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v10_both_qrs' : '/deposit_qr_lord.png?v=v10_both_qrs')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v10_both_qrs' : '/deposit_qr_lord.png?v=v10_both_qrs'))
+                            ? (activeQr.id === 'khushi' ? (officialQrDataUrl || activeQr.imageSrc) : activeQr.imageSrc)
+                            : (dynamicQrDataUrl || activeQr.imageSrc)
                         } 
                         alt="Payment QR" 
                         loading="eager"
@@ -1397,9 +1495,7 @@ export const DepositPage: React.FC = () => {
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1 font-outfit">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
                       <span>
-                        {isBabyQr 
-                          ? `EBP QR: ₹${topUpAmount} (PhonePe, Paytm)`
-                          : `Lord VIP QR: ₹${topUpAmount} (PhonePe, Paytm)`}
+                        {activeQr.label}: ₹{topUpAmount} (PhonePe, Paytm)
                       </span>
                     </div>
 
@@ -1407,14 +1503,14 @@ export const DepositPage: React.FC = () => {
                       <a
                         href={
                           qrViewMode === 'official' 
-                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v10_both_qrs' : '/deposit_qr_lord.png?v=v10_both_qrs')) 
-                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=v10_both_qrs' : '/deposit_qr_lord.png?v=v10_both_qrs'))
+                            ? activeQr.imageSrc
+                            : (dynamicQrDataUrl || activeQr.imageSrc)
                         }
-                        download={`easybase_qr_${isBabyQr ? 'ebp' : 'lord'}_${topUpAmount}.png`}
+                        download={`easybase_qr_${activeQr.id}_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Save Payment QR to Gallery</span>
+                        <span>Save {activeQr.badge} QR to Gallery</span>
                       </a>
                     </div>
                   </div>

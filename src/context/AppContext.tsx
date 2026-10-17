@@ -1819,6 +1819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               reason: ocrRes.reason,
             },
           });
+          addToast('success', `🎉 Payment Auto-Approved! ₹${total.toFixed(2)} credited to your wallet!`);
         } else {
           console.log(`[AUTO_APPROVE] #${newDeposit.id} did not pass 10m/amount rule (${ocrRes.reason}). Retained for Admin manual review.`);
           const all = storage.getDeposits();
@@ -1941,8 +1942,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updatedW;
       });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
-    } else if (isAutoApproved) {
-      addToast('success', `🎉 Payment Auto-Approved! ₹${total.toFixed(2)} credited to your wallet!`);
+    } else if (settings.autoApproveDeposits) {
+      addToast('info', `⚡ Payment submitted! 10-Second Auto-Verification running...`);
     } else {
       addToast('success', `✓ Payment submitted! Admin will verify UTR and approve your deposit.`);
     }
