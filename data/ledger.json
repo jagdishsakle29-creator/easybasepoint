@@ -212,5 +212,21 @@
     "createdAt": "2026-10-17T11:11:16.202Z",
     "approvedAt": "2026-10-17T11:11:18.615Z",
     "updatedAt": "2026-10-17T11:11:18.615Z"
+  },
+  "WDR_TG_APP_1792235480304": {
+    "id": "WDR_TG_APP_1792235480304",
+    "userId": "USER_TEST_2",
+    "userPhone": "9876543210",
+    "amount": 2000,
+    "netAmount": 2000,
+    "method": "upi",
+    "accountDetails": {
+      "upiId": "player@upi"
+    },
+    "status": "pending",
+    "type": "withdrawal",
+    "fee": 0,
+    "userName": "",
+    "createdAt": "2026-10-17T11:11:20.304Z"
   }
 }
