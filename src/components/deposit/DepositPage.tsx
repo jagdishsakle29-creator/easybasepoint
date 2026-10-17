@@ -715,6 +715,39 @@ export const DepositPage: React.FC = () => {
                     <span>Total Wallet: <strong className="text-amber-300 font-black">₹{totalRec.toFixed(0)}</strong></span>
                   </div>
 
+                  {/* > ₹2,000 High-Amount Helper Notice (Gallery QR Limit Solution) */}
+                  {topUpAmount > 2000 && (
+                    <div className="p-3.5 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border-2 border-amber-400/60 rounded-2xl text-left space-y-2.5 shadow-lg animate-fadeIn">
+                      <div className="flex items-center gap-2 text-amber-300 font-black text-xs uppercase tracking-wide">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>₹2,000+ Payment Guide (Bank / Gallery Limit Solution)</span>
+                      </div>
+                      <p className="text-[11px] text-amber-100/90 leading-relaxed font-sans">
+                        Agar photo gallery se QR scan karne par PhonePe/Paytm me ₹2,000 limit ka error aaye, toh in 2 aasan tareeqon se payment karein:
+                      </p>
+                      <div className="space-y-2 text-xs">
+                        <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-400 text-black font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                          <div className="flex-1">
+                            <div className="text-white font-bold text-[11px]">UPI ID Copy Karke Direct Pay Karein:</div>
+                            <div className="text-slate-300 text-[11px] mt-0.5">
+                              Payment box me diye <b>"Copy UPI"</b> button par tap karein, fir PhonePe/Paytm ke <b>"To UPI ID"</b> option me jakar direct <b>₹{topUpAmount}</b> bhej sakte hain (isme koi gallery limit nahi aayegi).
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-400 text-black font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                          <div className="flex-1">
+                            <div className="text-white font-bold text-[11px]">₹1 Pay Again Trick:</div>
+                            <div className="text-slate-300 text-[11px] mt-0.5">
+                              Pehle QR scan karke sirf <b>₹1</b> pay karein. Fir PhonePe/Paytm history me usi transaction par jakar <b>"Pay Again"</b> tap karein aur bacha hua pura amount bhej sakte hain!
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Clean QR & Official UPI Gateway Section (Direct external app intents removed to eliminate Danger warnings) */}
                   <div className="space-y-2 pt-1">
                     {/* Live Active QR Banner Preview */}
@@ -1335,6 +1368,39 @@ export const DepositPage: React.FC = () => {
                       <span>Copy Remark</span>
                     </button>
                   </div>
+
+                  {/* > ₹2,000 High-Amount Helper Notice inside Modal (Gallery QR Limit Solution) */}
+                  {topUpAmount > 2000 && (
+                    <div className="p-3.5 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border-2 border-amber-400/60 rounded-2xl text-left space-y-2.5 shadow-lg animate-fadeIn">
+                      <div className="flex items-center gap-2 text-amber-300 font-black text-xs uppercase tracking-wide">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>₹2,000 Se Bada Payment Guide (Gallery Limit Solution)</span>
+                      </div>
+                      <p className="text-[11px] text-amber-100/90 leading-relaxed font-sans">
+                        Agar photo gallery se QR scan karne par PhonePe/Paytm me ₹2,000 limit ka error aaye, toh in 2 aasan tareeqon se payment karein:
+                      </p>
+                      <div className="space-y-2 text-xs">
+                        <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-400 text-black font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                          <div className="flex-1">
+                            <div className="text-white font-bold text-[11px]">UPI ID Copy Karke Direct Pay Karein:</div>
+                            <div className="text-slate-300 text-[11px] mt-0.5">
+                              Niche diye <b>"Copy UPI"</b> button par tap karein, fir apne PhonePe/Paytm ke <b>"To UPI ID"</b> option me jaakar direct <b>₹{topUpAmount}</b> pay kar sakte hain (isme koi gallery limit nahi aayegi).
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-400 text-black font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                          <div className="flex-1">
+                            <div className="text-white font-bold text-[11px]">₹1 Pay Again Trick:</div>
+                            <div className="text-slate-300 text-[11px] mt-0.5">
+                              Pehle QR scan karke sirf <b>₹1</b> send karein, fir transaction history me jakar <b>"Pay Again"</b> tap karein aur bacha hua pura amount bhej sakte hain!
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Official UPI ID 1-Tap Copy Bar */}
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
