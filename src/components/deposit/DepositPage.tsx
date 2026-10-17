@@ -136,13 +136,14 @@ export const DepositPage: React.FC = () => {
     },
     {
       id: 'pradeep' as const,
-      label: 'QR 3: Pradeep QR',
-      tabLabel: '⚡ QR 3: Pradeep',
+      label: 'QR 3: Pradeep (Under Maintenance)',
+      tabLabel: '🛠️ QR 3: Pradeep',
       upiId: '9589022172@ybl',
       payeeName: 'PRADIP MANDLOI',
       imageSrc: '/deposit_qr_pradeep.png?v=v11_3qrs',
-      badge: 'PRADEEP',
-      subtitle: 'PhonePe QR (9589022172@ybl)',
+      badge: 'MAINTENANCE',
+      subtitle: 'Under Maintenance - Kripya QR 1 ya QR 2 use karein',
+      isMaintenance: true,
     },
   ], [settings.adminUpiId]);
 
@@ -698,15 +699,29 @@ export const DepositPage: React.FC = () => {
                           <button
                             key={q.id}
                             type="button"
-                            onClick={() => setSelectedQrId(q.id)}
+                            onClick={() => {
+                              if (q.isMaintenance) {
+                                addToast('info', '🛠️ Pradeep QR abhi Under Maintenance hai. Kripya QR 1 (Khushi) ya QR 2 (Lord) se payment karein.');
+                                return;
+                              }
+                              setSelectedQrId(q.id);
+                            }}
                             className={`py-2 px-1 rounded-xl transition text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                              selectedQrId === q.id
+                              q.isMaintenance
+                                ? 'opacity-60 bg-white/5 border border-dashed border-amber-500/40 hover:opacity-80'
+                                : selectedQrId === q.id
                                 ? 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white shadow-md font-black'
                                 : 'text-slate-300 hover:text-white bg-white/5 hover:bg-white/10'
                             }`}
                           >
                             <span className="truncate w-full text-[10px] sm:text-[11px]">{q.tabLabel}</span>
-                            <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${selectedQrId === q.id ? 'bg-black/30 text-amber-200' : 'bg-white/10 text-slate-400'}`}>
+                            <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${
+                              q.isMaintenance
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : selectedQrId === q.id 
+                                ? 'bg-black/30 text-amber-200' 
+                                : 'bg-white/10 text-slate-400'
+                            }`}>
                               {q.badge}
                             </span>
                           </button>
@@ -1388,15 +1403,29 @@ export const DepositPage: React.FC = () => {
                         <button
                           key={q.id}
                           type="button"
-                          onClick={() => setSelectedQrId(q.id)}
+                          onClick={() => {
+                            if (q.isMaintenance) {
+                              addToast('info', '🛠️ Pradeep QR abhi Under Maintenance hai. Kripya QR 1 (Khushi) ya QR 2 (Lord) se payment karein.');
+                              return;
+                            }
+                            setSelectedQrId(q.id);
+                          }}
                           className={`py-2 px-1 rounded-xl transition text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                            selectedQrId === q.id
+                            q.isMaintenance
+                              ? 'opacity-60 bg-white/5 border border-dashed border-amber-500/40 hover:opacity-80'
+                              : selectedQrId === q.id
                               ? 'bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white shadow-md font-black'
                               : 'text-slate-300 hover:text-white bg-white/5 hover:bg-white/10'
                           }`}
                         >
                           <span className="truncate w-full text-[10px] sm:text-xs">{q.tabLabel}</span>
-                          <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${selectedQrId === q.id ? 'bg-black/30 text-amber-200' : 'bg-white/10 text-slate-400'}`}>
+                          <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${
+                            q.isMaintenance
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : selectedQrId === q.id 
+                              ? 'bg-black/30 text-amber-200' 
+                              : 'bg-white/10 text-slate-400'
+                          }`}>
                             {q.badge}
                           </span>
                         </button>
