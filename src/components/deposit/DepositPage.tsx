@@ -29,6 +29,7 @@ import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
 import { UsdtDepositTab } from './UsdtDepositTab';
 import QRCode from 'qrcode';
+import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -77,6 +78,12 @@ export const DepositPage: React.FC = () => {
   const [dynamicQrDataUrl, setDynamicQrDataUrl] = useState<string>('');
   const [officialQrDataUrl, setOfficialQrDataUrl] = useState<string>('');
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
+
+  // Smart AI OCR Auto-Accept State & 10-Minute Freshness Check
+  const [orderInitiatedAt, setOrderInitiatedAt] = useState<number>(Date.now());
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'scanning' | 'passed' | 'failed'>('idle');
+  const [ocrProgressText, setOcrProgressText] = useState<string>('');
+  const [ocrResult, setOcrResult] = useState<OcrVerificationResult | null>(null);
 
   // Monitor 2-minute rate limit for payment screenshot submissions
   useEffect(() => {
@@ -238,6 +245,10 @@ export const DepositPage: React.FC = () => {
     setScreenshotFile(null);
     setScreenshotUrl('');
     setScreenshotError(null);
+    setOrderInitiatedAt(Date.now());
+    setOcrResult(null);
+    setOcrStatus('idle');
+    setOcrProgressText('');
     setIsTopUpModalOpen(true);
     addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR with remark "cousin".`);
   };
@@ -259,6 +270,38 @@ export const DepositPage: React.FC = () => {
 
     setIsUploadingScreenshot(true);
     setUploadProgress(25);
+
+    const triggerOcrScan = (imgDataUrl: string) => {
+      setOcrStatus('scanning');
+      setOcrProgressText(`🤖 AI OCR: Scanning amount ₹${topUpAmount} & 10m timestamp...`);
+      verifyPaymentScreenshot({
+        imageSource: imgDataUrl,
+        expectedAmount: topUpAmount,
+        orderCreatedAt: orderInitiatedAt,
+        maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+        onProgress: (_pct, statusText) => setOcrProgressText(statusText),
+      }).then((res) => {
+        setOcrResult(res);
+        if (res.success) {
+          setOcrStatus('passed');
+          setOcrProgressText(res.reason);
+          if (res.detectedUtr && !utrRef) {
+            setUtrRef(res.detectedUtr);
+            addToast('success', `✓ AI OCR: Detected UTR ${res.detectedUtr} & amount ₹${topUpAmount}!`);
+          } else {
+            addToast('success', res.reason);
+          }
+        } else {
+          setOcrStatus('failed');
+          setOcrProgressText(res.reason);
+          addToast('error', res.reason);
+        }
+      }).catch((err) => {
+        console.error('OCR check error:', err);
+        setOcrStatus('failed');
+        setOcrProgressText('OCR scanning error. Manual review required.');
+      });
+    };
 
     const reader = new FileReader();
     reader.onprogress = (ev) => {
@@ -286,24 +329,29 @@ export const DepositPage: React.FC = () => {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
+        let finalDataUrl = reader.result as string;
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
-          setScreenshotUrl(dataUrl);
+          finalDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          setScreenshotUrl(finalDataUrl);
         } else {
-          setScreenshotUrl(reader.result as string);
+          setScreenshotUrl(finalDataUrl);
         }
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
         addToast('success', '✓ Payment screenshot uploaded successfully!');
+        // Run Smart AI OCR scan immediately
+        triggerOcrScan(finalDataUrl);
       };
       img.onerror = () => {
-        setScreenshotUrl(reader.result as string);
+        const fallbackUrl = reader.result as string;
+        setScreenshotUrl(fallbackUrl);
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
         addToast('success', '✓ Payment screenshot uploaded successfully!');
+        triggerOcrScan(fallbackUrl);
       };
       img.src = reader.result as string;
     };
@@ -333,6 +381,18 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
+    // Strict 10-Minute & Amount OCR Verification Rule (werna reject)
+    if (settings.autoApproveWithOcr !== false) {
+      if (ocrStatus === 'scanning') {
+        addToast('info', '⏳ AI OCR receipt verify kar raha hai, kripya kuch seconds intezaar karein...');
+        return;
+      }
+      if (ocrResult && !ocrResult.success) {
+        addToast('error', `❌ Payment Rejected: ${ocrResult.reason}`);
+        return;
+      }
+    }
+
     // Safety Rate Limit: 15 seconds between submissions to prevent double clicks
     const userIdentifier = user?.id || user?.phone || 'active_user';
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
@@ -347,13 +407,29 @@ export const DepositPage: React.FC = () => {
 
     setIsProcessingTopUp(true);
     try {
-      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl || '', 'cousin');
+      const ocrMeta = ocrResult ? {
+        verified: ocrResult.success,
+        detectedAmount: ocrResult.detectedAmount,
+        detectedUtr: ocrResult.detectedUtr || cleanUtr,
+        detectedTime: ocrResult.detectedTime,
+        timeDiffMins: ocrResult.timeDiffMins,
+        status: ocrResult.success ? ('passed' as const) : ('failed' as const),
+        reason: ocrResult.reason,
+      } : undefined;
+
+      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl || '', 'cousin', ocrMeta);
       if (res && res.success) {
         localStorage.setItem(lastDepositKey, Date.now().toString());
         setIsTopUpModalOpen(false);
         setUtrRef('');
         setScreenshotFile(null);
         setScreenshotUrl('');
+        setOcrResult(null);
+        setOcrStatus('idle');
+
+        if (res.autoApproved) {
+          addToast('success', `🎉 Payment Instant Auto-Approved! ₹${topUpAmount} aapke wallet me jud gaya!`);
+        }
       }
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to submit payment. Please try again.');
@@ -1496,6 +1572,64 @@ export const DepositPage: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Smart AI OCR 10-Minute & Amount Scanner Card */}
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    ocrStatus === 'passed'
+                      ? 'bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-emerald-400/60 text-emerald-200'
+                      : ocrStatus === 'failed'
+                      ? 'bg-gradient-to-r from-rose-950/80 to-red-950/80 border-rose-400/60 text-rose-200'
+                      : ocrStatus === 'scanning'
+                      ? 'bg-gradient-to-r from-amber-950/80 to-orange-950/80 border-amber-400/60 text-amber-200 animate-pulse'
+                      : 'bg-white/5 border-white/10 text-slate-300'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5 font-black text-xs">
+                        <Sparkles className={`w-4 h-4 ${
+                          ocrStatus === 'passed' ? 'text-emerald-400' : ocrStatus === 'failed' ? 'text-rose-400' : 'text-[#FF6B00]'
+                        }`} />
+                        <span>Smart AI OCR Verification</span>
+                      </div>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        ocrStatus === 'passed'
+                          ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/50'
+                          : ocrStatus === 'failed'
+                          ? 'bg-rose-500/30 text-rose-300 border border-rose-400/50'
+                          : ocrStatus === 'scanning'
+                          ? 'bg-amber-500/30 text-amber-300 border border-amber-400/50'
+                          : 'bg-white/10 text-slate-400'
+                      }`}>
+                        {ocrStatus === 'passed'
+                          ? '✓ 10m Rule Passed'
+                          : ocrStatus === 'failed'
+                          ? '❌ Rule Failed'
+                          : ocrStatus === 'scanning'
+                          ? 'Scanning...'
+                          : '10-Min Rule Active'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed">
+                      {ocrStatus === 'passed' ? (
+                        <span className="text-emerald-300 font-bold">
+                          ✓ Match Confirmed: Receipt me ₹{ocrResult?.detectedAmount || topUpAmount} aur fresh payment ({ocrResult?.detectedTime || '<10m'}) mila. Instant auto-accept ready!
+                        </span>
+                      ) : ocrStatus === 'failed' ? (
+                        <span className="text-rose-300 font-bold">
+                          ❌ Rejection: {ocrResult?.reason || 'Payment 10 minute se purana hai ya amount match nahi hua.'}
+                        </span>
+                      ) : ocrStatus === 'scanning' ? (
+                        <span className="text-amber-300 font-semibold flex items-center gap-2">
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>{ocrProgressText || `Scanning receipt for ₹${topUpAmount} and 10-minute timestamp...`}</span>
+                        </span>
+                      ) : (
+                        <span>
+                          ℹ️ Screenshot upload karte hi AI receipt ka amount (<strong>₹{topUpAmount}</strong>) aur timestamp scan karega. <strong>Sirf 10 min ke andar ki fresh payment automatic accept hogi</strong>, werna reject.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
                   {/* SLA Guarantee Notice */}
                   <div className="p-3 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
                     <Clock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -1533,26 +1667,40 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot || cooldownSeconds > 0}
+                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot || cooldownSeconds > 0 || ocrStatus === 'scanning' || ocrStatus === 'failed'}
                       onClick={handleConfirmTopUp}
                       className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                        isUtrReady && screenshotUrl && cooldownSeconds === 0 && !isProcessingTopUp
+                        isUtrReady && screenshotUrl && cooldownSeconds === 0 && !isProcessingTopUp && ocrStatus !== 'scanning' && ocrStatus !== 'failed'
                           ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
                           : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                       }`}
                     >
-                      <Send className="w-4 h-4" />
-                      <span>
-                        {isProcessingTopUp 
-                          ? 'Submitting for Verification...' 
-                          : cooldownSeconds > 0 
-                          ? `Wait ${cooldownSeconds}s (1 per 2 mins)`
-                          : !isUtrReady 
-                          ? 'Enter 12-Digit UTR to Submit' 
-                          : !screenshotUrl 
-                          ? 'Attach Screenshot to Submit' 
-                          : `Submit for Verification (₹${topUpAmount})`}
-                      </span>
+                      {isProcessingTopUp ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Processing Payment...</span>
+                        </>
+                      ) : ocrStatus === 'scanning' ? (
+                        <>
+                          <RotateCw className="w-4 h-4 animate-spin text-amber-300" />
+                          <span>AI Scanning Receipt...</span>
+                        </>
+                      ) : ocrStatus === 'failed' ? (
+                        <>
+                          <XCircle className="w-4 h-4 text-rose-300" />
+                          <span>Rejected (10m / Amount Rule)</span>
+                        </>
+                      ) : ocrStatus === 'passed' ? (
+                        <>
+                          <Sparkles className="w-4 h-4 text-amber-300 animate-bounce" />
+                          <span>⚡ Instant Auto-Approve ₹{topUpAmount}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Submit & Verify ₹{topUpAmount}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

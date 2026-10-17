@@ -87,6 +87,16 @@ export interface DepositOrder {
   paymentScreenshot?: string;
   remark?: string;
   txHash?: string;
+  rejectionReason?: string;
+  ocrVerification?: {
+    verified: boolean;
+    detectedAmount?: number;
+    detectedUtr?: string;
+    detectedTime?: string;
+    timeDiffMins?: number;
+    status: 'passed' | 'failed' | 'manual_review';
+    reason?: string;
+  };
 }
 
 export type WithdrawalMethod = 'bank' | 'upi' | 'usdt';
@@ -180,6 +190,8 @@ export interface RewardSettings {
   emailApiKey?: string;
   emailProvider?: 'BREVO' | 'RESEND';
   fromEmail?: string;
+  autoApproveWithOcr?: boolean; // Smart OCR Instant Auto-Approve (default true)
+  ocrMaxTimeWindowMins?: number; // 10 minutes maximum window (default 10)
 }
 
 export interface SupportTicket {

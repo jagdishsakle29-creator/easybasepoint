@@ -290,6 +290,8 @@ export const defaultSettings: RewardSettings = {
   emailApiKey: '',
   emailProvider: 'BREVO',
   fromEmail: 'security@easybasepoint.com',
+  autoApproveWithOcr: true,
+  ocrMaxTimeWindowMins: 10,
 };
 
 export const defaultTransactions: Transaction[] = [];

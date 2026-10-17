@@ -61,7 +61,21 @@ interface AppContextType {
   
   // Transactions & Flows
   buyQuota: (pkgOrId: QuotaPackage | string, idempotencyKey?: string) => { success: boolean; message: string; transaction?: Transaction };
-  submitInrDeposit: (amount: number, refNumber: string, screenshotUrl?: string, remark?: string) => Promise<{ success: boolean; message: string }>;
+  submitInrDeposit: (
+    amount: number, 
+    refNumber: string, 
+    screenshotUrl?: string, 
+    remark?: string,
+    ocrResult?: {
+      verified: boolean;
+      detectedAmount?: number;
+      detectedUtr?: string;
+      detectedTime?: string;
+      timeDiffMins?: number;
+      status: 'passed' | 'failed' | 'manual_review';
+      reason?: string;
+    }
+  ) => Promise<{ success: boolean; message: string; autoApproved?: boolean }>;
   submitUsdtDeposit: (usdtAmount: number, network: string, txHash: string) => { success: boolean; message: string };
   submitWithdrawal: (
     amount: number, 
@@ -82,6 +96,7 @@ interface AppContextType {
   refreshWithdrawals: () => Promise<WithdrawalRequest[]>;
   approveDeposit: (id: string, fallbackTotalInr?: number, fullDepObject?: DepositOrder) => void;
   rejectDeposit: (id: string, reason?: string) => void;
+  rejectAndRefundDeposit: (id: string, reason?: string) => void;
   deleteDeposit: (id: string) => void;
   approveWithdrawal: (id: string) => void;
   rejectWithdrawal: (id: string, reason: string) => void;
@@ -1661,8 +1676,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     amount: number, 
     refNumber: string, 
     screenshotUrl?: string, 
-    remark?: string
-  ): Promise<{ success: boolean; message: string }> => {
+    remark?: string,
+    ocrResult?: {
+      verified: boolean;
+      detectedAmount?: number;
+      detectedUtr?: string;
+      detectedTime?: string;
+      timeDiffMins?: number;
+      status: 'passed' | 'failed' | 'manual_review';
+      reason?: string;
+    }
+  ): Promise<{ success: boolean; message: string; autoApproved?: boolean }> => {
     const activeUser: User | null = user || storage.getUser();
     if (!activeUser) {
       addToast('error', 'Please log in to your account first.');
@@ -1680,13 +1704,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Valid 12-digit UTR required' };
     }
 
+    // Duplicate UTR check: Cannot reuse an already used UTR
+    const allExistingDeps = storage.getDeposits();
+    const isDuplicate = allExistingDeps.some(
+      (d) => d.utrNumber && d.utrNumber.trim() === cleanUtr && d.status !== 'rejected'
+    );
+    if (isDuplicate) {
+      addToast('error', '❌ Duplicate UTR detected: Ye UTR number pehle se use ho chuka hai. Kripya naya payment karein.');
+      return { success: false, message: 'Duplicate UTR' };
+    }
+
     // Strict 1: Mandatory payment screenshot
     if (!screenshotUrl || !screenshotUrl.trim()) {
       addToast('error', '⚠️ Payment screenshot is strictly required.');
       return { success: false, message: 'Payment screenshot required' };
     }
 
-    // Strict 2: 2-minute rate limit per user
+    // Strict 2: 15-second rate limit per user
     const userIdentifier = activeUser.id || activeUser.phone || 'player';
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
     const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
@@ -1699,10 +1733,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     localStorage.setItem(lastDepositKey, now.toString());
 
-    // Extra Tier Free Bonus:
-    // 50,000+ -> +5,000 Free
-    // 20,000+ -> +1,000 Free
-    // 5,000+  -> +100 Free
+    // Extra Tier Free Bonus
     let extraFreeBonus = 0;
     let tierLabel = '';
     if (amount >= 50000) {
@@ -1722,6 +1753,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = amount + totalBonus;
     const finalRemark = remark || 'cousin';
 
+    const isAutoApproved = Boolean(
+      settings.isDemoMode ||
+      (ocrResult?.verified && settings.autoApproveWithOcr !== false)
+    );
+
+    const nowIso = new Date().toISOString();
     const newDeposit: DepositOrder = {
       id: `DEP-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: activeUser.id,
@@ -1733,16 +1770,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       bonusInr: standardBonus,
       activityRewardInr: extraFreeBonus,
       totalInr: total,
-      status: settings.isDemoMode ? 'completed' : 'pending_verification',
-      createdAt: new Date().toISOString(),
+      status: isAutoApproved ? 'approved' : 'pending_verification',
+      credited: isAutoApproved,
+      creditedAt: isAutoApproved ? nowIso : undefined,
+      approvedAt: isAutoApproved ? nowIso : undefined,
+      createdAt: nowIso,
       proofUrl: screenshotUrl || cleanUtr,
       paymentScreenshot: screenshotUrl || '',
       remark: finalRemark,
+      ocrVerification: ocrResult,
     };
 
     const updatedDeposits = [newDeposit, ...deposits];
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
+
+    // If auto-approved by Smart OCR, credit user wallet immediately
+    if (isAutoApproved) {
+      recordProcessedDeposit(newDeposit.id, 'approved');
+      creditWalletForDeposit(newDeposit.id, total, amount, newDeposit);
+
+      // Also update in registered accounts
+      const accounts = storage.getAccounts();
+      const depPhone = (activeUser.phone || '').replace(/[^0-9]/g, '');
+      accounts.forEach((acc) => {
+        const accPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+        if (acc.user.id === activeUser.id || (depPhone.length >= 10 && accPhone.endsWith(depPhone.slice(-10)))) {
+          const accCredited = Array.isArray(acc.wallet?.creditedDepositIds) ? [...acc.wallet.creditedDepositIds] : [];
+          if (!accCredited.includes(newDeposit.id)) {
+            accCredited.push(newDeposit.id);
+            acc.wallet = {
+              ...(acc.wallet || defaultWallet),
+              balance: parseFloat(((Number(acc.wallet?.balance) || 0) + total).toFixed(2)),
+              quota: parseFloat(((Number(acc.wallet?.quota) || 0) + amount).toFixed(2)),
+              todayReceive: parseFloat(((Number(acc.wallet?.todayReceive) || 0) + total).toFixed(2)),
+              creditedDepositIds: accCredited,
+            };
+            storage.saveAccount(acc);
+          }
+        }
+      });
+    }
 
     // Non-blocking high-speed broadcast to backend and ledger
     cloudSync.broadcastDeposit({
@@ -2312,7 +2380,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     logAudit('REJECT_DEPOSIT', `Rejected & permanently deleted deposit ${id}: ${reason || 'Invalid UTR'}`, deposit.userId);
-    addToast('info', `🗑️ Deposit ${id} rejected & deleted immediately!`);
+    addToast('info', `🗑️ Deposit ${id} rejected.`);
+  };
+
+  const rejectAndRefundDeposit = (id: string, reason?: string) => {
+    const processedDeps = getProcessedDeposits();
+    if (processedDeps[id] === 'rejected') return;
+    recordProcessedDeposit(id, 'rejected');
+
+    const allDeps = storage.getDeposits();
+    const deposit = deposits.find((d) => d.id === id) || allDeps.find((d) => d.id === id);
+    if (!deposit) return;
+
+    const refundAmount = Number(deposit.amount || deposit.totalInr || 0);
+
+    const updatedDeposits = deposits.map((d) =>
+      d.id === id
+        ? { ...d, status: 'rejected' as DepositStatus, rejectionReason: `Refunded: ${reason || 'Admin Refund'}` }
+        : d
+    );
+    setDeposits(updatedDeposits);
+    storage.setDeposits(updatedDeposits);
+
+    // Sync rejection to cloud ledger
+    cloudSync.broadcastApproval(id, 'rejected');
+    cloudSync.deleteFromGitHubLedger(id);
+
+    if (refundAmount > 0) {
+      const currentU = storage.getUser();
+      const cleanUserPhone = (currentU?.phone || '').replace(/[^0-9]/g, '');
+      const depPhone = (deposit.userPhone || '').replace(/[^0-9]/g, '');
+      const isCurrentUser = Boolean(
+        (currentU && deposit.userId && deposit.userId === currentU.id) ||
+        (cleanUserPhone.length >= 10 && depPhone.length >= 10 && depPhone.endsWith(cleanUserPhone.slice(-10)))
+      );
+
+      if (isCurrentUser) {
+        setWallet((prev) => {
+          const newBal = parseFloat(((Number(prev.balance) || 0) + refundAmount).toFixed(2));
+          const updated = { ...prev, balance: newBal };
+          storage.setWallet(updated);
+          return updated;
+        });
+      }
+
+      // Update in registered accounts
+      const accounts = storage.getAccounts();
+      accounts.forEach((acc) => {
+        const accPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+        if (acc.user.id === deposit.userId || (depPhone.length >= 10 && accPhone.endsWith(depPhone.slice(-10)))) {
+          acc.wallet = {
+            ...(acc.wallet || defaultWallet),
+            balance: parseFloat(((Number(acc.wallet?.balance) || 0) + refundAmount).toFixed(2)),
+          };
+          storage.saveAccount(acc);
+        }
+      });
+
+      // Record refund transaction
+      const refundTx: Transaction = {
+        id: `TX-REF-${Date.now().toString().slice(-6)}`,
+        userId: deposit.userId,
+        type: 'reward',
+        amount: refundAmount,
+        currency: 'INR',
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        note: `Deposit Refund #${id}: ${reason || 'Refunded by Admin'}`,
+        referenceId: id,
+      };
+      setTransactions((prev) => {
+        const updatedTx = [refundTx, ...prev];
+        storage.setTransactions(updatedTx);
+        return updatedTx;
+      });
+    }
+
+    logAudit('REJECT_REFUND_DEPOSIT', `Rejected & refunded ₹${refundAmount} for deposit ${id}: ${reason || 'Admin Refund'}`, deposit.userId);
+    addToast('success', `Deposit #${id} rejected and ₹${refundAmount} refunded to user's wallet.`);
   };
 
   // Admin Actions
@@ -2532,6 +2677,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshWithdrawals,
         approveDeposit,
         rejectDeposit,
+        rejectAndRefundDeposit,
         deleteDeposit,
         approveWithdrawal,
         rejectWithdrawal,

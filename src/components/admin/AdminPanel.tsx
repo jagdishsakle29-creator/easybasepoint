@@ -25,7 +25,8 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Crown
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { QuotaPackage, QuotaLevel } from '../../types';
@@ -42,6 +43,7 @@ export const AdminPanel: React.FC = () => {
     user, 
     approveDeposit,
     rejectDeposit,
+    rejectAndRefundDeposit,
     deleteDeposit,
     refreshDeposits,
     refreshWithdrawals,
@@ -120,6 +122,8 @@ export const AdminPanel: React.FC = () => {
   const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
   const [adminTelegramChatId, setAdminTelegramChatId] = useState(settings.adminTelegramChatId || '');
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/easybasepoint');
+  const [autoApproveWithOcr, setAutoApproveWithOcr] = useState(settings.autoApproveWithOcr !== false);
+  const [ocrMaxTimeWindowMins, setOcrMaxTimeWindowMins] = useState(settings.ocrMaxTimeWindowMins || 10);
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
   const [loadingScreenshotId, setLoadingScreenshotId] = useState<string | null>(null);
@@ -366,8 +370,10 @@ export const AdminPanel: React.FC = () => {
       telegramBotToken,
       adminTelegramChatId,
       telegramChannelUrl,
+      autoApproveWithOcr,
+      ocrMaxTimeWindowMins,
     });
-    addToast('success', 'Platform payment gateways & Telegram config updated!');
+    addToast('success', 'Platform payment gateways, Telegram & Smart AI OCR settings updated!');
   };
 
   const handleTestTelegram = async () => {
@@ -412,6 +418,23 @@ export const AdminPanel: React.FC = () => {
     setProcessingActionIds((prev) => new Set(prev).add(depId));
     try {
       await rejectDeposit(depId, reason);
+      setActionCounter((c) => c + 1);
+    } finally {
+      setTimeout(() => {
+        setProcessingActionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(depId);
+          return next;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleAdminRejectAndRefundDeposit = async (depId: string, depObj?: any, reason?: string) => {
+    if (processingActionIds.has(depId)) return;
+    setProcessingActionIds((prev) => new Set(prev).add(depId));
+    try {
+      await rejectAndRefundDeposit(depId, reason || 'Refund issued by Admin');
       setActionCounter((c) => c + 1);
     } finally {
       setTimeout(() => {
@@ -972,26 +995,36 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
                       <button
                         disabled={processingActionIds.has(dep.id)}
                         onClick={() => handleAdminApproveDeposit(dep.id, Boolean(dep.proofUrl || dep.paymentScreenshot), dep)}
-                        className={`flex-1 sm:flex-initial py-2.5 px-5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition ${
+                        className={`flex-1 sm:flex-initial py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition ${
                           processingActionIds.has(dep.id)
                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                             : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer'
                         }`}
                       >
                         <Check className="w-4 h-4" />
-                        <span>{processingActionIds.has(dep.id) ? 'Processing...' : `Approve & Credit ₹${Number(dep.totalInr || 0)}`}</span>
+                        <span>{processingActionIds.has(dep.id) ? 'Processing...' : `Approve ₹${Number(dep.totalInr || 0)}`}</span>
+                      </button>
+                      <button
+                        disabled={processingActionIds.has(dep.id)}
+                        onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'USDT refund issued to wallet')}
+                        className="py-2.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
+                        title="Reject and refund amount to user's wallet"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Reject & Refund</span>
                       </button>
                       <button
                         disabled={processingActionIds.has(dep.id)}
                         onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid USDT TxID or payment unconfirmed')}
-                        className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1 cursor-pointer"
+                        className="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
+                        title="Reject deposit without refund"
                       >
                         <X className="w-4 h-4" />
-                        <span>Reject & Delete</span>
+                        <span>Reject</span>
                       </button>
                     </div>
                   </div>
@@ -1129,15 +1162,25 @@ export const AdminPanel: React.FC = () => {
                                     }`}
                                   >
                                     <Check className="w-3 h-3" />
-                                    <span>{processingActionIds.has(dep.id) ? 'Processing...' : 'Approve'}</span>
+                                    <span>{processingActionIds.has(dep.id) ? '...' : 'Approve'}</span>
+                                  </button>
+                                  <button
+                                    disabled={processingActionIds.has(dep.id)}
+                                    onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Refund issued')}
+                                    className="py-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                    title="Reject and refund"
+                                  >
+                                    <RotateCcw className="w-3 h-3 text-amber-600" />
+                                    <span>Reject & Refund</span>
                                   </button>
                                   <button
                                     disabled={processingActionIds.has(dep.id)}
                                     onClick={() => handleAdminRejectDeposit(dep.id)}
                                     className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                    title="Reject without refund"
                                   >
                                     <X className="w-3 h-3" />
-                                    <span>Reject & Delete</span>
+                                    <span>Reject</span>
                                   </button>
                                 </div>
                               ) : (
@@ -1375,13 +1418,13 @@ export const AdminPanel: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Action Buttons if Pending */}
+                    {/* Action Buttons if Pending: Approve, Reject & Refund, Reject */}
                     {isPending && (
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
                         <button
                           disabled={(!hasValidImage && !hasScreenshotRef && !dep.utrNumber) || processingActionIds.has(dep.id)}
                           onClick={() => handleAdminApproveDeposit(dep.id, Boolean(hasValidImage || hasScreenshotRef), dep)}
-                          className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
+                          className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition active:scale-[0.98] ${
                             processingActionIds.has(dep.id)
                               ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
                               : (hasValidImage || hasScreenshotRef || dep.utrNumber)
@@ -1394,18 +1437,29 @@ export const AdminPanel: React.FC = () => {
                             {processingActionIds.has(dep.id)
                               ? 'Processing...'
                               : (!hasValidImage && !hasScreenshotRef && !dep.utrNumber)
-                              ? 'Screenshot Required to Approve'
-                              : `Approve & Credit ₹${dep.totalInr}`}
+                              ? 'Screenshot Required'
+                              : `Approve ₹${dep.totalInr}`}
                           </span>
                         </button>
 
                         <button
                           disabled={processingActionIds.has(dep.id)}
+                          onClick={() => handleAdminRejectAndRefundDeposit(dep.id, dep, 'Admin refund issued to user')}
+                          className="py-2.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
+                          title="Reject deposit and refund amount to user's wallet"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Reject & Refund</span>
+                        </button>
+
+                        <button
+                          disabled={processingActionIds.has(dep.id)}
                           onClick={() => handleAdminRejectDeposit(dep.id, 'Invalid UTR, missing screenshot, or payment not received')}
-                          className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          className="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs whitespace-nowrap"
+                          title="Reject deposit without refund"
                         >
                           <X className="w-4 h-4" />
-                          <span>Reject & Delete</span>
+                          <span>Reject</span>
                         </button>
                       </div>
                     )}
@@ -1659,12 +1713,63 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Smart AI OCR Auto-Accept Settings */}
+          <div className="space-y-3 p-4 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-2xl border border-amber-200/80">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                <Sparkles className="w-4 h-4 text-[#FF6B00]" />
+                <span>3. Smart AI OCR Auto-Accept System (10-Minute Rule)</span>
+              </div>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#FF6B00] text-white">
+                AI Active
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Jab user payment screenshot upload karega, AI automatically receipt scan karega. 
+              Selected amount aur <b>10 minute ke andar</b> ka payment timestamp match hone par transaction <b>Instant Auto-Approved</b> ho jayega. 
+              10 minute se purana payment ya amount mismatch hone par reject ho jayega.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">AI OCR Auto-Approve</div>
+                  <p className="text-[10px] text-slate-500">Enable automatic wallet credit on match</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoApproveWithOcr}
+                  onChange={(e) => setAutoApproveWithOcr(e.target.checked)}
+                  className="w-5 h-5 accent-[#FF6B00] cursor-pointer rounded"
+                />
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                  Max Payment Freshness (Minutes)
+                </label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={ocrMaxTimeWindowMins}
+                    onChange={(e) => setOcrMaxTimeWindowMins(Math.max(1, Number(e.target.value) || 10))}
+                    className="w-20 px-3 py-1.5 text-xs font-bold font-mono rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:ring-1 focus:ring-[#FF6B00]"
+                  />
+                  <span className="text-xs text-slate-600 font-medium">Minutes (Default: 10 mins)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Telegram Approval Bot & VIP Channel Settings */}
           <div className="space-y-3 p-4 bg-sky-50/70 rounded-2xl border border-sky-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-xs text-sky-800">
                 <Send className="w-4 h-4 text-sky-600" />
-                <span>3. Telegram Payment Approval Bot & VIP Channel</span>
+                <span>4. Telegram Payment Approval Bot & VIP Channel</span>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full">
                 100% Privacy Protected
