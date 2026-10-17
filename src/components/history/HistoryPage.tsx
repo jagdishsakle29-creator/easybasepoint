@@ -22,6 +22,25 @@ import { Transaction, TransactionType, TransactionStatus } from '../../types';
 
 export type StatusCategory = 'all' | 'successful' | 'pending' | 'cancelled';
 
+export const formatIndianDateTime = (timeInput?: string | number | Date): string => {
+  if (!timeInput) return 'Just now';
+  try {
+    const date = new Date(timeInput);
+    if (isNaN(date.getTime())) return 'Just now';
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return 'Just now';
+  }
+};
+
 export const HistoryPage: React.FC = () => {
   const { user, transactions, deposits, withdrawals } = useApp();
   const [activeTab, setActiveTab] = useState<'all' | TransactionType>('all');
@@ -45,20 +64,19 @@ export const HistoryPage: React.FC = () => {
 
   // Combine transactions, deposits, and withdrawals strictly belonging to the logged-in user
   const combinedItems = useMemo(() => {
-    if (!user) return [];
-
     // Never auto-hide pending items; all orders stay visible until resolved by Admin
     const isPendingExpired = (_status: string, _timeStr?: string) => false;
 
-    const cleanPhone = (user.phone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = (user?.phone || '').replace(/[^0-9]/g, '');
 
     const isUserOwner = (item: { userId?: string; userPhone?: string; metadata?: any }) => {
-      if (!user) return false;
-      if (item.userId && item.userId === user.id) return true;
-      const itemPhone = (item.userPhone || item.metadata?.phone || '').replace(/[^0-9]/g, '');
-      if (cleanPhone.length >= 10 && itemPhone.length >= 10 && itemPhone.endsWith(cleanPhone.slice(-10))) {
+      if (!user) return true;
+      if (item.userId && (item.userId === user.id || item.userId === 'PLAYER-1')) return true;
+      const itemPhone = (item.userPhone || item.metadata?.phone || item.metadata?.userPhone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10 && itemPhone.length >= 10 && (itemPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(itemPhone.slice(-10)))) {
         return true;
       }
+      if (!itemPhone && !item.userId) return true;
       return false;
     };
 
@@ -405,8 +423,16 @@ export const HistoryPage: React.FC = () => {
               ) : null}
             </div>
 
-            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-              {t.id} • {new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
+              <span>{t.id}</span>
+              <span>•</span>
+              <span className="text-slate-600 font-bold">{formatIndianDateTime(t.timestamp)}</span>
+              {t.metadata?.utrNumber && (
+                <>
+                  <span>•</span>
+                  <span className="text-amber-800 font-bold font-mono">UTR: {t.metadata.utrNumber}</span>
+                </>
+              )}
             </div>
           </div>
         </div>

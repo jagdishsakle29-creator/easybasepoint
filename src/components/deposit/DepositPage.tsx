@@ -32,6 +32,7 @@ import QRCode from 'qrcode';
 import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { PhonePeLogo, PaytmLogo, launchUpiPayment } from '../common/UpiLogos';
+import { formatIndianDateTime } from '../history/HistoryPage';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -1196,14 +1197,19 @@ export const DepositPage: React.FC = () => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-mono font-bold text-xs text-slate-800">{dep.id}</span>
                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase border border-slate-200">
                                   {dep.method}
                                 </span>
+                                {dep.utrNumber && (
+                                  <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    UTR: {dep.utrNumber}
+                                  </span>
+                                )}
                               </div>
-                              <div className="text-[11px] text-slate-400 font-medium">
-                                {new Date(dep.createdAt).toLocaleDateString()} • {new Date(dep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <div className="text-[11px] text-slate-500 font-medium">
+                                {formatIndianDateTime(dep.createdAt)}
                               </div>
                             </div>
 
