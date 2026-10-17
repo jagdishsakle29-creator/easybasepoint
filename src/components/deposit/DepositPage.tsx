@@ -514,6 +514,11 @@ export const DepositPage: React.FC = () => {
     }
 
     const upiId = activeUpiId;
+    const payee = activePayeeName;
+    const amt = topUpAmount;
+    const note = 'TopUp';
+
+    // 1. Always copy UPI ID to clipboard so user has it immediately
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
@@ -522,28 +527,56 @@ export const DepositPage: React.FC = () => {
     setIsTopUpModalOpen(true);
 
     const onPhone = isMobileDevice();
-
     if (!onPhone) {
-      // Desktop: Prevent custom URI scheme invocation that triggers Safari/Chrome "address is invalid"
-      addToast('info', `Selected ₹${topUpAmount} via ${appName}. Please scan the QR code with your phone or use UPI ID.`);
+      addToast('info', `Selected ₹${topUpAmount} via ${appName}. Please scan the QR code with your phone or use UPI ID: ${upiId}`);
       return;
     }
 
-    // Real Mobile Phone (Android or iPhone):
-    addToast('success', `Opening ${appName} directly for ₹${topUpAmount}...`);
-    const appUrl = getAppLaunchUrl(appKey);
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
 
-    // Direct user action invocation via hidden anchor click
+    let primaryUrl = standardUpi;
+    let fallbackScheme = standardUpi;
+
+    if (appKey === 'phonepe') {
+      primaryUrl = isAndroid
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`
+        : `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+      fallbackScheme = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+    } else if (appKey === 'paytm') {
+      primaryUrl = isAndroid
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`
+        : `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+      fallbackScheme = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+    } else if (appKey === 'gpay') {
+      primaryUrl = isAndroid
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`
+        : `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+      fallbackScheme = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+    }
+
+    addToast('success', `Opening ${appName} directly for ₹${amt}... (UPI copied)`);
+
+    // Direct invocation via hidden anchor click
     try {
       const link = document.createElement('a');
-      link.href = appUrl;
+      link.href = primaryUrl;
       link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch {
-      window.location.href = appUrl;
+      window.location.href = primaryUrl;
     }
+
+    // Secondary fallback after 600ms if Android Chrome or WebView didn't catch intent
+    setTimeout(() => {
+      try {
+        window.location.href = fallbackScheme;
+      } catch {
+        window.location.href = standardUpi;
+      }
+    }, 600);
   };
 
   return (
@@ -1536,29 +1569,32 @@ export const DepositPage: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      <a
-                        href={`phonepe://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
                         className="py-3 px-3 rounded-xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
                       >
                         <Smartphone className="w-4 h-4 text-purple-200" />
                         <span>Pay via PhonePe</span>
-                      </a>
+                      </button>
 
-                      <a
-                        href={`paytmmp://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                      <button
+                        type="button"
+                        onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
                         className="py-3 px-3 rounded-xl bg-[#002e6e] hover:bg-[#002252] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
                       >
                         <CreditCard className="w-4 h-4 text-[#00baf2]" />
                         <span>Pay via Paytm</span>
-                      </a>
+                      </button>
                     </div>
 
-                    <a
-                      href={`upi://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                    <button
+                      type="button"
+                      onClick={(e) => handleLaunchUpi(e, 'UPI App', 'upi')}
                       className="w-full py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 font-bold text-[11px] flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition cursor-pointer"
                     >
-                      <span>Open Other UPI Apps (GPay / BHIM / Cred) ➔</span>
-                    </a>
+                      <span>⚡ Open Other UPI Apps (GPay / BHIM / Cred) ➔</span>
+                    </button>
                   </div>
 
 
