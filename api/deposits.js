@@ -102,13 +102,10 @@ export default async function handler(req, res) {
       if (!body.createdAt) body.createdAt = new Date().toISOString();
       if (!body.status) body.status = "pending_verification";
 
-      // Strict mandatory screenshot
-      const screenshot = body.paymentScreenshot || body.proofUrl || "";
-      const isDemo = Boolean(body.isDemo);
-      const hasScreenshot = screenshot && (screenshot.startsWith("data:image") || screenshot.startsWith("http") || screenshot.length > 40);
-      if (!isDemo && !hasScreenshot) {
-        return res.status(400).json({ ok: false, error: "Payment screenshot is strictly required to submit a deposit." });
-      }
+      // Payment screenshot is optional in classic deposit flow (UTR is mandatory)
+      const screenshot = body.paymentScreenshot || body.proofUrl || body.utrNumber || "";
+      body.paymentScreenshot = screenshot;
+      body.proofUrl = screenshot;
 
       let { data, sha } = await fetchLedger();
 

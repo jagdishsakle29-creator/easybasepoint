@@ -32,7 +32,6 @@ import QRCode from 'qrcode';
 import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { PhonePeLogo, PaytmLogo, launchUpiPayment } from '../common/UpiLogos';
-import { PaymentProcessingModal } from './PaymentProcessingModal';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -83,25 +82,6 @@ export const DepositPage: React.FC = () => {
   const [officialQrDataUrl, setOfficialQrDataUrl] = useState<string>('');
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
-  // 30-40 Second Automated Verification & Processing Modal State
-  const [processingState, setProcessingState] = useState<{
-    isOpen: boolean;
-    depositId?: string;
-    amount: number;
-    bonus: number;
-    total: number;
-    utr: string;
-    screenshotUrl: string;
-    isAutoApproved?: boolean;
-  }>({
-    isOpen: false,
-    amount: 0,
-    bonus: 0,
-    total: 0,
-    utr: '',
-    screenshotUrl: '',
-    isAutoApproved: false,
-  });
 
   // Smart AI OCR Auto-Accept State & 10-Minute Freshness Check
   const [orderInitiatedAt, setOrderInitiatedAt] = useState<number>(Date.now());
@@ -283,65 +263,6 @@ export const DepositPage: React.FC = () => {
     addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR with remark "cousin".`);
   };
 
-  const startProcessingFlow = async (finalDataUrl: string, explicitUtr?: string) => {
-    const minDep = settings.minDeposit || 350;
-    const amt = topUpAmount > 0 ? topUpAmount : minDep;
-    const cleanUtr = (explicitUtr && explicitUtr.length === 12) 
-      ? explicitUtr 
-      : (utrRef && utrRef.length === 12 ? utrRef : ('42' + Date.now().toString().slice(-10)));
-    setUtrRef(cleanUtr);
-
-    const bonusPercent = settings.inrRewardPercent || 22;
-    let extraFreeBonus = 0;
-    if (amt >= 50000) extraFreeBonus = 5000;
-    else if (amt >= 20000) extraFreeBonus = 1000;
-    else if (amt >= 5000) extraFreeBonus = 100;
-    const standardBonus = (amt * bonusPercent) / 100;
-    const totalBonus = standardBonus + extraFreeBonus;
-    const totalAmt = amt + totalBonus;
-
-    // 1. Immediately close the deposit modal ("yeh page hat jaye")!
-    setIsTopUpModalOpen(false);
-
-    // 2. Open the 30-40 second processing modal with live verification animation!
-    setProcessingState({
-      isOpen: true,
-      amount: amt,
-      bonus: totalBonus,
-      total: totalAmt,
-      utr: cleanUtr,
-      screenshotUrl: finalDataUrl,
-      isAutoApproved: false,
-    });
-
-    addToast('info', `⏳ Payment Processing: ₹${amt} verify ho raha hai...`);
-
-    // 3. Submit deposit to ledger in background
-    try {
-      const res = await submitInrDeposit(amt, cleanUtr, finalDataUrl, 'cousin');
-      if (res && res.depositId) {
-        setProcessingState((prev) => ({
-          ...prev,
-          depositId: res.depositId,
-          total: res.totalInr || prev.total,
-          isAutoApproved: res.autoApproved,
-        }));
-      }
-    } catch (err) {
-      console.warn('[Deposit] Background submit notice:', err);
-    }
-
-    // 4. Run background OCR asynchronously without blocking the user
-    verifyPaymentScreenshot({
-      imageSource: finalDataUrl,
-      expectedAmount: amt,
-      orderCreatedAt: orderInitiatedAt,
-      maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
-    }).then((ocrRes) => {
-      setOcrResult(ocrRes);
-    }).catch(() => {});
-  };
-
   const processScreenshotFile = (file: File) => {
     setScreenshotError(null);
     if (file.type && !file.type.toLowerCase().startsWith('image/')) {
@@ -398,9 +319,6 @@ export const DepositPage: React.FC = () => {
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
         addToast('success', '✓ Payment screenshot attached!');
-
-        // Immediately close modal and launch 35s verification flow
-        startProcessingFlow(finalDataUrl);
       };
       img.onerror = () => {
         const fallbackUrl = reader.result as string;
@@ -409,7 +327,6 @@ export const DepositPage: React.FC = () => {
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
         addToast('success', '✓ Payment screenshot attached!');
-        startProcessingFlow(fallbackUrl);
       };
       img.src = reader.result as string;
     };
@@ -422,11 +339,29 @@ export const DepositPage: React.FC = () => {
   };
 
   const handleConfirmTopUp = async () => {
-    if (!screenshotUrl && !screenshotFile) {
-      addToast('error', '⚠️ Payment screenshot upload karna anivarya hai!');
+    const minDep = settings.minDeposit || 350;
+    const amt = topUpAmount > 0 ? topUpAmount : minDep;
+    const cleanUtr = utrRef.trim();
+
+    if (!cleanUtr || cleanUtr.length !== 12) {
+      addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit.');
       return;
     }
-    startProcessingFlow(screenshotUrl || '', utrRef);
+
+    setIsProcessingTopUp(true);
+    try {
+      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin');
+      if (res && res.success) {
+        setIsTopUpModalOpen(false);
+        setUtrRef('');
+        setScreenshotFile(null);
+        setScreenshotUrl('');
+      }
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to submit payment. Please try again.');
+    } finally {
+      setIsProcessingTopUp(false);
+    }
   };
 
   const isMobileDevice = () => {
@@ -1571,28 +1506,28 @@ export const DepositPage: React.FC = () => {
                   )}
 
                   {/* =======================================================
-                      MANDATORY PAYMENT SCREENSHOT SECTION
+                      PAYMENT SCREENSHOT (OPTIONAL) SECTION
                      ======================================================= */}
                   <div className="space-y-2 p-3 bg-white/5 rounded-2xl border border-white/10">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                         <ImageIcon className="w-4 h-4 text-[#FF6B00]" />
-                        <span>Payment Screenshot (100% Mandatory)</span>
+                        <span>Payment Screenshot (Optional)</span>
                       </label>
                       {screenshotUrl ? (
                         <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          ✓ Attached & Verified
+                          ✓ Attached
                         </span>
                       ) : (
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                          Zaroori Hai (Mandatory)
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Optional (Recommended)
                         </span>
                       )}
                     </div>
 
                     <p className="text-[11px] text-slate-300">
-                      Payment screenshot attach karna anivarya hai. Screenshot upload kiye bina deposit process nahi hoga.
+                      Payment receipt screenshot attach karna optional hai. Sirf 12-digit UTR daalkar bhi submit kar sakte hain.
                     </p>
 
                     {/* Screenshot Preview or Upload Dropzone */}
@@ -1608,11 +1543,11 @@ export const DepositPage: React.FC = () => {
                         <div className="flex items-center justify-between pt-1">
                           <div className="text-[11px] text-emerald-300 font-bold flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Screenshot Verified</span>
+                            <span>Screenshot Attached</span>
                           </div>
                           <label className="px-3 py-1 bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold rounded-lg cursor-pointer transition flex items-center gap-1">
                             <Upload className="w-3 h-3" />
-                            <span>Replace Screenshot</span>
+                            <span>Change</span>
                             <input
                               type="file"
                               accept="image/*"
@@ -1627,24 +1562,24 @@ export const DepositPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <label className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition ${
+                        <label className={`border-2 border-dashed rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition ${
                           isUtrReady 
                             ? 'border-amber-400/60 bg-amber-500/10 hover:bg-amber-500/15 hover:border-amber-400' 
                             : 'border-white/20 bg-white/5 hover:bg-white/10'
                         }`}>
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 flex items-center justify-center text-white shadow">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 flex items-center justify-center text-white shadow">
                             {isUploadingScreenshot ? (
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             ) : (
-                              <Upload className="w-5 h-5" />
+                              <Upload className="w-4 h-4" />
                             )}
                           </div>
                           <div className="text-center">
                             <span className="text-xs font-black text-amber-300 block">
-                              {isUploadingScreenshot ? 'Uploading Screenshot...' : 'Upload Payment Screenshot'}
+                              {isUploadingScreenshot ? 'Uploading Screenshot...' : 'Upload Payment Screenshot (Optional)'}
                             </span>
                             <span className="text-[10px] text-slate-400 block mt-0.5">
-                              Accepts JPG, JPEG, PNG, or WebP (Max 5MB)
+                              Accepts JPG, JPEG, PNG, or WebP
                             </span>
                           </div>
                           <input
@@ -1685,28 +1620,16 @@ export const DepositPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Automated 30-Second AI Verification Notice */}
-                  <div className="p-3 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/80 rounded-2xl border border-emerald-500/40 text-emerald-200 flex items-center justify-between text-xs shadow-inner">
-                    <div className="flex items-center gap-2 font-bold font-outfit">
-                      <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>⚡ 30-Second Automated Credit Active</span>
+                  {/* Clean Simple Instructions */}
+                  <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-300 text-xs space-y-1">
+                    <div className="flex items-center gap-2 font-black text-amber-300 font-outfit">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Easy 2-Step Deposit Process</span>
                     </div>
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                      Auto-Verification
-                    </span>
-                  </div>
-
-                  {/* SLA Guarantee Notice */}
-                  <div className="p-3 bg-emerald-950/90 rounded-2xl border border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
-                    <Clock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-black text-xs text-emerald-300 font-outfit">
-                        Screenshot attach hote hi 30-40 seconds me wallet credit ho jayega.
-                      </p>
-                      <p className="text-[10px] text-emerald-200/80 mt-0.5">
-                        Admin and automated bank verification active for instant processing.
-                      </p>
-                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      1. QR scan karke payment complete karein.<br />
+                      2. Apne payment app se 12-digit UTR enter karein aur Submit button dabayein. Admin verification ke baad balance turant add ho jayega.
+                    </p>
                   </div>
 
                   {/* Actions */}
@@ -1720,12 +1643,29 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isUploadingScreenshot}
+                      disabled={isProcessingTopUp || !isUtrReady || isUploadingScreenshot || cooldownSeconds > 0}
                       onClick={handleConfirmTopUp}
-                      className="flex-2 py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-outfit"
+                      className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 font-outfit ${
+                        isUtrReady && !isProcessingTopUp && cooldownSeconds === 0
+                          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
+                          : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
+                      }`}
                     >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>Submit & Auto-Verify (30s) ➔</span>
+                      {isProcessingTopUp ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Submitting Deposit...</span>
+                        </>
+                      ) : cooldownSeconds > 0 ? (
+                        <span>Wait {cooldownSeconds}s</span>
+                      ) : !isUtrReady ? (
+                        <span>Enter 12-Digit UTR to Submit</span>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Submit for Approval (₹{topUpAmount})</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1734,24 +1674,6 @@ export const DepositPage: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* 30-40 Second Automated Verification & Wallet Credit Modal */}
-      <PaymentProcessingModal
-        isOpen={processingState.isOpen}
-        onClose={() => setProcessingState((prev) => ({ ...prev, isOpen: false }))}
-        amount={processingState.amount}
-        bonus={processingState.bonus}
-        total={processingState.total}
-        utr={processingState.utr}
-        screenshotUrl={processingState.screenshotUrl}
-        depositId={processingState.depositId}
-        isAutoApprovedInitially={processingState.isAutoApproved}
-        onApproveDeposit={(id, totalInr) => {
-          approveDeposit(id, totalInr);
-          refreshDeposits();
-          addToast('success', `🎉 Payment Verified & ₹${totalInr} Credited to your wallet!`);
-        }}
-      />
     </div>
   );
 };

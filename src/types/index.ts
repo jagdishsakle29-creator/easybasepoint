@@ -190,6 +190,7 @@ export interface RewardSettings {
   emailApiKey?: string;
   emailProvider?: 'BREVO' | 'RESEND';
   fromEmail?: string;
+  autoApproveDeposits?: boolean; // When ON, automatically approves and credits all deposits immediately
   autoApproveWithOcr?: boolean; // Smart OCR Instant Auto-Approve (default true)
   ocrMaxTimeWindowMins?: number; // 10 minutes maximum window (default 10)
 }

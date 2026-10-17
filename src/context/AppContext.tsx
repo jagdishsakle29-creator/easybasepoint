@@ -384,7 +384,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Core centralized function to credit wallet atomically and persistently
-  const creditWalletForDeposit = useCallback((depId: string, amount: number, quota: number, depMeta?: any) => {
+  const creditWalletForDeposit = useCallback((depId: string, amount: number, quota: number, depMeta?: any, silent = false) => {
     if (!depId || amount <= 0) return false;
 
     // 1. Idempotency Check: Verify this deposit hasn't already been credited to user balance
@@ -526,11 +526,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
 
-    // 6. Confetti & Success Toast
-    try {
-      confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
-    } catch {}
-    addToast('success', `🎉 Payment Approved! ₹${amount.toFixed(2)} credited to your game wallet!`);
+    // 6. Confetti & Success Toast (Only if not silent background sync)
+    if (!silent) {
+      try {
+        confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
+      } catch {}
+      addToast('success', `🎉 Payment Approved! ₹${amount.toFixed(2)} credited to your game wallet!`);
+    }
     window.dispatchEvent(new CustomEvent('ebp:wallet-updated'));
     return true;
   }, []);
@@ -740,7 +742,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const amountToAdd = Number(bd.totalInr) || (matched ? matched.totalInr : defaultBal);
               const quotaToAdd = Number(bd.amount) || (matched ? matched.amount : defaultQuota);
               console.log(`[SYNC] Crediting uncredited deposit from backend ${bd.id}: +₹${amountToAdd}`);
-              creditWalletForDeposit(bd.id, amountToAdd, quotaToAdd, bd);
+              creditWalletForDeposit(bd.id, amountToAdd, quotaToAdd, bd, true);
             }
           }
         }
@@ -765,7 +767,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const amountToAdd = Number(ld.totalInr) || defaultBal;
             const quotaToAdd = Number(ld.amount) || defaultQuota;
             console.log(`[SYNC] Reconciling uncredited local deposit ${ld.id}: +₹${amountToAdd}`);
-            creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld);
+            creditWalletForDeposit(ld.id, amountToAdd, quotaToAdd, ld, true);
           }
         }
       });
@@ -1725,13 +1727,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Duplicate UTR' };
     }
 
-    // Strict 1: Mandatory payment screenshot
-    if (!screenshotUrl || !screenshotUrl.trim()) {
-      addToast('error', '⚠️ Payment screenshot is strictly required.');
-      return { success: false, message: 'Payment screenshot required' };
-    }
+    // Payment screenshot is optional in classic deposit flow (12-digit UTR is strictly verified)
+    const finalProof = (screenshotUrl && screenshotUrl.trim()) ? screenshotUrl.trim() : cleanUtr;
 
-    // Strict 2: 15-second rate limit per user
+    // Strict: 15-second rate limit per user to avoid accidental multi-clicks
     const userIdentifier = activeUser.id || activeUser.phone || 'player';
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
     const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
@@ -1764,8 +1763,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = amount + totalBonus;
     const finalRemark = remark || 'cousin';
 
+    // Auto-approve condition: Admin Auto-Accept ON, or Demo mode, or valid OCR
     const isAutoApproved = Boolean(
       settings.isDemoMode ||
+      settings.autoApproveDeposits ||
       (ocrResult?.verified && settings.autoApproveWithOcr !== false)
     );
 
@@ -1891,8 +1892,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updatedW;
       });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
+    } else if (isAutoApproved) {
+      addToast('success', `🎉 Payment Auto-Approved! ₹${total.toFixed(2)} credited to your wallet!`);
     } else {
-      addToast('success', `Payment submitted for verification! Balance will be credited within 5-7 minutes.`);
+      addToast('success', `✓ Payment submitted! Admin will verify UTR and approve your deposit.`);
     }
 
     return { 

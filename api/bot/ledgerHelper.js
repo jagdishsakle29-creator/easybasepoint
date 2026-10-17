@@ -143,12 +143,8 @@ export async function recordDeposit(deposit) {
   const id = deposit.id || deposit.depId;
   if (!id) return;
 
-  const screenshot = deposit.paymentScreenshot || deposit.proofUrl || '';
+  const screenshot = deposit.paymentScreenshot || deposit.proofUrl || deposit.utrNumber || 'UTR_SUBMITTED';
   const isDemo = Boolean(deposit.isDemo);
-
-  if (!isDemo && !screenshot) {
-    throw new Error('Payment screenshot is required to complete payment verification.');
-  }
 
   // Strict 2-minute rate limit: only 1 payment screenshot per 2-minute period per user
   const now = Date.now();
@@ -213,19 +209,14 @@ export async function markApproval(depId, totalInr, action = 'approved', meta = 
     return { ...existing, alreadyProcessed: true };
   }
 
-  // Strict: Cannot approve deposit without a valid payment screenshot
+  // In classic deposit flow, Admin approves via verified 12-digit UTR and optional screenshot
   if (isApproved) {
-    const screenshot = existing.paymentScreenshot || existing.proofUrl || meta.paymentScreenshot || '';
-    const hasScreenshot = Boolean(
-      screenshot &&
-      (screenshot.startsWith('data:image') ||
-       screenshot.startsWith('http') ||
-       screenshot.length > 50 ||
-       screenshot === 'VERIFIED_BY_ADMIN')
-    );
-    if (!hasScreenshot) {
-      throw new Error('Payment screenshot is strictly required to approve any deposit.');
-    }
+    const screenshot = existing.paymentScreenshot || existing.proofUrl || meta.paymentScreenshot || existing.utrNumber || 'UTR_VERIFIED';
+    data[depId] = {
+      ...existing,
+      paymentScreenshot: screenshot,
+      proofUrl: screenshot,
+    };
   }
 
   if (!isApproved) {

@@ -42,38 +42,10 @@ export const PremiumVipOfferPopup: React.FC = () => {
     )
   );
 
-  // 10-Minute Periodic Popup Timer
+  // Auto-popup disabled: Do not popup unexpectedly
   useEffect(() => {
-    if (!isPremiumUser) return;
-
-    const STORAGE_KEY = 'ebp_vip_popup_last_shown';
-    const TEN_MINUTES_MS = 10 * 60 * 1000;
-
-    const checkAndTriggerPopup = () => {
-      const now = Date.now();
-      const lastShown = Number(localStorage.getItem(STORAGE_KEY) || 0);
-
-      if (!lastShown || now - lastShown >= TEN_MINUTES_MS) {
-        // Pick a dynamic high amount offer (25% - 32%)
-        const randomOffer = VIP_OFFERS[Math.floor(Math.random() * VIP_OFFERS.length)];
-        setCurrentOffer(randomOffer);
-        setShowMiniQr(false);
-        setIsOpen(true);
-        localStorage.setItem(STORAGE_KEY, String(now));
-      }
-    };
-
-    // First check after 3 seconds on page load
-    const initialTimeout = setTimeout(checkAndTriggerPopup, 3500);
-
-    // Periodic check every 15 seconds
-    const interval = setInterval(checkAndTriggerPopup, 15000);
-
-    return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
-    };
-  }, [isPremiumUser]);
+    setIsOpen(false);
+  }, []);
 
   // Generate dynamic QR code when mini QR mode is activated
   useEffect(() => {

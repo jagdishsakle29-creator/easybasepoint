@@ -125,12 +125,14 @@ export const AdminPanel: React.FC = () => {
   const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
   const [adminTelegramChatId, setAdminTelegramChatId] = useState(settings.adminTelegramChatId || '');
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/VIEWPOINT78');
+  const [autoApproveDeposits, setAutoApproveDeposits] = useState(Boolean(settings.autoApproveDeposits));
   const [autoApproveWithOcr, setAutoApproveWithOcr] = useState(settings.autoApproveWithOcr !== false);
   const [ocrMaxTimeWindowMins, setOcrMaxTimeWindowMins] = useState(settings.ocrMaxTimeWindowMins || 10);
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
   const [loadingScreenshotId, setLoadingScreenshotId] = useState<string | null>(null);
   const [processingActionIds, setProcessingActionIds] = useState<Set<string>>(new Set());
+  const [isBatchApproving, setIsBatchApproving] = useState(false);
   const [currentAdminKey, setCurrentAdminKey] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -225,14 +227,56 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleToggleAutoApprove = (newVal?: boolean) => {
-    const nextVal = typeof newVal === 'boolean' ? newVal : !autoApproveWithOcr;
+  const handleToggleAutoApprove = async (newVal?: boolean) => {
+    const nextVal = typeof newVal === 'boolean' ? newVal : !autoApproveDeposits;
+    setAutoApproveDeposits(nextVal);
     setAutoApproveWithOcr(nextVal);
-    updateSettings({ autoApproveWithOcr: nextVal });
+    updateSettings({ autoApproveDeposits: nextVal, autoApproveWithOcr: nextVal });
     if (nextVal) {
-      addToast('success', `⚡ AI OCR Auto-Accept: ACTIVE (${ocrMaxTimeWindowMins || 10}-minute rule)`);
+      addToast('success', '⚡ Auto-Accept Payments: ON! Sabhi payments auto-accept honge.');
+      // When turned ON, automatically approve all currently pending deposits
+      const pendingList = uniqueDeposits.filter(isPendingDep);
+      if (pendingList.length > 0) {
+        let count = 0;
+        for (const dep of pendingList) {
+          try {
+            await approveDeposit(dep.id, dep.totalInr, dep);
+            count++;
+          } catch (e) {
+            console.error('Error auto-approving pending dep:', dep.id, e);
+          }
+        }
+        if (count > 0) {
+          setActionCounter((c) => c + 1);
+          addToast('success', `⚡ Sabhi ${count} Pending Deposits successfully Approve ho gaye!`);
+        }
+      }
     } else {
-      addToast('info', '🔒 AI OCR Auto-Accept: OFF (Manual review required)');
+      addToast('info', '🔒 Auto-Accept: OFF! Sabhi payments manual review me rahenge.');
+    }
+  };
+
+  const handleApproveAllPendingDeposits = async () => {
+    const pendingList = uniqueDeposits.filter(isPendingDep);
+    if (pendingList.length === 0) {
+      addToast('info', 'Koi pending deposit nahi hai.');
+      return;
+    }
+    setIsBatchApproving(true);
+    try {
+      let count = 0;
+      for (const dep of pendingList) {
+        try {
+          await approveDeposit(dep.id, dep.totalInr, dep);
+          count++;
+        } catch (e) {
+          console.error('Error approving dep:', dep.id, e);
+        }
+      }
+      setActionCounter((c) => c + 1);
+      addToast('success', `⚡ Sabhi ${count} Pending Deposits successfully Approve ho gaye!`);
+    } finally {
+      setIsBatchApproving(false);
     }
   };
 
@@ -472,10 +516,11 @@ export const AdminPanel: React.FC = () => {
       telegramBotToken,
       adminTelegramChatId,
       telegramChannelUrl,
+      autoApproveDeposits,
       autoApproveWithOcr,
       ocrMaxTimeWindowMins,
     });
-    addToast('success', 'Platform payment gateways, Telegram & Smart AI OCR settings updated!');
+    addToast('success', 'Platform payment gateways, Telegram & Auto-Accept settings updated!');
   };
 
   const handleTestTelegram = async () => {
@@ -1460,48 +1505,69 @@ export const AdminPanel: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick AI OCR Auto-Accept Working Switch Bar */}
-          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-50 via-amber-50 to-emerald-50 rounded-2xl border border-orange-200/80 shadow-xs flex-wrap gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-500 flex items-center justify-center text-white shadow-xs">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-slate-900 font-outfit uppercase">
-                    Smart AI OCR Auto-Accept
-                  </span>
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    autoApproveWithOcr ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {autoApproveWithOcr ? '⚡ ACTIVE (10-Min Rule)' : '🔒 OFF (Manual Review)'}
-                  </span>
+          {/* Official Auto-Accept Deposits Working Switch & 1-Click Accept All Bar */}
+          <div className="p-3.5 bg-gradient-to-r from-orange-50 via-amber-50 to-emerald-50 rounded-2xl border border-orange-200/90 shadow-xs space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs ${
+                  autoApproveDeposits
+                    ? 'bg-gradient-to-tr from-emerald-600 to-teal-500'
+                    : 'bg-gradient-to-tr from-[#FF6B00] to-amber-500'
+                }`}>
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <p className="text-[10px] text-slate-600">
-                  {autoApproveWithOcr 
-                    ? `Auto-approves deposits matching amount within ${ocrMaxTimeWindowMins || 10} minutes` 
-                    : 'All player deposits require manual review and approval by admin'}
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900 font-outfit uppercase">
+                      Auto-Accept Deposits Mode
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                      autoApproveDeposits ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700 border border-slate-300'
+                    }`}>
+                      {autoApproveDeposits ? '⚡ AUTO-ACCEPT: ON (Sabhi Payments Auto-Approve)' : '🔒 AUTO-ACCEPT: OFF (Manual Review)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {autoApproveDeposits 
+                      ? '⚡ ON Hai: Koi bhi user UTR daalega to system turant payment accept karega aur balance credit karega.' 
+                      : '🔒 OFF Hai: Sabhi deposits Pending me rahenge jab tak Admin manually Approve button nahi dabata.'}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => handleToggleAutoApprove()}
-                className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none cursor-pointer p-0.5 shadow-inner ${
-                  autoApproveWithOcr ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
-                }`}
-                title={autoApproveWithOcr ? 'Click to turn OFF auto-accept' : 'Click to turn ON auto-accept'}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out flex items-center justify-center text-[10px] font-black ${
-                    autoApproveWithOcr ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
+              <div className="flex items-center gap-3">
+                {/* 1-Click Accept All Pending Button */}
+                {pendingInrDeposits.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isBatchApproving}
+                    onClick={() => handleApproveAllPendingDeposits()}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Sabhi pending deposits ko ek click me approve karein"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${isBatchApproving ? 'animate-spin' : ''}`} />
+                    <span>{isBatchApproving ? 'Approving All...' : `⚡ Accept All Pending (${pendingInrDeposits.length})`}</span>
+                  </button>
+                )}
+
+                {/* Auto Switch ON/OFF Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleAutoApprove()}
+                  className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none cursor-pointer p-0.5 shadow-inner ${
+                    autoApproveDeposits ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
                   }`}
+                  title={autoApproveDeposits ? 'Auto-Accept band karne ke liye click karein' : 'Sabhi payments auto-accept karne ke liye ON karein'}
                 >
-                  {autoApproveWithOcr ? 'ON' : 'OFF'}
-                </span>
-              </button>
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out flex items-center justify-center text-[10px] font-black ${
+                      autoApproveDeposits ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
+                    }`}
+                  >
+                    {autoApproveDeposits ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1986,46 +2052,47 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Smart AI OCR Auto-Accept Settings */}
+          {/* Auto-Accept Deposits Settings */}
           <div className="space-y-3 p-4 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-2xl border border-amber-200/80">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
                 <Sparkles className="w-4 h-4 text-[#FF6B00]" />
-                <span>3. Smart AI OCR Auto-Accept System (10-Minute Rule)</span>
+                <span>3. Auto-Accept All Deposits System (Auto ON/OFF)</span>
               </div>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#FF6B00] text-white">
-                AI Active
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                autoApproveDeposits ? 'bg-emerald-600 text-white' : 'bg-slate-500 text-white'
+              }`}>
+                {autoApproveDeposits ? '⚡ AUTO-ACCEPT: ON' : '🔒 AUTO-ACCEPT: OFF'}
               </span>
             </div>
 
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Jab user payment screenshot upload karega, AI automatically receipt scan karega. 
-              Selected amount aur <b>10 minute ke andar</b> ka payment timestamp match hone par transaction <b>Instant Auto-Approved</b> ho jayega. 
-              10 minute se purana payment ya amount mismatch hone par reject ho jayega.
+              Jab <b>Auto-Accept ON</b> hoga, to user jaise hi QR code scan karke 12-digit UTR daalega, system <b>turant transaction approve</b> karega aur balance wallet me add kar dega.
+              Jab <b>OFF</b> hoga, sabhi payments pending rahenge aur Admin ko manually 'Approve' dabana hoga.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
                 <div>
-                  <div className="text-xs font-bold text-slate-800">AI OCR Auto-Approve Switch</div>
+                  <div className="text-xs font-bold text-slate-800">Auto-Accept Payments Switch</div>
                   <p className="text-[10px] text-slate-500">
-                    {autoApproveWithOcr ? 'Active: Instant credit on match' : 'Disabled: Manual admin review only'}
+                    {autoApproveDeposits ? 'Active: Instant auto-approval on UTR submission' : 'Disabled: Manual admin review required'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleToggleAutoApprove()}
                   className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none cursor-pointer p-0.5 shadow-inner ${
-                    autoApproveWithOcr ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
+                    autoApproveDeposits ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
                   }`}
-                  title={autoApproveWithOcr ? 'Turn OFF' : 'Turn ON'}
+                  title={autoApproveDeposits ? 'Turn OFF' : 'Turn ON'}
                 >
                   <span
                     className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out flex items-center justify-center text-[10px] font-black ${
-                      autoApproveWithOcr ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
+                      autoApproveDeposits ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
                     }`}
                   >
-                    {autoApproveWithOcr ? 'ON' : 'OFF'}
+                    {autoApproveDeposits ? 'ON' : 'OFF'}
                   </span>
                 </button>
               </div>
