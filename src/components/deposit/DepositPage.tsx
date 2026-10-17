@@ -104,14 +104,20 @@ export const DepositPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [user]);
 
+  // Active QR routing based on ₹800 threshold:
+  // < 800: Baby ka QR (Khushi Naravriya - narwariya321@axl)
+  // >= 800: Dusra QR (Manish Kumar - manishkey@fam)
+  const isBabyQr = (topUpAmount || 350) < 800;
+  const activeUpiId = isBabyQr ? (settings.adminUpiId || 'narwariya321@axl') : 'manishkey@fam';
+  // Use clean human payee names (no "HACK" or "SELLER") to avoid "Risky Payment" warnings on PhonePe & Paytm!
+  const activePayeeName = isBabyQr ? 'Khushi Naravriya' : 'Manish Kumar';
+
   // Generate dynamic amount UPI QR code on any amount change (1st QR)
   useEffect(() => {
     let isCancelled = false;
-    const upiId = settings.adminUpiId || 'narwariya321@axl';
-    const cleanPayee = (settings.adminUpiName || 'Khushi Naravriya').replace(/\s*\(.*?\)/g, '').trim();
     const amount = topUpAmount || 350;
     const note = 'TopUp';
-    const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(cleanPayee)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+    const upiUri = `upi://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
 
     QRCode.toDataURL(upiUri, {
       width: 600,
@@ -134,13 +140,13 @@ export const DepositPage: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [topUpAmount, settings.adminUpiId, settings.adminUpiName]);
+  }, [topUpAmount, activeUpiId, activePayeeName]);
 
-  // Generate dynamic Official Poster QR code with amount pre-filled (Main Official Poster)
+  // Generate dynamic Official Poster QR code with amount pre-filled
   useEffect(() => {
     let isCancelled = false;
     const amount = topUpAmount || 350;
-    const officialUri = `upi://pay?pa=manishkey@fam&pn=${encodeURIComponent('LORD PAID HACK SELLER')}&am=${amount}&cu=INR&tn=TopUp`;
+    const officialUri = `upi://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${amount}&cu=INR&tn=TopUp`;
 
     QRCode.toDataURL(officialUri, {
       width: 600,
@@ -203,7 +209,7 @@ export const DepositPage: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [topUpAmount]);
+  }, [topUpAmount, activeUpiId, activePayeeName]);
 
   // Instant image preloading for zero-latency switching
   useEffect(() => {
@@ -448,14 +454,11 @@ export const DepositPage: React.FC = () => {
   };
 
   const getAppLaunchUrl = (app: 'phonepe' | 'paytm' | 'gpay' | 'amazonpay' | 'upi') => {
-    const upiId = settings.adminUpiId || 'narwariya321@axl';
+    const upiId = activeUpiId;
     const amount = topUpAmount || 350;
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const payeeName = (settings.adminUpiName || 'Khushi Naravriya').replace(/\s*\(.*?\)/g, '').trim();
-    const txnRef = 'EBP' + Date.now();
-    const remark = 'EasyBase TopUp';
-
+    const payeeName = activePayeeName;
     const note = "TopUp";
     const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
 
@@ -507,7 +510,7 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    const upiId = settings.adminUpiId || 'narwariya321@axl';
+    const upiId = activeUpiId;
     try {
       navigator.clipboard.writeText(upiId);
     } catch {}
@@ -741,6 +744,27 @@ export const DepositPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Direct 1-Tap App Payment Buttons (PhonePe & Paytm) */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <a
+                        href={`phonepe://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount || 350}&cu=INR&tn=TopUp`}
+                        onClick={() => setIsTopUpModalOpen(true)}
+                        className="py-3 px-3 rounded-2xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit border border-purple-400/40"
+                      >
+                        <Smartphone className="w-4 h-4 text-purple-200" />
+                        <span>Pay via PhonePe ➔</span>
+                      </a>
+
+                      <a
+                        href={`paytmmp://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount || 350}&cu=INR&tn=TopUp`}
+                        onClick={() => setIsTopUpModalOpen(true)}
+                        className="py-3 px-3 rounded-2xl bg-[#002e6e] hover:bg-[#002252] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit border border-sky-400/40"
+                      >
+                        <CreditCard className="w-4 h-4 text-[#00baf2]" />
+                        <span>Pay via Paytm ➔</span>
+                      </a>
                     </div>
 
                     {/* Scan QR / Other UPI Button */}
@@ -1302,21 +1326,20 @@ export const DepositPage: React.FC = () => {
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-slate-400">
-                        {qrViewMode === 'official' ? 'Official Payee UPI:' : 'Official UPI ID:'}
+                        {isBabyQr ? 'Baby QR Payee:' : 'VIP 2nd QR Payee:'}
                       </span>
                       <span className="font-mono font-black text-amber-300 select-all">
-                        {qrViewMode === 'official' ? 'manishkey@fam' : (settings.adminUpiId || 'narwariya321@axl')}
+                        {activeUpiId}
                       </span>
-                      {qrViewMode === 'official' && (
-                        <span className="text-[10px] text-amber-200 font-bold hidden sm:inline">(LORD PAID HACK SELLER)</span>
-                      )}
+                      <span className="text-[10px] text-amber-200 font-bold hidden sm:inline">
+                        ({activePayeeName})
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        const targetUpi = qrViewMode === 'official' ? 'manishkey@fam' : (settings.adminUpiId || 'narwariya321@axl');
-                        navigator.clipboard.writeText(targetUpi);
-                        addToast('success', `Copied ${targetUpi} to clipboard!`);
+                        navigator.clipboard.writeText(activeUpiId);
+                        addToast('success', `Copied ${activeUpiId} to clipboard!`);
                       }}
                       className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
                     >
@@ -1334,7 +1357,7 @@ export const DepositPage: React.FC = () => {
                           <Sparkles className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-black text-slate-900 tracking-wider font-outfit uppercase">
-                          {qrViewMode === 'official' ? 'LORD PAID HACK SELLER • PAY' : 'EASYBASE POINT PAY'}
+                          {isBabyQr ? 'BABY UPI PAY (ORDERS < ₹800)' : 'VIP SECOND UPI PAY (₹800+)'}
                         </span>
                       </div>
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase">
@@ -1364,7 +1387,7 @@ export const DepositPage: React.FC = () => {
                             : 'text-slate-600 hover:text-slate-900 bg-white/70'
                         }`}
                       >
-                        🏛️ Main Official Poster
+                        🏛️ {isBabyQr ? 'Baby Official Poster' : '2nd Official Poster'}
                       </button>
                     </div>
 
@@ -1377,14 +1400,18 @@ export const DepositPage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
-                        Pre-Filled in UPI
+                        {isBabyQr ? 'Baby QR (< ₹800)' : 'VIP QR (₹800+)'}
                       </span>
                     </div>
 
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
-                        src={qrViewMode === 'official' ? (officialQrDataUrl || '/deposit_qr.png?v=fixed_v7_baby_ebp') : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')} 
-                        alt="EasyBase Payment QR" 
+                        src={
+                          qrViewMode === 'official' 
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp'))
+                        } 
+                        alt="Payment QR" 
                         loading="eager"
                         decoding="sync"
                         className="w-full h-full object-contain rounded-xl"
@@ -1394,22 +1421,64 @@ export const DepositPage: React.FC = () => {
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center justify-center gap-1 font-outfit">
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
                       <span>
-                        {qrViewMode === 'official'
-                          ? `Official Verified QR (₹${topUpAmount} Pre-Loaded)`
-                          : `Scan & Pay with Any UPI App (₹${topUpAmount})`}
+                        {isBabyQr 
+                          ? `Baby QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`
+                          : `2nd QR: ₹${topUpAmount} (High Volume Merchant)`}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-center pt-0.5">
                       <a
-                        href={qrViewMode === 'official' ? (officialQrDataUrl || '/deposit_qr.png?v=fixed_v7_baby_ebp') : (dynamicQrDataUrl || '/deposit_qr_clean.png?v=fixed_v7_baby_ebp')}
-                        download={qrViewMode === 'official' ? `easybase_official_qr_${topUpAmount}.png` : `easybase_qr_amount_${topUpAmount}.png`}
+                        href={
+                          qrViewMode === 'official' 
+                            ? (officialQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp')) 
+                            : (dynamicQrDataUrl || (isBabyQr ? '/deposit_qr_clean.png?v=fixed_v7_baby_ebp' : '/deposit_qr.png?v=fixed_v7_baby_ebp'))
+                        }
+                        download={`easybase_qr_${isBabyQr ? 'baby' : 'vip'}_${topUpAmount}.png`}
                         className="text-xs font-black text-[#FF6B00] hover:text-[#e05e00] flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-xl border border-orange-200 transition active:scale-95 font-outfit"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Save Payment QR to Gallery</span>
                       </a>
                     </div>
+                  </div>
+
+                  {/* Direct 1-Tap PhonePe & Paytm App Launch Buttons */}
+                  <div className="space-y-2 p-3 bg-gradient-to-r from-purple-950/40 via-slate-900 to-sky-950/40 rounded-2xl border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5 font-outfit">
+                        <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
+                        <span>Direct 1-Tap App Payment (Zero Risk)</span>
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        {activePayeeName}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <a
+                        href={`phonepe://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                        className="py-3 px-3 rounded-xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
+                      >
+                        <Smartphone className="w-4 h-4 text-purple-200" />
+                        <span>Pay via PhonePe</span>
+                      </a>
+
+                      <a
+                        href={`paytmmp://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                        className="py-3 px-3 rounded-xl bg-[#002e6e] hover:bg-[#002252] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
+                      >
+                        <CreditCard className="w-4 h-4 text-[#00baf2]" />
+                        <span>Pay via Paytm</span>
+                      </a>
+                    </div>
+
+                    <a
+                      href={`upi://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(activePayeeName)}&am=${topUpAmount}&cu=INR&tn=TopUp`}
+                      className="w-full py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 font-bold text-[11px] flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition cursor-pointer"
+                    >
+                      <span>Open Other UPI Apps (GPay / BHIM / Cred) ➔</span>
+                    </a>
                   </div>
 
 

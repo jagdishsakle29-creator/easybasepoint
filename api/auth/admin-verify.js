@@ -68,15 +68,13 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // GET: Status check & password recovery guide
+  // GET: Health check (Never leak secrets!)
   if (req.method === 'GET') {
-    const currentSecret = getActiveAdminSecret();
     return res.status(200).json({
       ok: true,
+      service: 'Admin Auth Gateway',
+      status: 'active',
       hasCustomSecret: Boolean(customAdminSecret || process.env.ADMIN_SECRET_KEY),
-      currentSecret: currentSecret,
-      defaultSecret: DEFAULT_ADMIN_SECRET,
-      recoveryInstructions: 'To log into admin panel, enter password: "lord12" or visit: /?admin=lord12. You can also configure ADMIN_SECRET_KEY in Vercel environment settings.',
     });
   }
 
