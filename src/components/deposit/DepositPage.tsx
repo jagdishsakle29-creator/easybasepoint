@@ -533,40 +533,40 @@ export const DepositPage: React.FC = () => {
     }
 
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
-    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+    const standardUpi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
 
     let primaryUrl = standardUpi;
     let fallbackScheme = standardUpi;
 
     if (appKey === 'phonepe') {
       primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`
-        : `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
-      fallbackScheme = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=com.phonepe.app;action=android.intent.action.VIEW;end`
+        : `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
+      fallbackScheme = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
     } else if (appKey === 'paytm') {
       primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`
-        : `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
-      fallbackScheme = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=net.one97.paytm;action=android.intent.action.VIEW;end`
+        : `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
+      fallbackScheme = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
     } else if (appKey === 'gpay') {
       primaryUrl = isAndroid
-        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`
-        : `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
-      fallbackScheme = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
+        ? `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;action=android.intent.action.VIEW;end`
+        : `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
+      fallbackScheme = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}&mode=02&purpose=00`;
     }
 
     addToast('success', `Opening ${appName} directly for ₹${amt}... (UPI copied)`);
 
-    // Direct invocation via hidden anchor click
+    // Direct invocation via user event
     try {
+      window.location.href = primaryUrl;
+    } catch {
       const link = document.createElement('a');
       link.href = primaryUrl;
       link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch {
-      window.location.href = primaryUrl;
     }
 
     // Secondary fallback after 600ms if Android Chrome or WebView didn't catch intent
@@ -1572,19 +1572,28 @@ export const DepositPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'PhonePe', 'phonepe')}
-                        className="py-3 px-3 rounded-xl bg-[#5f259f] hover:bg-[#4d1d82] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
+                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#5f259f] to-[#6f2dbb] hover:from-[#521f8a] hover:to-[#5f259f] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40 border border-purple-400/30 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        <Smartphone className="w-4 h-4 text-purple-200" />
-                        <span>Pay via PhonePe</span>
+                        {/* Authentic PhonePe Logo: Purple circle with white 'पे' */}
+                        <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center p-0.5 shadow-xs shrink-0">
+                          <div className="w-full h-full rounded-full bg-[#5F259F] flex items-center justify-center font-black text-white text-[12px] leading-none select-none font-sans">
+                            पे
+                          </div>
+                        </div>
+                        <span className="tracking-wide">Pay via PhonePe</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={(e) => handleLaunchUpi(e, 'Paytm', 'paytm')}
-                        className="py-3 px-3 rounded-xl bg-[#002e6e] hover:bg-[#002252] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer font-outfit"
+                        className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#002e6e] to-[#004099] hover:from-[#002252] hover:to-[#002e6e] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-950/40 border border-sky-400/30 active:scale-95 transition cursor-pointer font-outfit"
                       >
-                        <CreditCard className="w-4 h-4 text-[#00baf2]" />
-                        <span>Pay via Paytm</span>
+                        {/* Authentic Paytm Logo: Navy 'Pay' + Cyan 'tm' */}
+                        <div className="px-1.5 py-0.5 rounded bg-white flex items-center justify-center shadow-xs shrink-0 font-outfit text-[11px] font-black tracking-tight leading-none">
+                          <span className="text-[#002E6E]">Pay</span>
+                          <span className="text-[#00BAF2]">tm</span>
+                        </div>
+                        <span className="tracking-wide">Pay via Paytm</span>
                       </button>
                     </div>
 
