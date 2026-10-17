@@ -138,50 +138,80 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  // Check URL or Session for secure admin access
+  // Check URL or Session for secure admin access - ONLY unlocks if link has "lord12"
   const adminUnlockedRef = React.useRef(false);
   useEffect(() => {
     const checkAdminAuth = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const adminParam = params.get('admin') || params.get('admin_key') || params.get('admin_token');
-      const tabParam = params.get('tab');
+      if (typeof window === 'undefined') return;
+
+      const url = new URL(window.location.href);
+      const pathname = url.pathname.toLowerCase();
+      const hash = url.hash.toLowerCase();
+      const search = url.search.toLowerCase();
+      const params = url.searchParams;
+
+      // Check if "lord12" is explicitly provided in link (path, hash, or query parameter)
+      const isLord12InLink = 
+        pathname.endsWith('/lord12') || 
+        pathname.endsWith('/admin/lord12') ||
+        pathname === '/lord12' ||
+        pathname === '/admin/lord12' ||
+        hash.includes('lord12') ||
+        params.get('admin') === 'lord12' ||
+        params.get('admin_key') === 'lord12' ||
+        params.get('key') === 'lord12' ||
+        params.has('lord12') ||
+        search.includes('lord12');
+
       const existingToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ebp_admin_token') : null;
+      const existingKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ebp_admin_key') : null;
 
-      let isAuthorized = Boolean(existingToken);
+      let isAuthorized = Boolean(existingToken || (existingKey && existingKey === 'lord12'));
 
-      if (adminParam) {
+      if (isLord12InLink) {
+        // Owner accessed link with "lord12"
+        sessionStorage.setItem('ebp_admin_key', 'lord12');
+        isAuthorized = true;
+
         try {
           const res = await fetch('/api/auth/admin-verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: adminParam }),
+            body: JSON.stringify({ key: 'lord12' }),
           });
-          const data = await res.json();
-          if (data.ok && data.token) {
+          const data = await res.json().catch(() => null);
+          if (data?.token) {
             sessionStorage.setItem('ebp_admin_token', data.token);
-            sessionStorage.setItem('ebp_admin_key', adminParam);
-            isAuthorized = true;
-            // Clean sensitive admin parameters from browser address bar
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete('admin');
-            cleanUrl.searchParams.delete('admin_key');
-            cleanUrl.searchParams.delete('admin_token');
-            window.history.replaceState({}, '', cleanUrl.toString());
-          } else {
-            addToast('error', '❌ Unauthorized admin access key.');
           }
-        } catch {
-          // If serverless endpoint is unreachable, block access
+        } catch {}
+
+        // Clean sensitive parameters and path from browser address bar
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('admin');
+        cleanUrl.searchParams.delete('admin_key');
+        cleanUrl.searchParams.delete('admin_token');
+        cleanUrl.searchParams.delete('key');
+        cleanUrl.searchParams.delete('lord12');
+        if (cleanUrl.pathname.endsWith('/lord12') || cleanUrl.pathname.endsWith('/admin/lord12')) {
+          cleanUrl.pathname = '/';
+        }
+        if (cleanUrl.hash.includes('lord12')) {
+          cleanUrl.hash = '';
+        }
+        window.history.replaceState({}, '', cleanUrl.toString());
+
+        setActiveTab('admin');
+        if (!adminUnlockedRef.current) {
+          adminUnlockedRef.current = true;
+          addToast('success', '🔓 Secret Admin Panel Unlocked via lord12 Link!');
         }
       }
 
+      const requestedAdmin = params.get('tab') === 'admin' || pathname.startsWith('/admin');
+
       if (isAuthorized) {
-        if (tabParam === 'admin' || adminParam) {
+        if (requestedAdmin || isLord12InLink) {
           setActiveTab('admin');
-          if (!adminUnlockedRef.current) {
-            adminUnlockedRef.current = true;
-            addToast('success', 'Admin session unlocked successfully!');
-          }
         }
 
         // Only process approvals if strictly authorized as admin
@@ -206,11 +236,12 @@ const AppContent: React.FC = () => {
         if (rejectWdrParam) {
           rejectWithdrawal(rejectWdrParam, reasonParam || 'Rejected via Admin Link');
         }
-      } else if (tabParam === 'admin') {
-        // Tab was requested as admin but user has not authenticated
-        addToast('error', 'Admin credentials required to view Admin Portal.');
+      } else if (requestedAdmin) {
+        // Tab was requested as admin but user did NOT include lord12
+        addToast('error', '❌ Admin access locked. Link ke aage "lord12" likhna zaroori hai.');
         setActiveTab('home');
       }
+
       if (params.get('approve_dep') || params.get('reject_dep') || params.get('approve_wdr') || params.get('reject_wdr')) {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete('approve_dep');
