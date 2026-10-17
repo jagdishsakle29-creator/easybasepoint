@@ -15,6 +15,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/auth/AuthModal';
 import { LandingPage } from './components/landing/LandingPage';
 import { openOfficialTelegramChannel } from './config/constants';
+import { PremiumVipOfferPopup } from './components/common/PremiumVipOfferPopup';
 import { 
   Home, 
   ArrowDownToLine, 
@@ -428,6 +429,9 @@ const AppContent: React.FC = () => {
           } catch {}
         }}
       />
+
+      {/* 10-Minute Transparent VIP Deposit Offer Popup for Premium Member */}
+      <PremiumVipOfferPopup />
     </div>
   );
 };
