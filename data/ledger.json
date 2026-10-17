@@ -192,5 +192,23 @@
     "credited": false,
     "rejectionReason": "Payment rejected and refunded to sender",
     "rejectedAt": "2026-10-16T13:30:01.671Z"
+  },
+  "WDR_TEST_1792235475693": {
+    "id": "WDR_TEST_1792235475693",
+    "userId": "USER_TEST_1",
+    "userName": "Test Player",
+    "userPhone": "9876543210",
+    "amount": 1500,
+    "fee": 0,
+    "netAmount": 1500,
+    "method": "bank",
+    "accountDetails": {
+      "accountHolder": "Test Player",
+      "accountNumber": "1234567890",
+      "ifscCode": "HDFC0001234"
+    },
+    "status": "pending",
+    "type": "withdrawal",
+    "createdAt": "2026-10-17T11:11:16.202Z"
   }
 }
