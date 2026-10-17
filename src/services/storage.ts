@@ -283,7 +283,7 @@ export const defaultSettings: RewardSettings = {
   adminBankHolder: 'Krishna Dawar',
   adminUsdtTrc20: 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW',
   adminUsdtBep20: '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5',
-  telegramChannelUrl: 'https://t.me/easybasepoint',
+  telegramChannelUrl: 'https://t.me/VIEWPOINT78',
   adminSecretKey: '',
   telegramBotToken: '',
   adminTelegramChatId: '6527377657',
@@ -578,12 +578,12 @@ export const storage = {
         parsed.telegramBotToken = '';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      // Ensure telegramChannelUrl is updated to https://t.me/easybasepoint
-      if (!parsed.telegramChannelUrl || parsed.telegramChannelUrl !== 'https://t.me/easybasepoint') {
-        parsed.telegramChannelUrl = 'https://t.me/easybasepoint';
+      // Ensure telegramChannelUrl is updated to https://t.me/VIEWPOINT78
+      if (!parsed.telegramChannelUrl || parsed.telegramChannelUrl !== 'https://t.me/VIEWPOINT78') {
+        parsed.telegramChannelUrl = 'https://t.me/VIEWPOINT78';
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
       }
-      return { ...defaultSettings, ...parsed, telegramChannelUrl: 'https://t.me/easybasepoint', adminSecretKey: '', telegramBotToken: '' };
+      return { ...defaultSettings, ...parsed, telegramChannelUrl: 'https://t.me/VIEWPOINT78', adminSecretKey: '', telegramBotToken: '' };
     } catch {
       return defaultSettings;
     }

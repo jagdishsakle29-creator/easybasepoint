@@ -30,6 +30,7 @@ import { QuotaPackage, QuotaLevel } from '../../types';
 import { UsdtDepositTab } from './UsdtDepositTab';
 import QRCode from 'qrcode';
 import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
+import { openOfficialTelegramChannel } from '../../config/constants';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -1224,10 +1225,21 @@ export const DepositPage: React.FC = () => {
                                     Approved & Credited
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
-                                    <XCircle className="w-3 h-3 text-rose-600" />
-                                    Rejected
-                                  </span>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                      <XCircle className="w-3 h-3 text-rose-600" />
+                                      Rejected
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openOfficialTelegramChannel('https://t.me/VIEWPOINT78')}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 hover:text-sky-900 bg-sky-100 hover:bg-sky-200 px-2 py-0.5 rounded-lg border border-sky-300 transition cursor-pointer"
+                                      title="Chat with Admin on Telegram"
+                                    >
+                                      <Send className="w-2.5 h-2.5 text-sky-600" />
+                                      <span>Telegram Chat (@VIEWPOINT78) ➔</span>
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1683,9 +1695,19 @@ export const DepositPage: React.FC = () => {
                           ✓ Match Confirmed: Receipt me ₹{ocrResult?.detectedAmount || topUpAmount} aur fresh payment ({ocrResult?.detectedTime || '<10m'}) mila. Instant auto-accept ready!
                         </span>
                       ) : ocrStatus === 'failed' ? (
-                        <span className="text-rose-300 font-bold">
-                          ❌ Rejection: {ocrResult?.reason || 'Payment 10 minute se purana hai ya amount match nahi hua.'}
-                        </span>
+                        <div className="space-y-2">
+                          <span className="text-rose-300 font-bold block">
+                            ❌ Rejection: {ocrResult?.reason || 'Payment 10 minute se purana hai ya amount match nahi hua.'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openOfficialTelegramChannel('https://t.me/VIEWPOINT78')}
+                            className="w-full py-2 px-3 bg-[#229ED9] hover:bg-[#1e8dbf] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow cursor-pointer"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Koi Problem Hai? Telegram Par Chat Karein (@VIEWPOINT78) ➔</span>
+                          </button>
+                        </div>
                       ) : ocrStatus === 'scanning' ? (
                         <span className="text-amber-300 font-semibold flex items-center gap-2">
                           <RotateCw className="w-3.5 h-3.5 animate-spin" />

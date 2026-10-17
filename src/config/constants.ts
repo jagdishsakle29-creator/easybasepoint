@@ -5,10 +5,10 @@
  * are maintained in this single source of truth.
  */
 
-// Official Configured Company Telegram Channel
-export const TELEGRAM_CHANNEL_URL = 'https://t.me/easybasepoint';
-export const TELEGRAM_APP_URL = 'tg://resolve?domain=easybasepoint';
-export const TELEGRAM_SUPPORT_HANDLE = '@easybasepoint';
+// Official Configured Company Telegram Channel & Owner Support Handle
+export const TELEGRAM_CHANNEL_URL = 'https://t.me/VIEWPOINT78';
+export const TELEGRAM_APP_URL = 'tg://resolve?domain=VIEWPOINT78';
+export const TELEGRAM_SUPPORT_HANDLE = '@VIEWPOINT78';
 
 // Company Branding & Meta
 export const COMPANY_CONFIG = {
@@ -17,30 +17,42 @@ export const COMPANY_CONFIG = {
   tagline: 'Official High-Yield Base Point Community',
   description: 'Join thousands of verified players earning daily returns, instant INR/USDT deposits, and 24/7 automated settlements.',
   officialTelegram: TELEGRAM_CHANNEL_URL,
-  supportTelegram: 'https://t.me/easybasepoint',
+  supportTelegram: 'https://t.me/VIEWPOINT78',
   welcomeBonusInr: 50.00,
   minDepositInr: 390,
   minWithdrawalInr: 200,
 };
 
 /**
- * Robust cross-platform Telegram Channel Opener:
- * - Inside EasyBase Android APK: Directly commands native AndroidBridge to dispatch
- *   ACTION_VIEW system intent to Telegram app or default browser without WebView scheme errors.
- * - On Mobile Browsers / WebViews: Copies @easybasepoint to clipboard for 1-tap backup,
- *   and initiates compliant anchor navigation to official channel.
- * - On Desktop: Safely opens official Telegram Web in a clean new tab.
+ * Robust cross-platform Telegram Opener:
+ * Works 100% on Website (Desktop & Mobile) and Android APK / WebView.
+ * 
+ * 1. Checks for native Android APK Bridge.
+ * 2. Copies username @VIEWPOINT78 to clipboard as seamless backup.
+ * 3. Uses direct Android App Intent & tg:// scheme so Telegram app opens instantly.
+ * 4. Avoids _blank popup blockers in Android WebViews.
  */
 export const openOfficialTelegramChannel = (customUrl?: string): void => {
-  const targetUrl = customUrl || TELEGRAM_CHANNEL_URL;
   if (typeof window === 'undefined') return;
+
+  const rawUrl = customUrl || TELEGRAM_CHANNEL_URL;
+  // Clean handle extraction (e.g. "@VIEWPOINT78" or "https://t.me/VIEWPOINT78" -> "VIEWPOINT78")
+  const username = rawUrl
+    .replace(/^https?:\/\/t\.me\//i, '')
+    .replace(/^@/, '')
+    .split('/')[0]
+    .split('?')[0] || 'VIEWPOINT78';
+
+  const webUrl = `https://t.me/${username}`;
+  const appSchemeUrl = `tg://resolve?domain=${username}`;
+  const androidIntentUrl = `intent://resolve?domain=${username}#Intent;package=org.telegram.messenger;scheme=tg;end`;
 
   // 1. Check for native Android APK Bridge (EasyBasePoint Android App)
   const bridge = (window as any).AndroidBridge || (window as any).Android;
   if (bridge) {
     if (typeof bridge.openTelegram === 'function') {
       try {
-        const handled = bridge.openTelegram(targetUrl);
+        const handled = bridge.openTelegram(webUrl);
         if (handled) return;
       } catch (err) {
         console.warn('AndroidBridge.openTelegram failed:', err);
@@ -48,7 +60,7 @@ export const openOfficialTelegramChannel = (customUrl?: string): void => {
     }
     if (typeof bridge.openExternal === 'function') {
       try {
-        const handled = bridge.openExternal(targetUrl);
+        const handled = bridge.openExternal(webUrl);
         if (handled) return;
       } catch (err) {
         console.warn('AndroidBridge.openExternal failed:', err);
@@ -56,58 +68,73 @@ export const openOfficialTelegramChannel = (customUrl?: string): void => {
     }
   }
 
-  // 2. Proactively copy @easybasepoint to clipboard as a seamless convenience fallback
+  // 2. Proactively copy username to clipboard for 1-tap backup
   try {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      navigator.clipboard.writeText(TELEGRAM_SUPPORT_HANDLE).catch(() => {});
+      navigator.clipboard.writeText(`@${username}`).catch(() => {});
     }
   } catch {}
 
-  // 3. Platform detection
+  // 3. Platform Detection
   const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
   const isAndroid = /Android/i.test(ua);
   const isIos = /iPhone|iPad|iPod/i.test(ua);
 
   if (isAndroid) {
-    // In Android: Use invisible anchor with rel=noopener to trigger Android Intent Filter
+    // Android (Browser & APK WebView):
+    // Try launching the Telegram app via intent or tg:// scheme
     try {
-      const a = document.createElement('a');
-      a.href = targetUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = appSchemeUrl;
+      document.body.appendChild(iframe);
       setTimeout(() => {
         try {
-          document.body.removeChild(a);
+          document.body.removeChild(iframe);
         } catch {}
-      }, 200);
-    } catch {
-      window.location.href = targetUrl;
-    }
+      }, 500);
+    } catch {}
+
+    // Main window navigation to Android Intent (or web fallback in same tab to avoid WebView block)
+    setTimeout(() => {
+      try {
+        window.location.href = androidIntentUrl;
+      } catch {
+        window.location.href = webUrl;
+      }
+    }, 50);
+
+    // Final fallback redirect if intent didn't take over within 1.2s
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        window.location.href = webUrl;
+      }
+    }, 1200);
     return;
   }
 
   if (isIos) {
-    // iOS Safari / Webview
+    // iOS Safari / WebView
     try {
-      window.location.href = TELEGRAM_APP_URL;
+      window.location.href = appSchemeUrl;
       setTimeout(() => {
-        window.location.href = targetUrl;
-      }, 500);
+        if (document.visibilityState === 'visible') {
+          window.location.href = webUrl;
+        }
+      }, 700);
     } catch {
-      window.location.href = targetUrl;
+      window.location.href = webUrl;
     }
     return;
   }
 
-  // Desktop: Open clean in a new window/tab
+  // Desktop: Open clean in a new window/tab, fallback to current window
   try {
-    const win = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    const win = window.open(webUrl, '_blank', 'noopener,noreferrer');
     if (!win) {
-      window.location.href = targetUrl;
+      window.location.href = webUrl;
     }
   } catch {
-    window.location.href = targetUrl;
+    window.location.href = webUrl;
   }
 };

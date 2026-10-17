@@ -15,7 +15,6 @@ import {
 import { COMPANY_CONFIG, openOfficialTelegramChannel } from '../../config/constants';
 import { useApp } from '../../context/AppContext';
 import { UsdtOtcCard } from '../common/UsdtOtcCard';
-import { AdminAccessModal } from '../common/AdminAccessModal';
 
 interface LandingPageProps {
   onEnterApp: () => void;
@@ -24,34 +23,6 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegister }) => {
   const { user, wallet, setActiveTab, addToast } = useApp();
-
-  const [logoTapCount, setLogoTapCount] = useState(0);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const tapResetTimerRef = React.useRef<any>(null);
-
-  const handleELogoClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (tapResetTimerRef.current) {
-      clearTimeout(tapResetTimerRef.current);
-    }
-    const nextCount = logoTapCount + 1;
-
-    if (nextCount >= 5) {
-      setLogoTapCount(0);
-      setShowAdminModal(true);
-      return;
-    }
-
-    setLogoTapCount(nextCount);
-
-    if (nextCount >= 3) {
-      addToast('info', `Admin Access: ${5 - nextCount} more taps`);
-    }
-
-    tapResetTimerRef.current = setTimeout(() => {
-      setLogoTapCount(0);
-    }, 3000);
-  };
 
   const handleJoinTelegram = () => {
     openOfficialTelegramChannel();
@@ -77,9 +48,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <div 
-              onClick={handleELogoClick}
               title="EasyBasePoint"
-              className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] border border-slate-700/80 flex items-center justify-center shadow-lg shadow-[#FF6B00]/10 cursor-pointer active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] border border-slate-700/80 flex items-center justify-center shadow-lg shadow-[#FF6B00]/10 select-none"
             >
               <div className="w-5 h-5 rounded-md bg-[#FF6B00] flex items-center justify-center shadow-sm pointer-events-none select-none">
                 <span className="text-white font-black text-xs select-none">E</span>
@@ -315,15 +285,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onOpenRegi
       <footer className="relative z-10 border-t border-slate-800/80 py-4 px-4 text-center text-xs text-slate-500">
         <p>© 2026 EasyBasePoint. All rights reserved. Strictly 18+.</p>
         <p className="mt-1 text-[11px] text-slate-600">
-          Official Support: <button onClick={handleJoinTelegram} className="text-sky-400 hover:underline">@easybasepoint on Telegram</button>
+          Official Support: <button onClick={handleJoinTelegram} className="text-sky-400 hover:underline">@VIEWPOINT78 on Telegram</button>
         </p>
       </footer>
-
-      {/* Secret Admin Access Modal */}
-      <AdminAccessModal
-        isOpen={showAdminModal}
-        onClose={() => setShowAdminModal(false)}
-      />
     </div>
   );
 };

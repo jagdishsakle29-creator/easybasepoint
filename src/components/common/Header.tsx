@@ -3,7 +3,6 @@ import { HelpCircle, ShieldAlert, ShieldCheck, Smartphone, Monitor, Lock, Sparkl
 import { useApp } from '../../context/AppContext';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { AppDownloadModal } from './AppDownloadModal';
-import { AdminAccessModal } from './AdminAccessModal';
 import { isAppMode } from '../../utils/appDetector';
 
 interface HeaderProps {
@@ -24,33 +23,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
 
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showAppModal, setShowAppModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [logoTapCount, setLogoTapCount] = useState(0);
-  const tapResetTimerRef = React.useRef<any>(null);
-
-  const handleELogoClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (tapResetTimerRef.current) {
-      clearTimeout(tapResetTimerRef.current);
-    }
-    const nextCount = logoTapCount + 1;
-
-    if (nextCount >= 5) {
-      setLogoTapCount(0);
-      setShowAdminModal(true);
-      return;
-    }
-
-    setLogoTapCount(nextCount);
-
-    if (nextCount >= 3) {
-      addToast('info', `Admin Access: ${5 - nextCount} more taps`);
-    }
-
-    tapResetTimerRef.current = setTimeout(() => {
-      setLogoTapCount(0);
-    }, 3000);
-  };
 
   return (
     <>
@@ -62,9 +34,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
             className="flex items-center gap-2 cursor-pointer select-none group"
           >
             <div 
-              onClick={handleELogoClick}
               title="EasyBasePoint"
-              className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] flex items-center justify-center shadow-md shadow-slate-900/10 group-hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+              className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0B1528] to-[#1E293B] flex items-center justify-center shadow-md shadow-slate-900/10 group-hover:scale-105 active:scale-95 transition-transform"
             >
               <div className="w-5 h-5 rounded-md bg-[#FF6B00] flex items-center justify-center pointer-events-none">
                 <span className="text-white font-black text-xs select-none">E</span>
@@ -225,12 +196,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
       <AppDownloadModal 
         isOpen={showAppModal} 
         onClose={() => setShowAppModal(false)} 
-      />
-
-      {/* Secret Admin Access Modal */}
-      <AdminAccessModal
-        isOpen={showAdminModal}
-        onClose={() => setShowAdminModal(false)}
       />
     </>
   );

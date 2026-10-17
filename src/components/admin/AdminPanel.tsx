@@ -124,7 +124,7 @@ export const AdminPanel: React.FC = () => {
   const [adminUsdtBep20, setAdminUsdtBep20] = useState(settings.adminUsdtBep20 || '0x71C836eB399C8c0F82f0E0f4Ec7aAc89F17Ac9E5');
   const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
   const [adminTelegramChatId, setAdminTelegramChatId] = useState(settings.adminTelegramChatId || '');
-  const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/easybasepoint');
+  const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/VIEWPOINT78');
   const [autoApproveWithOcr, setAutoApproveWithOcr] = useState(settings.autoApproveWithOcr !== false);
   const [ocrMaxTimeWindowMins, setOcrMaxTimeWindowMins] = useState(settings.ocrMaxTimeWindowMins || 10);
   const [isTestingTg, setIsTestingTg] = useState(false);
