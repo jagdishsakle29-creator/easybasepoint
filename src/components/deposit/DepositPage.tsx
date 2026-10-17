@@ -669,7 +669,7 @@ export const DepositPage: React.FC = () => {
                             </span>
                           </div>
                           <div className="text-[10px] text-slate-300 truncate">
-                            Scan with PhonePe, Paytm, GPay, or Any UPI App
+                            Scan with PhonePe or Paytm
                           </div>
                           <div className="text-[10px] text-amber-400 font-bold group-hover:underline">
                             Tap to Open QR Scanner & Pay ₹{topUpAmount} ➔
@@ -1398,8 +1398,8 @@ export const DepositPage: React.FC = () => {
                       <QrCode className="w-3.5 h-3.5 text-[#FF6B00]" />
                       <span>
                         {isBabyQr 
-                          ? `EBP QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`
-                          : `Lord VIP QR: ₹${topUpAmount} (PhonePe, Paytm, GPay)`}
+                          ? `EBP QR: ₹${topUpAmount} (PhonePe, Paytm)`
+                          : `Lord VIP QR: ₹${topUpAmount} (PhonePe, Paytm)`}
                       </span>
                     </div>
 
@@ -1424,7 +1424,7 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5 font-outfit">
                         <Smartphone className="w-3.5 h-3.5 text-[#FF6B00]" />
-                        <span>Direct 1-Tap App Payment (Zero Risk)</span>
+                        <span>Direct 1-Tap App Payment</span>
                       </span>
                       <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                         {activePayeeName}
@@ -1450,14 +1450,6 @@ export const DepositPage: React.FC = () => {
                         <span className="tracking-wide">Pay via Paytm</span>
                       </button>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleLaunchUpi(e, 'UPI App', 'upi')}
-                      className="w-full py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 font-bold text-[11px] flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition cursor-pointer"
-                    >
-                      <span>⚡ Open Other UPI Apps (GPay / BHIM / Cred) ➔</span>
-                    </button>
                   </div>
 
 
