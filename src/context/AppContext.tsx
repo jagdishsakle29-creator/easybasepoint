@@ -75,7 +75,7 @@ interface AppContextType {
       status: 'passed' | 'failed' | 'manual_review';
       reason?: string;
     }
-  ) => Promise<{ success: boolean; message: string; autoApproved?: boolean }>;
+  ) => Promise<{ success: boolean; message: string; autoApproved?: boolean; depositId?: string; totalInr?: number; deposit?: DepositOrder }>;
   submitUsdtDeposit: (usdtAmount: number, network: string, txHash: string) => { success: boolean; message: string };
   submitWithdrawal: (
     amount: number, 
@@ -1697,7 +1697,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'passed' | 'failed' | 'manual_review';
       reason?: string;
     }
-  ): Promise<{ success: boolean; message: string; autoApproved?: boolean }> => {
+  ): Promise<{ success: boolean; message: string; autoApproved?: boolean; depositId?: string; totalInr?: number; deposit?: DepositOrder }> => {
     const activeUser: User | null = user || storage.getUser();
     if (!activeUser) {
       addToast('error', 'Please log in to your account first.');
@@ -1895,7 +1895,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast('success', `Payment submitted for verification! Balance will be credited within 5-7 minutes.`);
     }
 
-    return { success: true, message: 'Deposit recorded' };
+    return { 
+      success: true, 
+      message: 'Deposit recorded', 
+      autoApproved: isAutoApproved, 
+      depositId: newDeposit.id, 
+      totalInr: total,
+      deposit: newDeposit
+    };
   };
 
   // Submitting USDT Deposit

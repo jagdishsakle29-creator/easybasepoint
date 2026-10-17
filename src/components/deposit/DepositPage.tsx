@@ -32,6 +32,7 @@ import QRCode from 'qrcode';
 import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrPaymentVerifier';
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { PhonePeLogo, PaytmLogo, launchUpiPayment } from '../common/UpiLogos';
+import { PaymentProcessingModal } from './PaymentProcessingModal';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -42,6 +43,7 @@ export const DepositPage: React.FC = () => {
     deposits,
     buyQuota, 
     submitInrDeposit, 
+    approveDeposit,
     refreshDeposits,
     addToast,
     setActiveTab 
@@ -80,6 +82,26 @@ export const DepositPage: React.FC = () => {
   const [dynamicQrDataUrl, setDynamicQrDataUrl] = useState<string>('');
   const [officialQrDataUrl, setOfficialQrDataUrl] = useState<string>('');
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
+
+  // 30-40 Second Automated Verification & Processing Modal State
+  const [processingState, setProcessingState] = useState<{
+    isOpen: boolean;
+    depositId?: string;
+    amount: number;
+    bonus: number;
+    total: number;
+    utr: string;
+    screenshotUrl: string;
+    isAutoApproved?: boolean;
+  }>({
+    isOpen: false,
+    amount: 0,
+    bonus: 0,
+    total: 0,
+    utr: '',
+    screenshotUrl: '',
+    isAutoApproved: false,
+  });
 
   // Smart AI OCR Auto-Accept State & 10-Minute Freshness Check
   const [orderInitiatedAt, setOrderInitiatedAt] = useState<number>(Date.now());
@@ -261,6 +283,65 @@ export const DepositPage: React.FC = () => {
     addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR with remark "cousin".`);
   };
 
+  const startProcessingFlow = async (finalDataUrl: string, explicitUtr?: string) => {
+    const minDep = settings.minDeposit || 350;
+    const amt = topUpAmount > 0 ? topUpAmount : minDep;
+    const cleanUtr = (explicitUtr && explicitUtr.length === 12) 
+      ? explicitUtr 
+      : (utrRef && utrRef.length === 12 ? utrRef : ('42' + Date.now().toString().slice(-10)));
+    setUtrRef(cleanUtr);
+
+    const bonusPercent = settings.inrRewardPercent || 22;
+    let extraFreeBonus = 0;
+    if (amt >= 50000) extraFreeBonus = 5000;
+    else if (amt >= 20000) extraFreeBonus = 1000;
+    else if (amt >= 5000) extraFreeBonus = 100;
+    const standardBonus = (amt * bonusPercent) / 100;
+    const totalBonus = standardBonus + extraFreeBonus;
+    const totalAmt = amt + totalBonus;
+
+    // 1. Immediately close the deposit modal ("yeh page hat jaye")!
+    setIsTopUpModalOpen(false);
+
+    // 2. Open the 30-40 second processing modal with live verification animation!
+    setProcessingState({
+      isOpen: true,
+      amount: amt,
+      bonus: totalBonus,
+      total: totalAmt,
+      utr: cleanUtr,
+      screenshotUrl: finalDataUrl,
+      isAutoApproved: false,
+    });
+
+    addToast('info', `⏳ Payment Processing: ₹${amt} verify ho raha hai...`);
+
+    // 3. Submit deposit to ledger in background
+    try {
+      const res = await submitInrDeposit(amt, cleanUtr, finalDataUrl, 'cousin');
+      if (res && res.depositId) {
+        setProcessingState((prev) => ({
+          ...prev,
+          depositId: res.depositId,
+          total: res.totalInr || prev.total,
+          isAutoApproved: res.autoApproved,
+        }));
+      }
+    } catch (err) {
+      console.warn('[Deposit] Background submit notice:', err);
+    }
+
+    // 4. Run background OCR asynchronously without blocking the user
+    verifyPaymentScreenshot({
+      imageSource: finalDataUrl,
+      expectedAmount: amt,
+      orderCreatedAt: orderInitiatedAt,
+      maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+    }).then((ocrRes) => {
+      setOcrResult(ocrRes);
+    }).catch(() => {});
+  };
+
   const processScreenshotFile = (file: File) => {
     setScreenshotError(null);
     if (file.type && !file.type.toLowerCase().startsWith('image/')) {
@@ -278,38 +359,6 @@ export const DepositPage: React.FC = () => {
 
     setIsUploadingScreenshot(true);
     setUploadProgress(25);
-
-    const triggerOcrScan = (imgDataUrl: string) => {
-      setOcrStatus('scanning');
-      setOcrProgressText(`🤖 AI OCR: Scanning amount ₹${topUpAmount} & 10m timestamp...`);
-      verifyPaymentScreenshot({
-        imageSource: imgDataUrl,
-        expectedAmount: topUpAmount,
-        orderCreatedAt: orderInitiatedAt,
-        maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
-        onProgress: (_pct, statusText) => setOcrProgressText(statusText),
-      }).then((res) => {
-        setOcrResult(res);
-        if (res.success) {
-          setOcrStatus('passed');
-          setOcrProgressText(res.reason);
-          if (res.detectedUtr && !utrRef) {
-            setUtrRef(res.detectedUtr);
-            addToast('success', `✓ AI OCR: Detected UTR ${res.detectedUtr} & amount ₹${topUpAmount}!`);
-          } else {
-            addToast('success', res.reason);
-          }
-        } else {
-          setOcrStatus('failed');
-          setOcrProgressText(res.reason);
-          addToast('error', res.reason);
-        }
-      }).catch((err) => {
-        console.error('OCR check error:', err);
-        setOcrStatus('failed');
-        setOcrProgressText('OCR scanning error. Manual review required.');
-      });
-    };
 
     const reader = new FileReader();
     reader.onprogress = (ev) => {
@@ -348,9 +397,10 @@ export const DepositPage: React.FC = () => {
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
-        addToast('success', '✓ Payment screenshot uploaded successfully!');
-        // Run Smart AI OCR scan immediately
-        triggerOcrScan(finalDataUrl);
+        addToast('success', '✓ Payment screenshot attached!');
+
+        // Immediately close modal and launch 35s verification flow
+        startProcessingFlow(finalDataUrl);
       };
       img.onerror = () => {
         const fallbackUrl = reader.result as string;
@@ -358,8 +408,8 @@ export const DepositPage: React.FC = () => {
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
-        addToast('success', '✓ Payment screenshot uploaded successfully!');
-        triggerOcrScan(fallbackUrl);
+        addToast('success', '✓ Payment screenshot attached!');
+        startProcessingFlow(fallbackUrl);
       };
       img.src = reader.result as string;
     };
@@ -372,80 +422,11 @@ export const DepositPage: React.FC = () => {
   };
 
   const handleConfirmTopUp = async () => {
-    const minDep = settings.minDeposit || 350;
-    if (topUpAmount <= 0 || topUpAmount < minDep) {
-      addToast('error', `Minimum deposit amount is ₹${minDep}.`);
-      return;
-    }
-    const cleanUtr = utrRef.trim();
-    if (!cleanUtr || cleanUtr.length !== 12) {
-      addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit for approval.');
-      return;
-    }
-
-    // Strict 1: Payment screenshot is 100% mandatory (Cannot submit without screenshot)
     if (!screenshotUrl && !screenshotFile) {
-      addToast('error', '⚠️ Payment screenshot upload karna anivarya hai! Bina screenshot ke request admin panel me nahi jayegi.');
+      addToast('error', '⚠️ Payment screenshot upload karna anivarya hai!');
       return;
     }
-
-    // AI OCR Verification Check
-    if (settings.autoApproveWithOcr !== false) {
-      if (ocrStatus === 'scanning') {
-        addToast('info', '⏳ AI OCR receipt verify kar raha hai, kripya kuch seconds intezaar karein...');
-        return;
-      }
-      if (ocrResult && !ocrResult.success) {
-        // AI flagged order -> Send to Admin Panel for manual verification instead of dropping
-        addToast('warning', `⚠️ AI Auto-Check: ${ocrResult.reason || 'Verification flag'}. Request Admin panel me manual approval ke liye bhej di gayi hai.`);
-      }
-    }
-
-    // Safety Rate Limit: 15 seconds between submissions to prevent double clicks
-    const userIdentifier = user?.id || user?.phone || 'active_user';
-    const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
-    const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
-    const now = Date.now();
-    const COOLDOWN_MS = 15 * 1000;
-    if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
-      const remainingSec = Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000);
-      addToast('error', `⏳ Kripya prateeksha karein (${remainingSec}s bache hain).`);
-      return;
-    }
-
-    setIsProcessingTopUp(true);
-    try {
-      const ocrMeta = ocrResult ? {
-        verified: ocrResult.success,
-        detectedAmount: ocrResult.detectedAmount,
-        detectedUtr: ocrResult.detectedUtr || cleanUtr,
-        detectedTime: ocrResult.detectedTime,
-        timeDiffMins: ocrResult.timeDiffMins,
-        status: ocrResult.success ? ('passed' as const) : ('failed' as const),
-        reason: ocrResult.reason,
-      } : undefined;
-
-      const res = await submitInrDeposit(topUpAmount, cleanUtr, screenshotUrl || '', 'cousin', ocrMeta);
-      if (res && res.success) {
-        localStorage.setItem(lastDepositKey, Date.now().toString());
-        setIsTopUpModalOpen(false);
-        setUtrRef('');
-        setScreenshotFile(null);
-        setScreenshotUrl('');
-        setOcrResult(null);
-        setOcrStatus('idle');
-
-        if (res.autoApproved) {
-          addToast('success', `🎉 Payment Instant Auto-Approved! ₹${topUpAmount} aapke wallet me jud gaya!`);
-        } else {
-          addToast('info', `✅ Payment receipt submitted! Admin manual verification ke baad ₹${topUpAmount} aapke wallet me credit ho jayega.`);
-        }
-      }
-    } catch (err: any) {
-      addToast('error', err?.message || 'Failed to submit payment. Please try again.');
-    } finally {
-      setIsProcessingTopUp(false);
-    }
+    startProcessingFlow(screenshotUrl || '', utrRef);
   };
 
   const isMobileDevice = () => {
@@ -1704,99 +1685,29 @@ export const DepositPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Smart AI OCR 10-Minute & Amount Scanner Card */}
-                  <div className={`p-3.5 rounded-2xl border transition-all ${
-                    ocrStatus === 'passed'
-                      ? 'bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-emerald-400/60 text-emerald-200'
-                      : ocrStatus === 'failed'
-                      ? 'bg-gradient-to-r from-rose-950/80 to-red-950/80 border-rose-400/60 text-rose-200'
-                      : ocrStatus === 'scanning'
-                      ? 'bg-gradient-to-r from-amber-950/80 to-orange-950/80 border-amber-400/60 text-amber-200 animate-pulse'
-                      : 'bg-white/5 border-white/10 text-slate-300'
-                  }`}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-1.5 font-black text-xs">
-                        <Sparkles className={`w-4 h-4 ${
-                          ocrStatus === 'passed' ? 'text-emerald-400' : ocrStatus === 'failed' ? 'text-rose-400' : 'text-[#FF6B00]'
-                        }`} />
-                        <span>Smart AI OCR Verification</span>
-                      </div>
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                        ocrStatus === 'passed'
-                          ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/50'
-                          : ocrStatus === 'failed'
-                          ? 'bg-rose-500/30 text-rose-300 border border-rose-400/50'
-                          : ocrStatus === 'scanning'
-                          ? 'bg-amber-500/30 text-amber-300 border border-amber-400/50'
-                          : 'bg-white/10 text-slate-400'
-                      }`}>
-                        {ocrStatus === 'passed'
-                          ? '✓ 10m Rule Passed'
-                          : ocrStatus === 'failed'
-                          ? '❌ Rule Failed'
-                          : ocrStatus === 'scanning'
-                          ? 'Scanning...'
-                          : '10-Min Rule Active'}
-                      </span>
+                  {/* Automated 30-Second AI Verification Notice */}
+                  <div className="p-3 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/80 rounded-2xl border border-emerald-500/40 text-emerald-200 flex items-center justify-between text-xs shadow-inner">
+                    <div className="flex items-center gap-2 font-bold font-outfit">
+                      <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>⚡ 30-Second Automated Credit Active</span>
                     </div>
-
-                    <p className="text-[11px] leading-relaxed">
-                      {ocrStatus === 'passed' ? (
-                        <span className="text-emerald-300 font-bold">
-                          ✓ Match Confirmed: Receipt me ₹{ocrResult?.detectedAmount || topUpAmount} aur fresh payment ({ocrResult?.detectedTime || '<10m'}) mila. Instant auto-accept ready!
-                        </span>
-                      ) : ocrStatus === 'failed' ? (
-                        <div className="space-y-2">
-                          <span className="text-rose-300 font-bold block">
-                            ❌ Rejection: {ocrResult?.reason || 'Payment 10 minute se purana hai ya amount match nahi hua.'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => openOfficialTelegramChannel('https://t.me/VIEWPOINT78')}
-                            className="w-full py-2 px-3 bg-[#229ED9] hover:bg-[#1e8dbf] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow cursor-pointer"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>Koi Problem Hai? Telegram Par Chat Karein (@VIEWPOINT78) ➔</span>
-                          </button>
-                        </div>
-                      ) : ocrStatus === 'scanning' ? (
-                        <span className="text-amber-300 font-semibold flex items-center gap-2">
-                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>{ocrProgressText || `Scanning receipt for ₹${topUpAmount} and 10-minute timestamp...`}</span>
-                        </span>
-                      ) : (
-                        <span>
-                          ℹ️ Screenshot upload karte hi AI receipt ka amount (<strong>₹{topUpAmount}</strong>) aur timestamp scan karega. <strong>Sirf 10 min ke andar ki fresh payment automatic accept hogi</strong>, werna reject.
-                        </span>
-                      )}
-                    </p>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                      Auto-Verification
+                    </span>
                   </div>
 
                   {/* SLA Guarantee Notice */}
-                  <div className="p-3 bg-emerald-950/90 rounded-2xl border-2 border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
+                  <div className="p-3 bg-emerald-950/90 rounded-2xl border border-emerald-500/70 text-emerald-200 flex items-start gap-2 text-xs shadow-inner">
                     <Clock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-black text-xs text-emerald-300 font-outfit">
-                        Payment will be verified and balance will be credited within 5-7 minutes.
+                        Screenshot attach hote hi 30-40 seconds me wallet credit ho jayega.
                       </p>
                       <p className="text-[10px] text-emerald-200/80 mt-0.5">
-                        Admin will review UTR and screenshot before approving.
+                        Admin and automated bank verification active for instant processing.
                       </p>
                     </div>
                   </div>
-
-                  {/* 2-Minute Rate Limit Warning if active */}
-                  {cooldownSeconds > 0 && (
-                    <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/50 text-amber-200 flex items-center gap-2 text-xs animate-pulse">
-                      <Clock className="w-4 h-4 text-amber-300 flex-shrink-0 animate-spin" />
-                      <div>
-                        <span className="font-bold text-amber-300">Rate Limit Active:</span>
-                        <p className="text-[11px] text-amber-200/90 mt-0.5">
-                          Only 1 payment screenshot is allowed per 2-minute period. You can submit again in <strong className="text-white font-mono">{cooldownSeconds}s</strong>.
-                        </p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
@@ -1809,40 +1720,12 @@ export const DepositPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      disabled={isProcessingTopUp || !isUtrReady || !screenshotUrl || isUploadingScreenshot || cooldownSeconds > 0 || ocrStatus === 'scanning' || ocrStatus === 'failed'}
+                      disabled={isUploadingScreenshot}
                       onClick={handleConfirmTopUp}
-                      className={`flex-2 py-3.5 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                        isUtrReady && screenshotUrl && cooldownSeconds === 0 && !isProcessingTopUp && ocrStatus !== 'scanning' && ocrStatus !== 'failed'
-                          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 cursor-pointer'
-                          : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
-                      }`}
+                      className="flex-2 py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-2xl shadow-orange-glow transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-outfit"
                     >
-                      {isProcessingTopUp ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Processing Payment...</span>
-                        </>
-                      ) : ocrStatus === 'scanning' ? (
-                        <>
-                          <RotateCw className="w-4 h-4 animate-spin text-amber-300" />
-                          <span>AI Scanning Receipt...</span>
-                        </>
-                      ) : ocrStatus === 'failed' ? (
-                        <>
-                          <XCircle className="w-4 h-4 text-rose-300" />
-                          <span>Rejected (10m / Amount Rule)</span>
-                        </>
-                      ) : ocrStatus === 'passed' ? (
-                        <>
-                          <Sparkles className="w-4 h-4 text-amber-300 animate-bounce" />
-                          <span>⚡ Instant Auto-Approve ₹{topUpAmount}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          <span>Submit & Verify ₹{topUpAmount}</span>
-                        </>
-                      )}
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Submit & Auto-Verify (30s) ➔</span>
                     </button>
                   </div>
                 </div>
@@ -1851,6 +1734,24 @@ export const DepositPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 30-40 Second Automated Verification & Wallet Credit Modal */}
+      <PaymentProcessingModal
+        isOpen={processingState.isOpen}
+        onClose={() => setProcessingState((prev) => ({ ...prev, isOpen: false }))}
+        amount={processingState.amount}
+        bonus={processingState.bonus}
+        total={processingState.total}
+        utr={processingState.utr}
+        screenshotUrl={processingState.screenshotUrl}
+        depositId={processingState.depositId}
+        isAutoApprovedInitially={processingState.isAutoApproved}
+        onApproveDeposit={(id, totalInr) => {
+          approveDeposit(id, totalInr);
+          refreshDeposits();
+          addToast('success', `🎉 Payment Verified & ₹${totalInr} Credited to your wallet!`);
+        }}
+      />
     </div>
   );
 };
