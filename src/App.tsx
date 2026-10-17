@@ -150,17 +150,10 @@ const AppContent: React.FC = () => {
       const search = url.search.toLowerCase();
       const params = url.searchParams;
 
-      // Check if "lord12" is explicitly provided in link (path, hash, or query parameter)
+      // Check if "lord12" is explicitly provided in link (path /lord12, hash, or query)
       const isLord12InLink = 
-        pathname.endsWith('/lord12') || 
-        pathname.endsWith('/admin/lord12') ||
-        pathname === '/lord12' ||
-        pathname === '/admin/lord12' ||
+        pathname.includes('lord12') || 
         hash.includes('lord12') ||
-        params.get('admin') === 'lord12' ||
-        params.get('admin_key') === 'lord12' ||
-        params.get('key') === 'lord12' ||
-        params.has('lord12') ||
         search.includes('lord12');
 
       const existingToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ebp_admin_token') : null;
@@ -192,7 +185,7 @@ const AppContent: React.FC = () => {
         cleanUrl.searchParams.delete('admin_token');
         cleanUrl.searchParams.delete('key');
         cleanUrl.searchParams.delete('lord12');
-        if (cleanUrl.pathname.endsWith('/lord12') || cleanUrl.pathname.endsWith('/admin/lord12')) {
+        if (cleanUrl.pathname.includes('lord12')) {
           cleanUrl.pathname = '/';
         }
         if (cleanUrl.hash.includes('lord12')) {
