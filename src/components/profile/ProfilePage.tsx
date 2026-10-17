@@ -29,6 +29,7 @@ import { useApp } from '../../context/AppContext';
 import { PaymentMethodsModal } from './PaymentMethodsModal';
 import { AppDownloadModal } from '../common/AppDownloadModal';
 import { isAppMode } from '../../utils/appDetector';
+import { openOfficialTelegramChannel } from '../../config/constants';
 
 const SUPPORT_CATEGORIES = [
   { 
@@ -390,7 +391,7 @@ export const ProfilePage: React.FC = () => {
               key={item.id}
               onClick={() => {
                 if (item.id === 'telegramChannel') {
-                  window.open(settings.telegramChannelUrl || 'https://t.me/easybasepoint', '_blank', 'noopener,noreferrer');
+                  openOfficialTelegramChannel(settings.telegramChannelUrl);
                 } else {
                   setActiveModal(item.id as any);
                 }
@@ -607,11 +608,10 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             {/* Instant Official Telegram Quick Action */}
-            <a
-              href={settings.telegramChannelUrl || 'https://t.me/easybasepoint'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 rounded-2xl bg-sky-50 border border-sky-200/80 hover:bg-sky-100 transition group"
+            <button
+              type="button"
+              onClick={() => openOfficialTelegramChannel(settings.telegramChannelUrl)}
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-sky-50 border border-sky-200/80 hover:bg-sky-100 transition group text-left cursor-pointer"
             >
               <div className="flex items-center gap-2 text-xs">
                 <Send className="w-4 h-4 text-sky-600" />
@@ -620,7 +620,7 @@ export const ProfilePage: React.FC = () => {
               <span className="text-[10px] font-black bg-sky-500 text-white px-2 py-0.5 rounded-full uppercase">
                 @easybasepoint
               </span>
-            </a>
+            </button>
 
             <form onSubmit={handleSendTicket} className="space-y-3.5">
               {/* Problem Category Selection Options */}

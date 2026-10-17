@@ -25,30 +25,89 @@ export const COMPANY_CONFIG = {
 
 /**
  * Robust cross-platform Telegram Channel Opener:
- * - On Mobile: Tries natural deep-link (tg://) to open native Telegram App with fallback to Web.
+ * - Inside EasyBase Android APK: Directly commands native AndroidBridge to dispatch
+ *   ACTION_VIEW system intent to Telegram app or default browser without WebView scheme errors.
+ * - On Mobile Browsers / WebViews: Copies @easybasepoint to clipboard for 1-tap backup,
+ *   and initiates compliant anchor navigation to official channel.
  * - On Desktop: Safely opens official Telegram Web in a clean new tab.
  */
 export const openOfficialTelegramChannel = (customUrl?: string): void => {
   const targetUrl = customUrl || TELEGRAM_CHANNEL_URL;
   if (typeof window === 'undefined') return;
 
-  const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    let appOpened = false;
-    const startTime = Date.now();
-
-    // Try native app scheme first
-    window.location.href = TELEGRAM_APP_URL;
-
-    // Fallback to web link if app doesn't take over within 1.2s
-    setTimeout(() => {
-      if (Date.now() - startTime < 2000 && !appOpened) {
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  // 1. Check for native Android APK Bridge (EasyBasePoint Android App)
+  const bridge = (window as any).AndroidBridge || (window as any).Android;
+  if (bridge) {
+    if (typeof bridge.openTelegram === 'function') {
+      try {
+        const handled = bridge.openTelegram(targetUrl);
+        if (handled) return;
+      } catch (err) {
+        console.warn('AndroidBridge.openTelegram failed:', err);
       }
-    }, 1200);
-  } else {
-    // Desktop: Open in new tab securely
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+    if (typeof bridge.openExternal === 'function') {
+      try {
+        const handled = bridge.openExternal(targetUrl);
+        if (handled) return;
+      } catch (err) {
+        console.warn('AndroidBridge.openExternal failed:', err);
+      }
+    }
+  }
+
+  // 2. Proactively copy @easybasepoint to clipboard as a seamless convenience fallback
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(TELEGRAM_SUPPORT_HANDLE).catch(() => {});
+    }
+  } catch {}
+
+  // 3. Platform detection
+  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+  const isAndroid = /Android/i.test(ua);
+  const isIos = /iPhone|iPad|iPod/i.test(ua);
+
+  if (isAndroid) {
+    // In Android: Use invisible anchor with rel=noopener to trigger Android Intent Filter
+    try {
+      const a = document.createElement('a');
+      a.href = targetUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(a);
+        } catch {}
+      }, 200);
+    } catch {
+      window.location.href = targetUrl;
+    }
+    return;
+  }
+
+  if (isIos) {
+    // iOS Safari / Webview
+    try {
+      window.location.href = TELEGRAM_APP_URL;
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 500);
+    } catch {
+      window.location.href = targetUrl;
+    }
+    return;
+  }
+
+  // Desktop: Open clean in a new window/tab
+  try {
+    const win = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      window.location.href = targetUrl;
+    }
+  } catch {
+    window.location.href = targetUrl;
   }
 };

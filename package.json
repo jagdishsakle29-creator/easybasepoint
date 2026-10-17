@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node -e \"const t=Date.now(); const fs=require('fs'); fs.writeFileSync('api/version.js', 'export const BUILD_TIME = ' + t + ';\\n\\nexport default function handler(req, res) {\\n  res.setHeader(\\'Cache-Control\\', \\'no-store, no-cache, must-revalidate, max-age=0\\');\\n  res.setHeader(\\'Pragma\\', \\'no-cache\\');\\n  res.setHeader(\\'Expires\\', \\'0\\');\\n  return res.status(200).json({ version: \\'2.1.0\\', buildTime: BUILD_TIME });\\n}\\n'); fs.writeFileSync('public/version.json', JSON.stringify({ version: '2.1.0', buildTime: t }));\" && tsc -b && vite build",
+    "build": "node -e \"const t=Date.now(); const fs=require('fs'); fs.writeFileSync('api/version.js', 'export const BUILD_TIME = ' + t + ';\\n\\nexport default function handler(req, res) {\\n  res.setHeader(\\'Cache-Control\\', \\'no-store, no-cache, must-revalidate, max-age=0\\');\\n  res.setHeader(\\'Pragma\\', \\'no-cache\\');\\n  res.setHeader(\\'Expires\\', \\'0\\');\\n  return res.status(200).json({ version: \\'2.2.0\\', buildTime: BUILD_TIME });\\n}\\n'); fs.writeFileSync('public/version.json', JSON.stringify({ version: '2.2.0', buildTime: t }));\" && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
