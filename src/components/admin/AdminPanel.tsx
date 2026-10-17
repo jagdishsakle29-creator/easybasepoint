@@ -32,9 +32,10 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { QuotaPackage, QuotaLevel } from '../../types';
+import { QuotaPackage, QuotaLevel, DepositOrder } from '../../types';
 import { telegramService } from '../../services/telegram';
 import { storage } from '../../services/storage';
+import { verifyPaymentScreenshot } from '../../utils/ocrPaymentVerifier';
 
 export const AdminPanel: React.FC = () => {
   const { 
@@ -233,28 +234,50 @@ export const AdminPanel: React.FC = () => {
     setAutoApproveWithOcr(nextVal);
     updateSettings({ autoApproveDeposits: nextVal, autoApproveWithOcr: nextVal });
     if (nextVal) {
-      addToast('success', '⚡ Auto-Accept Payments: ON! Sabhi payments auto-accept honge.');
-      // When turned ON, automatically approve all currently pending deposits
+      addToast('success', '⚡ Auto-Accept ON: Selected amount & 10-minute ke andar wale payments auto-approve honge.');
+      // When turned ON, automatically evaluate and approve pending deposits that match amount & 10m rule
       const pendingList = uniqueDeposits.filter(isPendingDep);
       if (pendingList.length > 0) {
         let count = 0;
         for (const dep of pendingList) {
+          const img = isRealImage(dep.paymentScreenshot) ? dep.paymentScreenshot : (isRealImage(dep.proofUrl) ? dep.proofUrl : '');
+          if (!img) continue;
           try {
-            await approveDeposit(dep.id, dep.totalInr, dep);
-            count++;
+            const ocrRes = await verifyPaymentScreenshot({
+              imageSource: img,
+              expectedAmount: Number(dep.amount) || 500,
+              orderCreatedAt: dep.createdAt ? new Date(dep.createdAt).getTime() : Date.now(),
+              maxMinutesDiff: ocrMaxTimeWindowMins || 10,
+            });
+            if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
+              await approveDeposit(dep.id, dep.totalInr, {
+                ...dep,
+                ocrVerification: {
+                  verified: true,
+                  detectedAmount: ocrRes.detectedAmount,
+                  detectedUtr: ocrRes.detectedUtr,
+                  detectedTime: ocrRes.detectedTime,
+                  timeDiffMins: ocrRes.timeDiffMins,
+                  status: 'passed',
+                  reason: ocrRes.reason,
+                },
+              });
+              count++;
+            }
           } catch (e) {
-            console.error('Error auto-approving pending dep:', dep.id, e);
+            console.error('Error auto-verifying pending dep:', dep.id, e);
           }
         }
         if (count > 0) {
           setActionCounter((c) => c + 1);
-          addToast('success', `⚡ Sabhi ${count} Pending Deposits successfully Approve ho gaye!`);
+          addToast('success', `⚡ ${count} Pending Deposits (Amount & 10-min match) Auto-Approved!`);
         }
       }
     } else {
       addToast('info', '🔒 Auto-Accept: OFF! Sabhi payments manual review me rahenge.');
     }
   };
+
 
   const handleApproveAllPendingDeposits = async () => {
     const pendingList = uniqueDeposits.filter(isPendingDep);
@@ -426,6 +449,75 @@ export const AdminPanel: React.FC = () => {
   const pendingInrDeposits = inrDeposits.filter(isPendingDep);
   const completedInrDeposits = inrDeposits.filter(isCompletedDep);
   const rejectedInrDeposits = inrDeposits.filter(isRejectedDep);
+
+  // Background Auto-Evaluation in Admin Panel: scans incoming deposits and auto-approves if amount & 10m match
+  useEffect(() => {
+    if (!autoApproveDeposits) return;
+
+    const unverifiedPending = pendingInrDeposits.filter((d) => {
+      const hasImage = isRealImage(d.paymentScreenshot) || isRealImage(d.proofUrl);
+      const isPending = d.status === 'pending' || d.status === 'pending_verification';
+      const notScannedYet = !d.ocrVerification || (d.ocrVerification.status !== 'passed' && d.ocrVerification.status !== 'failed' && d.ocrVerification.status !== 'manual_review');
+      return hasImage && isPending && notScannedYet && !processingActionIds.has(d.id);
+    });
+
+    if (unverifiedPending.length === 0) return;
+
+    unverifiedPending.forEach(async (dep) => {
+      const img = isRealImage(dep.paymentScreenshot) ? dep.paymentScreenshot : dep.proofUrl;
+      if (!img) return;
+
+      try {
+        const ocrRes = await verifyPaymentScreenshot({
+          imageSource: img,
+          expectedAmount: Number(dep.amount) || 500,
+          orderCreatedAt: dep.createdAt ? new Date(dep.createdAt).getTime() : Date.now(),
+          maxMinutesDiff: ocrMaxTimeWindowMins || 10,
+        });
+
+        if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
+          console.log(`[ADMIN_AUTO_APPROVE] #${dep.id} matched amount and 10-minute rule. Auto-approving!`);
+          await approveDeposit(dep.id, dep.totalInr, {
+            ...dep,
+            ocrVerification: {
+              verified: true,
+              detectedAmount: ocrRes.detectedAmount,
+              detectedUtr: ocrRes.detectedUtr,
+              detectedTime: ocrRes.detectedTime,
+              timeDiffMins: ocrRes.timeDiffMins,
+              status: 'passed' as const,
+              reason: ocrRes.reason,
+            },
+          });
+          setActionCounter((c) => c + 1);
+          addToast('success', `⚡ Auto-Approved #${dep.id}: Amount ₹${dep.amount} & 10m rule verified!`);
+        } else {
+          // Flag as manual review needed so Admin sees the reason
+          const all: DepositOrder[] = storage.getDeposits();
+          const updated: DepositOrder[] = all.map((item) =>
+            item.id === dep.id
+              ? {
+                  ...item,
+                  ocrVerification: {
+                    verified: false,
+                    detectedAmount: ocrRes.detectedAmount,
+                    detectedUtr: ocrRes.detectedUtr,
+                    detectedTime: ocrRes.detectedTime,
+                    timeDiffMins: ocrRes.timeDiffMins,
+                    status: 'manual_review' as const,
+                    reason: ocrRes.reason,
+                  },
+                }
+              : item
+          );
+          storage.setDeposits(updated);
+          setActionCounter((c) => c + 1);
+        }
+      } catch (err) {
+        console.warn('[AdminPanel Auto-Approve OCR]', err);
+      }
+    });
+  }, [autoApproveDeposits, pendingInrDeposits, ocrMaxTimeWindowMins]);
 
   const filteredInrDeposits = inrDeposits.filter((d) => {
     if (inrFilter === 'all') return true;
@@ -1529,7 +1621,7 @@ export const AdminPanel: React.FC = () => {
                   </div>
                   <p className="text-[11px] text-slate-600 mt-0.5">
                     {autoApproveDeposits 
-                      ? '⚡ ON Hai: Koi bhi user UTR daalega to system turant payment accept karega aur balance credit karega.' 
+                      ? '⚡ ON Hai: Selected amount match aur 10-minute ke andar payment receipt hone par auto-accept hoga. Mismatch/purana payment Admin review me rahega.' 
                       : '🔒 OFF Hai: Sabhi deposits Pending me rahenge jab tak Admin manually Approve button nahi dabata.'}
                   </p>
                 </div>
@@ -1671,6 +1763,24 @@ export const AdminPanel: React.FC = () => {
                         </span>
                       </div>
                     </div>
+
+                    {/* AI OCR Verification Status (Amount & 10-Minute Freshness) */}
+                    {dep.ocrVerification && (
+                      <div className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                        dep.ocrVerification.status === 'passed'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-amber-50 border-amber-200 text-amber-800'
+                      }`}>
+                        {dep.ocrVerification.status === 'passed' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        )}
+                        <span className="text-[11px] leading-snug">
+                          {dep.ocrVerification.reason || (dep.ocrVerification.status === 'passed' ? '✓ AI Verified: Amount & 10m rule matched' : 'Manual verification required')}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Payment Screenshot Proof Section */}
                     <div className="p-3 bg-slate-100/70 rounded-xl border border-slate-200/80 space-y-2">

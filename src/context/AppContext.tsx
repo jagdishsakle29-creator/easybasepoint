@@ -21,6 +21,7 @@ import { storage, defaultWallet, RegisteredAccount } from '../services/storage';
 import { telegramService } from '../services/telegram';
 import { cloudSync } from '../services/cloudSync';
 import confetti from 'canvas-confetti';
+import { verifyPaymentScreenshot } from '../utils/ocrPaymentVerifier';
 
 export type ActiveTab = 'home' | 'deposit' | 'withdraw' | 'team' | 'me' | 'history' | 'admin';
 
@@ -1763,10 +1764,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = amount + totalBonus;
     const finalRemark = remark || 'cousin';
 
-    // Auto-approve condition: Admin Auto-Accept ON, or Demo mode, or valid OCR
+    // Initial auto-approve flag (Demo Mode)
     const isAutoApproved = Boolean(
       settings.isDemoMode ||
-      settings.autoApproveDeposits ||
       (ocrResult?.verified && settings.autoApproveWithOcr !== false)
     );
 
@@ -1796,6 +1796,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedDeposits = [newDeposit, ...deposits];
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
+
+    // When Admin Auto-Accept is ON: Background verification for Exact Amount Match & 10-Minute Freshness
+    if (!isAutoApproved && settings.autoApproveDeposits && screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
+      verifyPaymentScreenshot({
+        imageSource: screenshotUrl,
+        expectedAmount: amount,
+        orderCreatedAt: Date.now(),
+        maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+      }).then((ocrRes) => {
+        if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
+          console.log(`[AUTO_APPROVE] Exact amount ₹${amount} and 10-minute rule matched for #${newDeposit.id}. Auto-approving!`);
+          approveDeposit(newDeposit.id, total, {
+            ...newDeposit,
+            ocrVerification: {
+              verified: true,
+              detectedAmount: ocrRes.detectedAmount,
+              detectedUtr: ocrRes.detectedUtr,
+              detectedTime: ocrRes.detectedTime,
+              timeDiffMins: ocrRes.timeDiffMins,
+              status: 'passed' as const,
+              reason: ocrRes.reason,
+            },
+          });
+        } else {
+          console.log(`[AUTO_APPROVE] #${newDeposit.id} did not pass 10m/amount rule (${ocrRes.reason}). Retained for Admin manual review.`);
+          const all = storage.getDeposits();
+          const updated: DepositOrder[] = all.map((d) =>
+            d.id === newDeposit.id
+              ? {
+                  ...d,
+                  ocrVerification: {
+                    verified: false,
+                    detectedAmount: ocrRes.detectedAmount,
+                    detectedUtr: ocrRes.detectedUtr,
+                    detectedTime: ocrRes.detectedTime,
+                    timeDiffMins: ocrRes.timeDiffMins,
+                    status: 'manual_review' as const,
+                    reason: ocrRes.reason,
+                  },
+                }
+              : d
+          );
+          storage.setDeposits(updated);
+          setDeposits(updated);
+        }
+      }).catch((err) => {
+        console.warn('[AUTO_APPROVE] Background OCR check error:', err);
+      });
+    }
 
     // If auto-approved by Smart OCR, credit user wallet immediately
     if (isAutoApproved) {
