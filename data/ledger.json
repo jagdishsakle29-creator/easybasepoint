@@ -337,5 +337,20 @@
     "remark": "cousin",
     "isDemo": false,
     "updatedAt": "2026-10-17T14:50:02.954Z"
+  },
+  "TEST_PROBE_123": {
+    "amount": 0,
+    "totalInr": 565,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-17T14:55:09.626Z",
+    "id": "TEST_PROBE_123",
+    "status": "completed",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-17T14:55:04.929Z",
+    "creditedAt": "2026-10-17T14:55:04.929Z",
+    "updatedAt": "2026-10-17T14:55:09.626Z"
   }
 }
