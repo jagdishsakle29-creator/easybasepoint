@@ -354,45 +354,7 @@ export const DepositPage: React.FC = () => {
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
-        addToast('success', '✓ Screenshot attached! AI verification scanning...');
-
-        // Trigger AI OCR Scan immediately
-        setOcrStatus('scanning');
-        setOcrProgressText('AI OCR screenshot check kar raha hai...');
-        const checkAmt = topUpAmount > 0 ? topUpAmount : (settings.minDeposit || 350);
-        verifyPaymentScreenshot({
-          imageSource: finalDataUrl,
-          expectedAmount: checkAmt,
-          orderCreatedAt: orderInitiatedAt,
-          maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
-          onProgress: (_p, text) => {
-            setOcrProgressText(text);
-          },
-        }).then((res) => {
-          setOcrResult(res);
-          if (res.success) {
-            setOcrStatus('passed');
-            addToast('success', `✓ AI Verified: ₹${res.detectedAmount || checkAmt} valid payment receipt!`);
-            if (res.detectedUtr && !utrRef) {
-              setUtrRef(res.detectedUtr);
-              addToast('info', `✓ 12-digit UTR auto-detected: ${res.detectedUtr}`);
-            }
-          } else {
-            setOcrStatus('failed');
-            addToast('error', `⚠️ AI Alert: ${res.reason}`);
-          }
-        }).catch((err) => {
-          setOcrStatus('failed');
-          setOcrResult({
-            success: false,
-            amountMatched: false,
-            statusMatched: false,
-            timeValid: false,
-            rawText: '',
-            reason: err?.message || 'AI receipt scan error',
-          });
-          addToast('error', '⚠️ AI Scan failed. Please check receipt details.');
-        });
+        addToast('success', '✓ Payment screenshot attached!');
       };
       img.onerror = () => {
         const fallbackUrl = reader.result as string;
@@ -422,24 +384,9 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
-    if (ocrStatus === 'scanning') {
-      addToast('info', '⏳ AI scanner receipt verify kar raha hai, kripya thoda wait karein...');
-      return;
-    }
-
     setIsProcessingTopUp(true);
     try {
-      const ocrData = ocrResult ? {
-        verified: ocrResult.success,
-        detectedAmount: ocrResult.detectedAmount,
-        detectedUtr: ocrResult.detectedUtr,
-        detectedTime: ocrResult.detectedTime,
-        timeDiffMins: ocrResult.timeDiffMins,
-        status: ocrResult.success ? ('passed' as const) : ('failed' as const),
-        reason: ocrResult.reason,
-      } : undefined;
-
-      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin', ocrData);
+      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin');
       if (res && res.success) {
         setIsTopUpModalOpen(false);
         setUtrRef('');
@@ -447,6 +394,7 @@ export const DepositPage: React.FC = () => {
         setScreenshotUrl('');
         setOcrStatus('idle');
         setOcrResult(null);
+        addToast('info', '🤖 Deposit submit ho gaya! AI background me receipt verify kar raha hai.');
       }
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to submit payment. Please try again.');
@@ -1742,42 +1690,15 @@ export const DepositPage: React.FC = () => {
                           </label>
                         </div>
 
-                        {/* Real-time AI OCR Verification Feedback */}
-                        {ocrStatus === 'scanning' && (
-                          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                            <div className="text-[11px] text-amber-200">
-                              <span className="font-bold">🤖 AI Scanner:</span> {ocrProgressText || 'Verifying payment receipt details...'}
-                            </div>
-                          </div>
-                        )}
-
-                        {ocrStatus === 'passed' && (
-                          <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 space-y-1">
-                            <div className="text-[11px] text-emerald-300 font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                              <span>✓ AI Verified: Valid Payment Slip</span>
-                            </div>
-                            <p className="text-[10px] text-emerald-200/90 pl-5">
-                              {ocrResult?.reason || `Exact amount ₹${topUpAmount || 350} verified. Auto-approval ready.`}
-                            </p>
-                          </div>
-                        )}
-
-                        {ocrStatus === 'failed' && (
-                          <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/50 space-y-1">
-                            <div className="text-[11px] text-red-300 font-bold flex items-center gap-1.5">
-                              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                              <span>❌ AI Alert: Invalid / Fake Screenshot</span>
-                            </div>
-                            <p className="text-[10px] text-red-200/90 pl-5 leading-tight">
-                              {ocrResult?.reason || 'Payment proof verification failed.'}
-                            </p>
-                            <p className="text-[9px] text-red-300/80 pl-5 font-semibold">
-                              ⚠️ Fake screenshot submit karne par payment turant AI dwara reject ho jayegi.
-                            </p>
-                          </div>
-                        )}
+                        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-[11px] text-emerald-300">
+                          <span className="flex items-center gap-1.5 font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Payment proof ready</span>
+                          </span>
+                          <span className="text-[10px] text-slate-300">
+                            AI background auto-verify
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
