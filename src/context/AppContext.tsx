@@ -790,31 +790,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         backendDeps.forEach((bd: any) => {
           if (!bd || !bd.id) return;
 
-          // If deposit is rejected, maintain it with rejected status so history is never lost
-          if (processedDeps[bd.id] === 'rejected' || bd.status === 'rejected') {
-            const current = map.get(bd.id);
-            map.set(bd.id, {
-              ...(current || bd),
-              status: 'rejected',
-              credited: false,
-            });
-            return;
-          }
-
           // Only remove if explicitly marked deleted by admin
           if (processedDeps[bd.id] === 'deleted') {
             map.delete(bd.id);
             return;
           }
 
-          const existingDep = map.get(bd.id);
+          const existingDep = prev.find((d) => d.id === bd.id) || map.get(bd.id);
           const isUsdt = bd.method === 'USDT' || bd.id.startsWith('USDT');
 
           // Check if approved locally or in processed registry or in backend
-          const isLocallyApproved = existingDep && (existingDep.status === 'approved' || existingDep.status === 'completed');
+          const isLocallyApproved = Boolean(existingDep && (existingDep.status === 'approved' || existingDep.status === 'completed' || existingDep.credited === true));
           const isRecordedApproved = processedDeps[bd.id] === 'approved';
-          const isBackendCompleted = bd.credited === true || bd.status === 'completed' || bd.status === 'credited' || bd.status === 'approved';
+          const isBackendCompleted = Boolean(bd.credited === true || bd.status === 'completed' || bd.status === 'credited' || bd.status === 'approved');
           const isApproved = isLocallyApproved || isRecordedApproved || isBackendCompleted;
+
+          // CRITICAL: Manual Admin Approval ALWAYS overrides any previous rejection!
+          if (isApproved) {
+            if (processedDeps[bd.id] !== 'approved') {
+              recordProcessedDeposit(bd.id, 'approved');
+            }
+          } else if (processedDeps[bd.id] === 'rejected' || bd.status === 'rejected') {
+            // Only maintain rejected status if NOT approved
+            const current = existingDep || map.get(bd.id) || bd;
+            map.set(bd.id, {
+              ...current,
+              status: 'rejected',
+              credited: false,
+            });
+            return;
+          }
 
           const validAmount = Number(bd.amount) || Number(bd.totalInr) || (existingDep ? existingDep.amount : 0);
           const validTotalInr = Number(bd.totalInr) || validAmount || (existingDep ? existingDep.totalInr : 0);
@@ -835,6 +840,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               totalInr: validTotalInr,
               status: isApproved ? 'approved' : (bd.status || 'pending_verification'),
               credited: isApproved,
+              rejectionReason: isApproved ? undefined : bd.rejectionReason,
               createdAt: validCreatedAt,
               utrNumber: bd.utrNumber || '',
               proofUrl: bd.paymentScreenshot || bd.proofUrl || bd.utrNumber || '',
@@ -856,7 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ? existingDep.paymentScreenshot
               : (bd.proofUrl || bd.paymentScreenshot || existingDep.proofUrl || '');
             
-            // STRICT TERMINAL STATE: If already approved or rejected, NEVER revert to pending!
+            // STRICT TERMINAL STATE: If approved, status is always approved
             let finalStatus: DepositStatus = existingDep.status;
             if (isApproved) {
               finalStatus = 'approved';
@@ -873,6 +879,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               method: validMethod || existingDep.method,
               status: finalStatus,
               credited: isApproved || existingDep.credited,
+              rejectionReason: isApproved ? undefined : (existingDep.rejectionReason || bd.rejectionReason),
               creditedAt: isApproved ? (bd.creditedAt || existingDep.creditedAt || new Date().toISOString()) : existingDep.creditedAt,
               approvedAt: isApproved ? (bd.approvedAt || existingDep.approvedAt || new Date().toISOString()) : existingDep.approvedAt,
               paymentScreenshot: updatedScreenshot,
@@ -1162,6 +1169,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const quotaToAdd = matched ? (matched.method === 'USDT' ? (matched.calculatedInr || matched.amount * 110) : matched.amount) : defaultQuota;
 
         if (depId) {
+          const nowIso = new Date().toISOString();
+          recordProcessedDeposit(depId, 'approved');
+          setDeposits((prev) => {
+            const updated = prev.map((d) =>
+              d.id === depId
+                ? { ...d, status: 'approved' as const, credited: true, rejectionReason: undefined, creditedAt: nowIso, approvedAt: nowIso }
+                : d
+            );
+            storage.setDeposits(updated);
+            return updated;
+          });
+          setTransactions((prev) => {
+            const exists = prev.some((t) => t.referenceId === depId);
+            const isUsdt = (depId && depId.startsWith('USDT')) || event.currency === 'USDT' || matched?.method === 'USDT';
+            const txNote = isUsdt
+              ? `USDT Deposit Approved (+₹${amountToAdd.toFixed(2)})`
+              : `INR Deposit Approved (+₹${amountToAdd.toFixed(2)})`;
+            let updatedTx: Transaction[];
+            if (exists) {
+              updatedTx = prev.map((t) =>
+                t.referenceId === depId
+                  ? { ...t, status: 'completed' as const, amount: amountToAdd, note: txNote }
+                  : t
+              );
+            } else {
+              const newTx: Transaction = {
+                id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+                userId: currentU.id,
+                type: 'deposit',
+                amount: amountToAdd,
+                currency: 'INR',
+                status: 'completed',
+                timestamp: nowIso,
+                note: txNote,
+                referenceId: depId,
+              };
+              updatedTx = [newTx, ...prev];
+            }
+            storage.setTransactions(updatedTx);
+            return updatedTx;
+          });
           creditWalletForDeposit(depId, amountToAdd, quotaToAdd, matched);
         }
       } else if (event.action === 'rejected' || event.type === 'DEPOSIT_REJECTED') {
@@ -1858,6 +1906,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isDemo: settings.isDemoMode,
         skipTelegram: true,
       });
+      const rejectedTx: Transaction = {
+        id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+        userId: activeUser.id,
+        type: 'deposit',
+        amount: total,
+        currency: 'INR',
+        status: 'rejected',
+        timestamp: nowIso,
+        note: `INR Deposit Rejected: AI Detection (${initialRejectReason})`,
+        referenceId: newDeposit.id,
+        metadata: {
+          baseAmount: amount,
+          bonusInr: standardBonus,
+          totalAmount: total,
+          utrNumber: cleanUtr,
+          method: 'INR',
+        },
+      };
+      const updatedTxList = [rejectedTx, ...transactions];
+      setTransactions(updatedTxList);
+      storage.setTransactions(updatedTxList);
+
       addToast('error', `❌ AI Rejected: ${initialRejectReason}`);
       return {
         success: false,
@@ -2316,6 +2386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...deposit,
         status: 'approved',
         credited: true,
+        rejectionReason: undefined,
         creditedAt: nowIso,
         approvedAt: nowIso,
       };
@@ -2324,7 +2395,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Mark deposit as approved in state and storage & record in permanent processed registry
     recordProcessedDeposit(id, 'approved');
     const updatedDeposits = (allDeps.some((d) => d.id === id) ? allDeps : [deposit, ...allDeps]).map((d) =>
-      d.id === id ? { ...d, status: 'approved' as const, credited: true, creditedAt: nowIso, approvedAt: nowIso } : d
+      d.id === id ? { ...d, status: 'approved' as const, credited: true, rejectionReason: undefined, creditedAt: nowIso, approvedAt: nowIso } : d
     );
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);

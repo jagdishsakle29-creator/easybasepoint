@@ -134,7 +134,7 @@ export const HistoryPage: React.FC = () => {
           if (bonusPercent === 18 || bonusPercent === 20) bonusPercent = 22;
 
           currentNote = isCompleted
-            ? (isUsdt ? `USDT Deposit Approved` : `INR Deposit`)
+            ? (isUsdt ? `USDT Deposit Approved` : `INR Deposit Approved`)
             : (matchingDep.status === 'rejected' 
                 ? (isUsdt ? 'USDT Deposit Rejected' : `INR Deposit Rejected`) 
                 : (isUsdt ? `USDT Deposit (Pending)` : `INR Deposit (Pending)`));
@@ -210,7 +210,11 @@ export const HistoryPage: React.FC = () => {
             currency: 'INR',
             status: depStatus,
             timestamp: dep.createdAt,
-            note: isUsdt ? `USDT Deposit` : `INR Deposit`,
+            note: isCompleted
+              ? (isUsdt ? `USDT Deposit Approved` : `INR Deposit Approved`)
+              : (dep.status === 'rejected'
+                  ? (isUsdt ? `USDT Deposit Rejected` : `INR Deposit Rejected`)
+                  : (isUsdt ? `USDT Deposit (Pending)` : `INR Deposit (Pending)`)),
             referenceId: dep.id,
             metadata: {
               bonusInr: bonusAmt,
