@@ -488,5 +488,22 @@
     "status": "completed",
     "action": "approved",
     "updatedAt": "2026-10-18T09:53:17.383Z"
+  },
+  "WDR-470311": {
+    "id": "WDR-470311",
+    "userId": "usr-1791780128094",
+    "userName": "Sonu",
+    "userPhone": "9179588609",
+    "amount": 400,
+    "method": "usdt",
+    "fee": 0,
+    "netAmount": 400,
+    "accountDetails": {
+      "usdtAddress": "TRNujedFcEQkhpJVXeJhJ59bhGqJxQqJWN"
+    },
+    "status": "pending",
+    "createdAt": "2026-10-18T10:35:39.948Z",
+    "type": "withdrawal",
+    "updatedAt": "2026-10-18T10:35:42.249Z"
   }
 }
