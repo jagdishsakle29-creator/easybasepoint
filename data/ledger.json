@@ -438,5 +438,18 @@
     "action": "rejected",
     "credited": false,
     "approvedAt": "2026-10-18T04:43:19.002Z"
+  },
+  "DEP-959473": {
+    "amount": 0,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-18T04:44:10.388Z",
+    "id": "DEP-959473",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-18T04:44:09.535Z",
+    "updatedAt": "2026-10-18T04:44:10.388Z"
   }
 }
