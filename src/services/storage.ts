@@ -745,7 +745,18 @@ export const storage = {
     });
 
     if (index >= 0) {
-      accounts[index] = account;
+      const prev = accounts[index];
+      accounts[index] = {
+        ...prev,
+        ...account,
+        password: account.password || prev.password,
+        transactionPin: account.transactionPin || prev.transactionPin || account.user?.transactionPin || prev.user?.transactionPin,
+        user: {
+          ...(prev.user || {}),
+          ...account.user,
+          transactionPin: account.user?.transactionPin || account.transactionPin || prev.user?.transactionPin || prev.transactionPin,
+        },
+      };
     } else {
       accounts.push(account);
     }
@@ -764,7 +775,7 @@ export const storage = {
       if (key) map.set(key, a);
     });
 
-    // Merge incoming
+    // Merge incoming, strictly preserving existing passwords & security PINs
     incoming.forEach((a) => {
       if (!a?.user) return;
       const phoneDigits = (a.user.phone || '').replace(/[^0-9]/g, '');
@@ -774,7 +785,13 @@ export const storage = {
         map.set(key, {
           ...prev,
           ...a,
-          user: { ...(prev?.user || {}), ...a.user },
+          password: a.password || prev?.password,
+          transactionPin: a.transactionPin || prev?.transactionPin || a.user?.transactionPin || prev?.user?.transactionPin,
+          user: { 
+            ...(prev?.user || {}), 
+            ...a.user,
+            transactionPin: a.user?.transactionPin || a.transactionPin || prev?.user?.transactionPin || prev?.transactionPin,
+          },
           wallet: { ...(prev?.wallet || {}), ...a.wallet },
         });
       }
@@ -794,7 +811,7 @@ export const storage = {
     const accounts = this.getAccounts();
     const clean = emailOrPhoneOrId.trim().toLowerCase();
     const isEmail = clean.includes('@');
-    const cleanDigits = isEmail ? '' : emailOrPhoneOrId.replace(/[^0-9]/g, '');
+    const cleanDigits = clean.replace(/[^0-9]/g, '');
 
     // 1. Match by ID, Name (case-insensitive), or Referral Code
     const byIdOrName = accounts.find((a) => {
@@ -806,13 +823,13 @@ export const storage = {
     });
     if (byIdOrName) return byIdOrName;
 
-    // 2. Strict Phone (exact 10 digits) or Strict Email Match
+    // 2. Strict Phone (matching last 10 digits regardless of +91 or 0 prefix) or Strict Email Match
     const byPhoneOrEmail = accounts.find((a) => {
       if (!a || !a.user) return false;
       const aPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
       const aEmail = (a.user.email || '').toLowerCase().trim();
 
-      // Check phone match ONLY if query is a phone number (strictly match last 10 digits)
+      // Check phone match if input has at least 10 digits
       if (!isEmail && cleanDigits.length >= 10 && aPhone.length >= 10) {
         if (aPhone.slice(-10) === cleanDigits.slice(-10)) {
           return true;

@@ -1122,12 +1122,16 @@ export const cloudSync = {
           accounts = JSON.parse(rawContent || '{}');
         }
 
+        const existingAcc = accounts[phone] || {};
         accounts[phone] = {
-          ...(accounts[phone] || {}),
+          ...existingAcc,
           ...account,
+          password: account.password || existingAcc.password,
+          transactionPin: account.transactionPin || existingAcc.transactionPin || account.user?.transactionPin || existingAcc.user?.transactionPin,
           user: {
-            ...(accounts[phone]?.user || {}),
+            ...(existingAcc.user || {}),
             ...account.user,
+            transactionPin: account.user?.transactionPin || account.transactionPin || existingAcc.user?.transactionPin || existingAcc.transactionPin,
           },
           updatedAt: new Date().toISOString(),
         };

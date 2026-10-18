@@ -152,6 +152,7 @@ export default async function handler(req, res) {
           },
           transactions: [],
           isReconstructedFromLedger: true,
+          allowInitialPasswordSet: true,
         };
         break;
       }
@@ -175,13 +176,17 @@ export default async function handler(req, res) {
 
     const { data: accounts, sha } = await fetchGitHubFile(ACCOUNTS_PATH);
     const phoneKey = cleanDigits(account.user.phone).slice(-10) || (account.user.email || '').toLowerCase().trim();
+    const existingAcc = accounts[phoneKey] || {};
 
     accounts[phoneKey] = {
-      ...accounts[phoneKey],
+      ...existingAcc,
       ...account,
+      password: account.password || existingAcc.password,
+      transactionPin: account.transactionPin || existingAcc.transactionPin || account.user?.transactionPin || existingAcc.user?.transactionPin,
       user: {
-        ...(accounts[phoneKey]?.user || {}),
+        ...(existingAcc.user || {}),
         ...account.user,
+        transactionPin: account.user?.transactionPin || account.transactionPin || existingAcc.user?.transactionPin || existingAcc.transactionPin,
       },
       updatedAt: new Date().toISOString(),
     };

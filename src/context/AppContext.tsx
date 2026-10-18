@@ -56,6 +56,7 @@ interface AppContextType {
   // Auth
   login: (emailOrPhone: string, pass: string) => Promise<{ success: boolean; message: string; notFound?: boolean; wrongPassword?: boolean }>;
   register: (name: string, email: string, phone: string, pass: string, refCode?: string, pin?: string) => Promise<{ success: boolean; message: string; alreadyExists?: boolean }>;
+  resetPasswordWithPin: (emailOrPhone: string, pin: string, newPass: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   refreshAccountsFromCloud: () => Promise<void>;
@@ -1475,8 +1476,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Verify against password OR 6-digit permanent PIN (allows seamless login if user entered PIN)
-    const isPasswordMatch = validPassword && cleanPass === validPassword;
-    const isPinMatch = validPin && cleanPass === validPin;
+    const cleanPassDigits = cleanPass.replace(/[^0-9]/g, '');
+    const cleanValidPin = validPin.replace(/[^0-9]/g, '');
+
+    const isPasswordMatch = Boolean(
+      validPassword &&
+      (cleanPass === validPassword || cleanPass.toLowerCase() === validPassword.toLowerCase())
+    );
+    const isPinMatch = Boolean(
+      cleanValidPin.length === 6 &&
+      (cleanPass === validPin || cleanPassDigits === cleanValidPin)
+    );
 
     if (!isPasswordMatch && !isPinMatch) {
       return { success: false, wrongPassword: true, message: 'Incorrect password or Security PIN. Please try again.' };
@@ -1522,6 +1532,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.dispatchEvent(new CustomEvent('ebp:user-logged-in'));
     setTimeout(() => reconcileWallet(), 50);
     return { success: true, message: 'Login successful' };
+  };
+
+  const resetPasswordWithPin = async (
+    emailOrPhone: string,
+    pin: string,
+    newPass: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!emailOrPhone || !pin || !newPass) {
+      return { success: false, message: 'Please fill in all fields.' };
+    }
+    const cleanInput = emailOrPhone.trim();
+    const cleanDigits = cleanInput.replace(/[^0-9]/g, '');
+    const cleanPin = pin.replace(/[^0-9]/g, '').trim();
+    const cleanNewPass = newPass.trim();
+
+    if (cleanPin.length !== 6) {
+      return { success: false, message: 'Security PIN must be strictly 6 digits.' };
+    }
+    if (cleanNewPass.length < 6) {
+      return { success: false, message: 'New password must be at least 6 characters long.' };
+    }
+
+    // 1. Check local storage
+    let acc = storage.findAccount(cleanInput);
+    if (!acc && cleanDigits.length >= 10) {
+      acc = storage.findAccount(cleanDigits.slice(-10));
+    }
+
+    // 2. Check cloud
+    if (!acc) {
+      acc = (await cloudSync.fetchCloudAccount(cleanInput)) || (cleanDigits.length >= 10 ? await cloudSync.fetchCloudAccount(cleanDigits.slice(-10)) : null) || undefined;
+    }
+
+    // 3. Fallback: all cloud accounts
+    if (!acc) {
+      const allCloud = await cloudSync.fetchAllCloudAccounts();
+      acc = allCloud.find((a) => {
+        if (!a?.user) return false;
+        const uPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
+        const uEmail = (a.user.email || '').toLowerCase().trim();
+        return (cleanDigits.length >= 10 && uPhone.endsWith(cleanDigits.slice(-10))) || (uEmail === cleanInput.toLowerCase());
+      });
+    }
+
+    if (!acc) {
+      return { success: false, message: '❌ Account not found. Please verify your mobile number or email.' };
+    }
+
+    const savedPin = (acc.transactionPin || acc.user?.transactionPin || '').replace(/[^0-9]/g, '').trim();
+    if (savedPin && savedPin.length === 6 && savedPin !== cleanPin) {
+      return { success: false, message: '❌ Incorrect 6-Digit Security PIN! Please enter your valid 6-digit PIN.' };
+    }
+
+    acc.password = cleanNewPass;
+    acc.transactionPin = cleanPin;
+    if (acc.user) acc.user.transactionPin = cleanPin;
+    acc.allowInitialPasswordSet = false;
+
+    storage.saveAccount(acc);
+    await cloudSync.saveCloudAccount(acc);
+
+    addToast('success', '✓ Password successfully updated! Logging you in...');
+    return await login(cleanInput, cleanNewPass);
   };
 
   const register = async (
@@ -2970,6 +3043,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsMobilePreview,
         login,
         register,
+        resetPasswordWithPin,
         logout,
         updateProfile,
         refreshAccountsFromCloud,

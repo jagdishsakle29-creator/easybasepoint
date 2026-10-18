@@ -35,7 +35,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   isForced = false 
 }) => {
-  const { login, register, logout, addToast, user } = useApp();
+  const { login, register, resetPasswordWithPin, logout, addToast, user } = useApp();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
 
   // Form states
@@ -47,6 +47,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form error display state
   const [formError, setFormError] = useState('');
@@ -57,20 +58,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState('');
 
+  // Password Recovery States
+  const [forgotPin, setForgotPin] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   // Prefill referral code if URL has ?ref=... or from stored invite
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref') || params.get('invite') || params.get('code') || localStorage.getItem('ebp_pending_ref') || sessionStorage.getItem('ebp_pending_ref');
       if (ref) {
-        const clean = ref.trim().toUpperCase();
-        setReferralCode(clean);
+        setReferralCode(ref.trim().toUpperCase());
+      }
+      // Never override explicit login intent with register
+      if (initialMode === 'login') {
+        setMode('login');
+      } else if (initialMode === 'register') {
         setMode('register');
-      } else if (initialMode) {
-        setMode(initialMode);
+      } else if (ref && !user) {
+        setMode('register');
+      } else {
+        setMode('login');
       }
     } catch {}
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, user]);
 
   if (!isOpen) return null;
 
@@ -86,8 +99,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
       if (!password) {
-        setFormError('Please enter your account password.');
-        addToast('error', 'Please enter your password.');
+        setFormError('Please enter your account password or 6-digit PIN.');
+        addToast('error', 'Please enter your password or PIN.');
         return;
       }
 
@@ -100,7 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         } else if (res.notFound) {
           setFormError('❌ Account not found! This mobile number or email is not registered. Please tap "Sign Up" below to register.');
         } else if (res.wrongPassword) {
-          setFormError('❌ Incorrect password or Security PIN! Please verify your password/PIN and try again.');
+          setFormError('❌ Incorrect password or Security PIN! You can enter your account password OR your 6-digit PIN. If you forgot your password, tap "Reset with PIN" below.');
         } else {
           setFormError(res.message || 'Login failed. Please verify your credentials.');
         }
@@ -161,8 +174,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setFormError('');
           onClose();
         } else if (res.alreadyExists) {
-          // Attempt auto-login if they entered their correct password
-          const autoRes = await login(cleanDigits, password);
+          // Attempt auto-login if they entered their correct password or 6-digit PIN
+          let autoRes = await login(cleanDigits, password);
+          if (!autoRes.success && cleanPin.length === 6) {
+            autoRes = await login(cleanDigits, cleanPin);
+          }
           if (autoRes.success) {
             addToast('success', '✓ Welcome back! Logged in successfully.');
             setFormError('');
@@ -170,8 +186,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           } else {
             setMode('login');
             setLoginCredential(cleanDigits);
-            setFormError('⚠️ Yeh mobile number pehle se registered hai! Kripya apna password enter karke Sign In karein.');
-            addToast('info', 'Account already exists. Please Sign In with your password.');
+            setPassword('');
+            setFormError('⚠️ Yeh account pehle se bana hua hai! Kripya apna Password ya 6-digit Security PIN daal kar Sign In karein.');
+            addToast('info', 'Account already exists. Please Sign In with your password or PIN.');
           }
         } else {
           setFormError(res.message || 'Registration failed.');
@@ -181,9 +198,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } finally {
         setIsSubmitting(false);
       }
-    } else {
-      addToast('info', 'Password reset instructions sent to your registered contact.');
-      setMode('login');
+    } else if (mode === 'forgot') {
+      const targetCred = loginCredential.trim();
+      if (!targetCred) {
+        setFormError('Please enter your registered mobile number or email.');
+        addToast('error', 'Please enter your registered mobile number or email.');
+        return;
+      }
+      const cleanForgotPin = forgotPin.replace(/[^0-9]/g, '').trim();
+      if (cleanForgotPin.length !== 6) {
+        setFormError('Please enter your permanent 6-digit Security PIN.');
+        addToast('error', '6-digit Security PIN is required.');
+        return;
+      }
+      if (newPassword.length < 6) {
+        setFormError('New password must be at least 6 characters long.');
+        addToast('error', 'New password must be at least 6 characters.');
+        return;
+      }
+      if (newPassword !== confirmNewPassword) {
+        setFormError('Passwords do not match. Please re-enter your new password.');
+        addToast('error', 'Passwords do not match.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const res = await resetPasswordWithPin(targetCred, cleanForgotPin, newPassword);
+        if (res.success) {
+          setFormError('');
+          onClose();
+        } else {
+          setFormError(res.message || 'Password reset failed. Please check your credentials.');
+        }
+      } catch {
+        setFormError('Server connection error. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -270,6 +322,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span>→</span>
               </button>
             )}
+            {mode === 'login' && (formError.includes('Incorrect password') || formError.includes('Galat password')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('forgot');
+                  setFormError('');
+                }}
+                className="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold rounded-xl text-xs hover:opacity-95 transition active:scale-98 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>🔑 Forgot Password? Reset in 5 seconds with 6-Digit PIN</span>
+                <span>→</span>
+              </button>
+            )}
+            {mode === 'register' && formError.includes('pehle se') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  const digits = phone.replace(/[^0-9]/g, '');
+                  if (digits.length >= 10) setLoginCredential(digits.slice(-10));
+                  else if (email) setLoginCredential(email.trim().toLowerCase());
+                  setPassword('');
+                  setFormError('');
+                }}
+                className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold rounded-xl text-xs hover:opacity-95 transition active:scale-98 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>⚡ Click here to Sign In with Password / PIN</span>
+                <span>→</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -294,26 +376,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/5 border border-white/10 text-xs font-black">
-          <button
-            type="button"
-            onClick={() => { setMode('login'); setFormError(''); }}
-            className={`py-2 rounded-xl transition ${
-              mode === 'login' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('register'); setFormError(''); }}
-            className={`py-2 rounded-xl transition ${
-              mode === 'register' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Sign Up (+₹50 Bonus)
-          </button>
-        </div>
+        {mode !== 'forgot' ? (
+          <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/5 border border-white/10 text-xs font-black">
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setFormError(''); }}
+              className={`py-2 rounded-xl transition ${
+                mode === 'login' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setFormError(''); }}
+              className={`py-2 rounded-xl transition ${
+                mode === 'register' ? 'bg-[#FF6B00] text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Sign Up (+₹50 Bonus)
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold">
+            <span className="text-amber-300 flex items-center gap-1.5">
+              <KeyRound className="w-4 h-4 text-amber-400" />
+              <span>Password Recovery</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setFormError(''); }}
+              className="text-slate-300 hover:text-white underline text-[11px]"
+            >
+              ← Back to Sign In
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
           {/* ========================================================
@@ -348,7 +446,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </label>
                   <button
                     type="button"
-                    onClick={() => setMode('forgot')}
+                    onClick={() => { setMode('forgot'); setFormError(''); }}
                     className="text-xs text-amber-400 hover:text-amber-300 font-bold hover:underline"
                   >
                     Forgot Password?
@@ -356,16 +454,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter account password or 6-digit PIN"
-                    className="w-full pl-3.5 pr-3 py-3 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition"
+                    className="w-full pl-3.5 pr-10 py-3 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium">
-                  💡 Tip: You can log in using either your account password or your 6-digit PIN.
+                  💡 Tip: You can log in using either your account password OR your 6-digit Security PIN.
                 </p>
               </div>
             </>
@@ -584,6 +690,127 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </>
           )}
 
+          {/* ========================================================
+              FORGOT / RESET PASSWORD MODE
+             ======================================================== */}
+          {mode === 'forgot' && (
+            <div className="space-y-3 pt-1">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+                <div className="flex items-center gap-2 text-amber-300 font-bold text-xs mb-1">
+                  <KeyRound className="w-4 h-4 text-amber-400" />
+                  <span>Instant Password Reset with 6-Digit PIN</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  Enter your registered mobile or email and your permanent 6-digit Security PIN to set a new password and log in instantly.
+                </p>
+              </div>
+
+              {/* Email or Phone Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Registered Mobile or Email *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={loginCredential}
+                  onChange={(e) => setLoginCredential(e.target.value)}
+                  placeholder="Enter registered mobile or email"
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-amber-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 transition"
+                />
+              </div>
+
+              {/* 6-Digit Lifetime Security PIN */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>6-Digit Security PIN *</span>
+                  </label>
+                  <span className="text-[10px] text-amber-400 font-bold">Strictly 6 Numbers</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    required
+                    maxLength={6}
+                    value={forgotPin}
+                    onChange={(e) => setForgotPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                    placeholder="Enter your 6-digit PIN"
+                    className="w-full pl-3.5 pr-10 py-2.5 text-xs font-mono font-bold tracking-widest rounded-2xl bg-white/5 border-2 border-amber-500/30 text-amber-300 placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                    aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>New Password (Min 6 chars) *</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter your new password"
+                    className="w-full pl-3.5 pr-10 py-2.5 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm New Password */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Confirm New Password *</span>
+                </label>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Re-enter your new password"
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold rounded-2xl bg-white/5 border-2 border-indigo-500/30 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition"
+                />
+              </div>
+
+              {/* WhatsApp Support fallback if PIN also forgotten */}
+              <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Forgot your PIN too?</span>
+                <a
+                  href="https://t.me/easybasepoint"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sky-400 hover:underline font-bold flex items-center gap-1"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>Telegram Support</span>
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -593,13 +820,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             } ${
               mode === 'login'
                 ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 shadow-indigo-600/30 border border-indigo-400/40'
-                : 'bg-gradient-to-r from-[#FF6B00] via-orange-500 to-amber-500 hover:from-[#FF7A1A] hover:to-amber-400 shadow-orange-500/40 border border-amber-300/40'
+                : mode === 'register'
+                ? 'bg-gradient-to-r from-[#FF6B00] via-orange-500 to-amber-500 hover:from-[#FF7A1A] hover:to-amber-400 shadow-orange-500/40 border border-amber-300/40'
+                : 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-orange-400 shadow-amber-500/30 border border-amber-300/40'
             }`}
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{mode === 'login' ? '🔍 Verifying Account...' : '⚡ Setting up Account...'}</span>
+                <span>
+                  {mode === 'login'
+                    ? '🔍 Verifying Account...'
+                    : mode === 'register'
+                    ? '⚡ Setting up Account...'
+                    : '🔄 Updating Password...'}
+                </span>
               </div>
             ) : (
               <>
@@ -608,7 +843,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     ? '⚡ Sign In & Enter EasyBasePoint'
                     : mode === 'register'
                     ? '🎁 Complete Registration (+₹50 Bonus)'
-                    : 'Send WhatsApp Reset Link'}
+                    : '✓ Reset Password & Sign In'}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </>
@@ -620,10 +855,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => setMode('login')}
+              onClick={() => { setMode('login'); setFormError(''); }}
               className="text-xs text-amber-400 font-bold hover:underline"
             >
-              ← Back to Sign In
+              ← Back to Sign In Screen
             </button>
           </div>
         )}
