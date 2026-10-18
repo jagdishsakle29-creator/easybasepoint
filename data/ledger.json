@@ -458,5 +458,12 @@
     "remark": "AI Rejected: Payment receipt verification failed: 10s rule timeout. Sahi receipt attach karein.",
     "isDemo": false,
     "creditedAt": "2026-10-18T04:47:13.873Z"
+  },
+  "DEMO_DEP_1792316945805": {
+    "id": "DEMO_DEP_1792316945805",
+    "status": "rejected",
+    "credited": false,
+    "rejectionReason": "AI Detection: Screenshot amount does not match or test slip detected",
+    "rejectedAt": "2026-10-18T09:49:08.635Z"
   }
 }
