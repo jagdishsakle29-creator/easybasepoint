@@ -461,9 +461,20 @@
   },
   "DEMO_DEP_1792316945805": {
     "id": "DEMO_DEP_1792316945805",
-    "status": "rejected",
-    "credited": false,
+    "status": "completed",
+    "credited": true,
     "rejectionReason": "AI Detection: Screenshot amount does not match or test slip detected",
-    "rejectedAt": "2026-10-18T09:49:08.635Z"
+    "rejectedAt": "2026-10-18T09:49:08.635Z",
+    "totalInr": 427,
+    "amount": 350,
+    "method": "INR",
+    "userId": "",
+    "userPhone": "",
+    "remark": "cousin",
+    "paymentScreenshot": "VERIFIED_BY_ADMIN",
+    "approvedAt": "2026-10-18T09:49:13.056Z",
+    "creditedAt": "2026-10-18T09:49:13.056Z",
+    "updatedAt": "2026-10-18T09:49:13.056Z",
+    "createdAt": "2026-10-18T09:49:13.056Z"
   }
 }
