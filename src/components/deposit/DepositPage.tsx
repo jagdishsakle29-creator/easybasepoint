@@ -33,6 +33,7 @@ import { verifyPaymentScreenshot, OcrVerificationResult } from '../../utils/ocrP
 import { openOfficialTelegramChannel } from '../../config/constants';
 import { PhonePeLogo, PaytmLogo, launchUpiPayment } from '../common/UpiLogos';
 import { formatIndianDateTime } from '../history/HistoryPage';
+import confetti from 'canvas-confetti';
 
 export const DepositPage: React.FC = () => {
   const { 
@@ -89,6 +90,8 @@ export const DepositPage: React.FC = () => {
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'scanning' | 'passed' | 'failed'>('idle');
   const [ocrProgressText, setOcrProgressText] = useState<string>('');
   const [ocrResult, setOcrResult] = useState<OcrVerificationResult | null>(null);
+  const [aiModalStatus, setAiModalStatus] = useState<'idle' | 'verifying' | 'approved' | 'rejected'>('idle');
+  const [aiModalMessage, setAiModalMessage] = useState<string>('');
 
   // Monitor 2-minute rate limit for payment screenshot submissions
   useEffect(() => {
@@ -385,19 +388,91 @@ export const DepositPage: React.FC = () => {
     }
 
     setIsProcessingTopUp(true);
+    setAiModalStatus('verifying');
+    setAiModalMessage('🤖 AI Scanner receipt verify kar raha hai... Kripya 2-3 second wait karein.');
+
     try {
-      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin');
-      if (res && res.success) {
-        setIsTopUpModalOpen(false);
-        setUtrRef('');
-        setScreenshotFile(null);
-        setScreenshotUrl('');
-        setOcrStatus('idle');
-        setOcrResult(null);
-        addToast('info', '🤖 Deposit submit ho gaya! AI background me receipt verify kar raha hai.');
+      if (screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
+        // Run OCR in background with minimum 2.2s wait for smooth experience
+        const ocrPromise = verifyPaymentScreenshot({
+          imageSource: screenshotUrl,
+          expectedAmount: amt,
+          orderCreatedAt: orderInitiatedAt,
+          maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+        });
+
+        const [ocrRes] = await Promise.all([
+          ocrPromise,
+          new Promise((resolve) => setTimeout(resolve, 2200)),
+        ]);
+
+        if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
+          // APPROVED!
+          setAiModalStatus('approved');
+          setAiModalMessage(`✓ AI Verified! ₹${amt} debited successfully. Payment Auto-Approved!`);
+          try {
+            confetti({
+              particleCount: 80,
+              spread: 60,
+              origin: { y: 0.6 }
+            });
+          } catch {}
+          await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
+            verified: true,
+            detectedAmount: ocrRes.detectedAmount,
+            detectedUtr: ocrRes.detectedUtr,
+            detectedTime: ocrRes.detectedTime,
+            timeDiffMins: ocrRes.timeDiffMins,
+            status: 'passed',
+            reason: ocrRes.reason,
+          });
+          addToast('success', `🎉 Payment Auto-Approved! ₹${amt} credited to wallet!`);
+          setTimeout(() => {
+            setIsTopUpModalOpen(false);
+            setAiModalStatus('idle');
+            setUtrRef('');
+            setScreenshotFile(null);
+            setScreenshotUrl('');
+          }, 2000);
+        } else {
+          // REJECTED RIGHT THERE ON THE PAGE!
+          setAiModalStatus('rejected');
+          const rejectMsg = ocrRes.reason || 'Screenshot me exact amount ya valid payment receipt nahi mili.';
+          setAiModalMessage(rejectMsg);
+          await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
+            verified: false,
+            detectedAmount: ocrRes.detectedAmount,
+            detectedUtr: ocrRes.detectedUtr,
+            detectedTime: ocrRes.detectedTime,
+            timeDiffMins: ocrRes.timeDiffMins,
+            status: 'failed',
+            reason: rejectMsg,
+          });
+          addToast('error', `❌ AI Rejected: ${rejectMsg}`);
+        }
+      } else {
+        // No screenshot provided, process UTR
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const res = await submitInrDeposit(amt, cleanUtr, '', 'cousin');
+        if (res && res.success) {
+          setAiModalStatus('approved');
+          setAiModalMessage('✓ Payment submitted successfully!');
+          setTimeout(() => {
+            setIsTopUpModalOpen(false);
+            setAiModalStatus('idle');
+            setUtrRef('');
+            setScreenshotFile(null);
+            setScreenshotUrl('');
+          }, 1500);
+        } else {
+          setAiModalStatus('rejected');
+          setAiModalMessage(res?.message || 'Payment submission failed.');
+        }
       }
     } catch (err: any) {
-      addToast('error', err?.message || 'Failed to submit payment. Please try again.');
+      setAiModalStatus('rejected');
+      setAiModalMessage(err?.message || 'Verification error. Please retry.');
+      addToast('error', err?.message || 'Failed to submit payment.');
     } finally {
       setIsProcessingTopUp(false);
     }
@@ -1285,6 +1360,105 @@ export const DepositPage: React.FC = () => {
       {isTopUpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
           <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-[0_0_50px_rgba(255,107,0,0.3)] border-2 border-orange-500/40 space-y-4 max-h-[95vh] overflow-y-auto">
+            {/* AI Real-time Background Verification Overlay (2-3s Wait & Instant Approve/Reject) */}
+            {aiModalStatus !== 'idle' && (
+              <div className="absolute inset-0 z-40 bg-[#07101E]/95 backdrop-blur-md rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4 animate-fadeIn">
+                {aiModalStatus === 'verifying' && (
+                  <>
+                    <div className="relative">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 flex items-center justify-center text-white shadow-[0_0_35px_rgba(255,107,0,0.6)] animate-pulse">
+                        <Sparkles className="w-8 h-8 text-white" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 border-2 border-white bg-emerald-500 rounded-full flex items-center justify-center">
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 max-w-xs">
+                      <h4 className="text-base font-black text-white font-outfit">
+                        🤖 AI Scanner Verification
+                      </h4>
+                      <div className="p-2 bg-amber-500/15 border border-amber-400/40 rounded-xl">
+                        <p className="text-xs text-amber-300 font-bold">
+                          ⏳ Kripya 2-3 second wait karein...
+                        </p>
+                        <p className="text-[11px] text-amber-100/90 mt-0.5">
+                          Background me slip amount & UTR verify ho raha hai
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-48 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                      <div className="bg-gradient-to-r from-[#FF6B00] via-amber-400 to-emerald-400 h-1.5 rounded-full animate-pulse w-full" />
+                    </div>
+                  </>
+                )}
+
+                {aiModalStatus === 'approved' && (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-[0_0_35px_rgba(16,185,129,0.6)] animate-bounce">
+                      <CheckCircle2 className="w-10 h-10" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-lg font-black text-emerald-300 font-outfit">
+                        🎉 AI Verified & Auto-Approved!
+                      </h4>
+                      <p className="text-xs text-white font-bold">
+                        ₹{topUpAmount} aapke wallet me turant credit ho gaya hai.
+                      </p>
+                      <p className="text-[11px] text-emerald-200">
+                        {aiModalMessage}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {aiModalStatus === 'rejected' && (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center text-red-400 shadow-[0_0_35px_rgba(239,68,68,0.6)]">
+                      <XCircle className="w-10 h-10" />
+                    </div>
+                    <div className="space-y-2 max-w-xs">
+                      <h4 className="text-lg font-black text-red-400 font-outfit">
+                        ❌ AI Verification: Rejected!
+                      </h4>
+                      <p className="text-xs text-red-200 font-bold">
+                        Fake ya Invalid Screenshot Detect Hua
+                      </p>
+                      <div className="p-3 bg-red-950/70 border border-red-500/40 rounded-xl text-[11px] text-red-300 text-left leading-relaxed">
+                        <strong className="text-red-200 block mb-0.5">⚠️ Reason:</strong>
+                        {aiModalMessage}
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Payment request reject kar di gayi hai. Sahi payment slip attach karke dobara submit karein.
+                      </p>
+                    </div>
+                    <div className="flex gap-2 w-full max-w-xs pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiModalStatus('idle');
+                          setScreenshotFile(null);
+                          setScreenshotUrl('');
+                        }}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition"
+                      >
+                        Naya Slip Upload Karein
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiModalStatus('idle');
+                          setIsTopUpModalOpen(false);
+                        }}
+                        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">

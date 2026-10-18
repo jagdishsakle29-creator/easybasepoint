@@ -36,7 +36,7 @@ async function preprocessImage(imageSource: string | File | Blob): Promise<strin
     const handleLoad = () => {
       try {
         const canvas = document.createElement('canvas');
-        const maxDim = 1200;
+        const maxDim = 700;
         let w = img.width;
         let h = img.height;
 
