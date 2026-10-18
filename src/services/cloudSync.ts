@@ -915,8 +915,30 @@ export const cloudSync = {
   /**
    * Fetch All Cloud Registered Accounts (Used for Team Referrals, Direct Commission & Admin Verification)
    */
+  /**
+   * Fetch All Cloud Registered Accounts (Used for Team Referrals, Direct Commission & Admin Verification)
+   */
   async fetchAllCloudAccounts(): Promise<RegisteredAccount[]> {
-    // 1. Direct GitHub data/accounts.json on ledger branch (raw, fast, highly available)
+    // 1. Direct GitHub contents API with token (100% fresh, no CDN cache, instant)
+    try {
+      const ghRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json?ref=ledger&t=${Date.now()}`, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-store',
+      });
+      if (ghRes.ok) {
+        const json = await ghRes.json();
+        const rawContent = base64ToUtf8(json.content);
+        const accounts = JSON.parse(rawContent || '{}');
+        const accountList: RegisteredAccount[] = Object.values(accounts || {});
+        const valid = accountList.filter((a) => a && a.user);
+        if (valid.length > 0) return valid;
+      }
+    } catch {}
+
+    // 2. Direct GitHub data/accounts.json on ledger branch fallback
     try {
       const ghRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/accounts.json?t=${Date.now()}`, {
         cache: 'no-store'
@@ -928,13 +950,16 @@ export const cloudSync = {
       }
     } catch {}
 
-    // 2. Serverless /api/auth/account?all=true endpoint fallback
+    // 3. Serverless /api/auth/account?all=true endpoint fallback
     try {
-      const res = await fetch(`/api/auth/account?all=true&t=${Date.now()}`);
+      const res = await fetch(`${getApiBaseUrl()}/auth/account?all=true&t=${Date.now()}`);
       if (res.ok) {
-        const json = await res.json();
-        if (json.ok && Array.isArray(json.accounts)) {
-          return json.accounts.filter((a: any) => a && a.user);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const json = await res.json();
+          if (json.ok && Array.isArray(json.accounts)) {
+            return json.accounts.filter((a: any) => a && a.user);
+          }
         }
       }
     } catch {}
@@ -951,10 +976,57 @@ export const cloudSync = {
     const isEmail = cleanQ.includes('@');
     const cleanDigits = isEmail ? '' : query.replace(/[^0-9]/g, '');
 
-    // 1. Try serverless /api/auth/account endpoint
+    const isMatch = (acc: any) => {
+      if (!acc || !acc.user) return false;
+      const aPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
+      const aEmail = (acc.user.email || '').toLowerCase().trim();
+      const aId = (acc.user.id || '').toLowerCase().trim();
+      const aName = (acc.user.name || '').toLowerCase().trim();
+      const aRef = (acc.user.referralCode || '').toLowerCase().trim();
+
+      if (!isEmail && cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) return true;
+      if (cleanQ.includes('@') && aEmail === cleanQ) return true;
+      if (aId && aId === cleanQ) return true;
+      if (aName && aName === cleanQ) return true;
+      if (aRef && aRef === cleanQ) return true;
+      return false;
+    };
+
+    // 1. Direct GitHub contents API with token (bypasses CDN cache & server cold starts)
     try {
-      const res = await fetch(`/api/auth/account?query=${encodeURIComponent(query)}&t=${Date.now()}`);
-      if (res.ok) {
+      const ghRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json?ref=ledger&t=${Date.now()}`, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-store',
+      });
+      if (ghRes.ok) {
+        const json = await ghRes.json();
+        const rawContent = base64ToUtf8(json.content);
+        const accounts = JSON.parse(rawContent || '{}');
+        const accountList: RegisteredAccount[] = Object.values(accounts || {});
+        const matched = accountList.find(isMatch);
+        if (matched) return matched;
+      }
+    } catch {}
+
+    // 2. Direct GitHub raw fallback
+    try {
+      const ghRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/accounts.json?t=${Date.now()}`);
+      if (ghRes.ok) {
+        const accounts = await ghRes.json();
+        const accountList: RegisteredAccount[] = Object.values(accounts || {});
+        const matched = accountList.find(isMatch);
+        if (matched) return matched;
+      }
+    } catch {}
+
+    // 3. Serverless API endpoint
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/auth/account?query=${encodeURIComponent(query)}&t=${Date.now()}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const json = await res.json();
         if (json.ok && json.found && json.account) {
           return json.account;
@@ -962,43 +1034,29 @@ export const cloudSync = {
       }
     } catch {}
 
-    // 2. Direct GitHub data/accounts.json fallback (bypasses cold starts)
-    try {
-      const ghRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/accounts.json?t=${Date.now()}`);
-      if (ghRes.ok) {
-        const accounts = await ghRes.json();
-        const accountList: RegisteredAccount[] = Object.values(accounts || {});
-        const matched = accountList.find((acc) => {
-          if (!acc || !acc.user) return false;
-          const aPhone = (acc.user.phone || '').replace(/[^0-9]/g, '');
-          const aEmail = (acc.user.email || '').toLowerCase().trim();
-          const aId = (acc.user.id || '').trim();
-
-          if (!isEmail && cleanDigits.length >= 10 && aPhone.length >= 10 && aPhone.endsWith(cleanDigits.slice(-10))) return true;
-          if (cleanQ.includes('@') && aEmail === cleanQ) return true;
-          if (aId && aId === cleanQ) return true;
-          return false;
-        });
-        if (matched) return matched;
-      }
-    } catch {}
-
-    // 3. Fallback: reconstruct from ledger.json if user has existing deposits or withdrawals
+    // 4. Fallback: reconstruct from ledger.json if user has existing deposits or withdrawals
     try {
       const ledgerRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/ledger/data/ledger.json?t=${Date.now()}`);
       if (ledgerRes.ok) {
         const ledger = await ledgerRes.json();
-        for (const [id, item] of Object.entries(ledger || {})) {
+        for (const [, item] of Object.entries(ledger || {})) {
           const it = item as any;
           if (!it) continue;
           const itPhone = (it.userPhone || '').replace(/[^0-9]/g, '');
-          if (!isEmail && cleanDigits.length >= 10 && itPhone.length >= 10 && itPhone.endsWith(cleanDigits.slice(-10))) {
+          const itName = (it.userName || '').toLowerCase().trim();
+          const itId = (it.userId || '').toLowerCase().trim();
+
+          const phoneMatch = !isEmail && cleanDigits.length >= 10 && itPhone.length >= 10 && itPhone.endsWith(cleanDigits.slice(-10));
+          const nameMatch = itName && itName === cleanQ;
+          const idMatch = itId && itId === cleanQ;
+
+          if (phoneMatch || nameMatch || idMatch) {
             const reconstructed: RegisteredAccount = {
               user: {
                 id: it.userId || `usr-${Date.now()}`,
-                name: it.userName || 'Member',
-                phone: it.userPhone || cleanDigits.slice(-10),
-                email: `${cleanDigits.slice(-10)}@ebp.com`,
+                name: it.userName || (nameMatch ? query : 'Member'),
+                phone: it.userPhone || (phoneMatch ? cleanDigits.slice(-10) : ''),
+                email: `${itPhone.slice(-10) || 'member'}@ebp.com`,
                 referralCode: `EBP-${Math.floor(10000 + Math.random() * 90000)}`,
                 isGoogleAuthEnabled: false,
                 role: 'user',
@@ -1038,7 +1096,7 @@ export const cloudSync = {
 
     // 1. Try serverless API
     try {
-      fetch('/api/auth/account', {
+      fetch(`${getApiBaseUrl()}/auth/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account }),

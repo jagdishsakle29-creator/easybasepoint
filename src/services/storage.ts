@@ -796,9 +796,15 @@ export const storage = {
     const isEmail = clean.includes('@');
     const cleanDigits = isEmail ? '' : emailOrPhoneOrId.replace(/[^0-9]/g, '');
 
-    // 1. Strict ID Match
-    const byId = accounts.find((a) => a?.user?.id && a.user.id.trim().toLowerCase() === clean);
-    if (byId) return byId;
+    // 1. Match by ID, Name (case-insensitive), or Referral Code
+    const byIdOrName = accounts.find((a) => {
+      if (!a?.user) return false;
+      const uId = (a.user.id || '').trim().toLowerCase();
+      const uName = (a.user.name || '').trim().toLowerCase();
+      const uRef = (a.user.referralCode || '').trim().toLowerCase();
+      return uId === clean || uName === clean || uRef === clean;
+    });
+    if (byIdOrName) return byIdOrName;
 
     // 2. Strict Phone (exact 10 digits) or Strict Email Match
     const byPhoneOrEmail = accounts.find((a) => {

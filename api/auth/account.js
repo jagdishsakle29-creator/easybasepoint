@@ -86,11 +86,15 @@ export default async function handler(req, res) {
       if (!acc || !acc.user) return false;
       const accPhoneDigits = cleanDigits(acc.user.phone);
       const accEmail = (acc.user.email || '').toLowerCase().trim();
-      const accId = (acc.user.id || '').trim();
+      const accId = (acc.user.id || '').trim().toLowerCase();
+      const accName = (acc.user.name || '').trim().toLowerCase();
+      const accRef = (acc.user.referralCode || '').trim().toLowerCase();
 
       if (queryDigits.length >= 10 && accPhoneDigits.endsWith(queryDigits.slice(-10))) return true;
       if (query.includes('@') && accEmail === query) return true;
       if (accId && accId === query) return true;
+      if (accName && accName === query) return true;
+      if (accRef && accRef === query) return true;
       return false;
     });
 
