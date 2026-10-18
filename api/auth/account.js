@@ -26,27 +26,44 @@ async function fetchGitHubFile(path) {
   return { data: {}, sha: '' };
 }
 
-async function saveGitHubAccounts(accounts, sha) {
-  try {
-    const contentBase64 = Buffer.from(JSON.stringify(accounts, null, 2)).toString('base64');
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${ACCOUNTS_PATH}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: `Sync cloud accounts ${Date.now()}`,
-        content: contentBase64,
-        sha,
-        branch: LEDGER_BRANCH,
-      }),
-    });
-    return res.ok;
-  } catch (err) {
-    console.error('[AUTH_ACCOUNT_API] save accounts error:', err.message);
-    return false;
+async function saveGitHubAccounts(accounts, initialSha) {
+  let currentSha = initialSha;
+  let currentAccounts = accounts;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      if (attempt > 0 || !currentSha) {
+        const fresh = await fetchGitHubFile(ACCOUNTS_PATH);
+        currentSha = fresh.sha;
+        currentAccounts = { ...(fresh.data || {}), ...accounts };
+      }
+
+      const contentBase64 = Buffer.from(JSON.stringify(currentAccounts, null, 2)).toString('base64');
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${ACCOUNTS_PATH}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Sync cloud accounts ${Date.now()}`,
+          content: contentBase64,
+          sha: currentSha,
+          branch: LEDGER_BRANCH,
+        }),
+      });
+
+      if (res.ok) {
+        return true;
+      }
+
+      // Conflict or network issue: wait with exponential backoff and retry with fresh SHA
+      await new Promise((r) => setTimeout(r, 250 + attempt * 200));
+    } catch (err) {
+      console.error('[AUTH_ACCOUNT_API] save accounts error:', err.message);
+      await new Promise((r) => setTimeout(r, 250 + attempt * 200));
+    }
   }
+  return false;
 }
 
 function cleanDigits(str) {

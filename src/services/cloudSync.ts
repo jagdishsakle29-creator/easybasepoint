@@ -1103,51 +1103,60 @@ export const cloudSync = {
       }).catch(() => {});
     } catch {}
 
-    // 2. Direct GitHub save to data/accounts.json with token
-    try {
-      let sha = '';
-      let accounts: any = {};
-      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json?ref=ledger&t=${Date.now()}`, {
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        sha = json.sha;
-        const rawContent = base64ToUtf8(json.content);
-        accounts = JSON.parse(rawContent || '{}');
+    // 2. Direct GitHub save to data/accounts.json with token and Conflict Retry Loop
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        let sha = '';
+        let accounts: any = {};
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json?ref=ledger&t=${Date.now()}`, {
+          headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          sha = json.sha;
+          const rawContent = base64ToUtf8(json.content);
+          accounts = JSON.parse(rawContent || '{}');
+        }
+
+        accounts[phone] = {
+          ...(accounts[phone] || {}),
+          ...account,
+          user: {
+            ...(accounts[phone]?.user || {}),
+            ...account.user,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+
+        const contentBase64 = utf8ToBase64(JSON.stringify(accounts, null, 2));
+        const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `Sync account ${phone} ${Date.now()}`,
+            content: contentBase64,
+            sha: sha || undefined,
+            branch: 'ledger',
+          }),
+        });
+
+        if (putRes.ok) {
+          return true;
+        }
+
+        // On conflict or failure, wait and retry with fresh SHA
+        await new Promise((r) => setTimeout(r, 250 + attempt * 200));
+      } catch {
+        await new Promise((r) => setTimeout(r, 250 + attempt * 200));
       }
-
-      accounts[phone] = {
-        ...(accounts[phone] || {}),
-        ...account,
-        user: {
-          ...(accounts[phone]?.user || {}),
-          ...account.user,
-        },
-        updatedAt: new Date().toISOString(),
-      };
-
-      const contentBase64 = utf8ToBase64(JSON.stringify(accounts, null, 2));
-      const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data/accounts.json`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: `Sync account ${phone} ${Date.now()}`,
-          content: contentBase64,
-          sha: sha || undefined,
-          branch: 'ledger',
-        }),
-      });
-      return putRes.ok;
-    } catch {
-      return false;
     }
+    return false;
   },
 };

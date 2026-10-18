@@ -1409,15 +1409,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Missing credentials' };
     }
 
-    // 1. Check local storage first
-    let existingAccount = storage.findAccount(emailOrPhone);
+    const cleanInput = emailOrPhone.trim();
+    const cleanDigits = cleanInput.replace(/[^0-9]/g, '');
+
+    // 1. Check local storage first (by full input and by last 10 digits)
+    let existingAccount = storage.findAccount(cleanInput);
+    if (!existingAccount && cleanDigits.length >= 10) {
+      existingAccount = storage.findAccount(cleanDigits.slice(-10));
+    }
 
     // 2. If not found locally, fetch from Cloud Account registry / GitHub Ledger
     if (!existingAccount) {
-      const cloudAcc = await cloudSync.fetchCloudAccount(emailOrPhone);
+      let cloudAcc = await cloudSync.fetchCloudAccount(cleanInput);
+      if (!cloudAcc && cleanDigits.length >= 10) {
+        cloudAcc = await cloudSync.fetchCloudAccount(cleanDigits.slice(-10));
+      }
       if (cloudAcc) {
         existingAccount = cloudAcc;
         storage.saveAccount(cloudAcc);
+      }
+    }
+
+    // 3. Fallback: Search all cloud accounts
+    if (!existingAccount) {
+      const allCloud = await cloudSync.fetchAllCloudAccounts();
+      if (allCloud && allCloud.length > 0) {
+        const found = allCloud.find((a) => {
+          if (!a?.user) return false;
+          const uPhone = (a.user.phone || '').replace(/[^0-9]/g, '');
+          const uEmail = (a.user.email || '').toLowerCase().trim();
+          const uName = (a.user.name || '').toLowerCase().trim();
+          const uId = (a.user.id || '').toLowerCase().trim();
+          const uRef = (a.user.referralCode || '').toLowerCase().trim();
+          const target = cleanInput.toLowerCase();
+
+          if (cleanDigits.length >= 10 && uPhone.length >= 10 && uPhone.endsWith(cleanDigits.slice(-10))) return true;
+          if (uEmail === target) return true;
+          if (uName === target) return true;
+          if (uId === target) return true;
+          if (uRef === target) return true;
+          return false;
+        });
+        if (found) {
+          existingAccount = found;
+          storage.saveAccount(found);
+        }
       }
     }
 

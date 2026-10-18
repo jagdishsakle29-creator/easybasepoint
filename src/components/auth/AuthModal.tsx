@@ -246,9 +246,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Error Alert Display */}
         {formError && (
-          <div className="p-3 bg-rose-950/80 rounded-2xl border-2 border-rose-500 text-rose-200 font-bold text-xs flex items-start gap-2.5 shadow-lg animate-fadeIn">
-            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-            <span className="leading-snug">{formError}</span>
+          <div className="p-3 bg-rose-950/80 rounded-2xl border-2 border-rose-500 text-rose-200 font-bold text-xs flex flex-col gap-2.5 shadow-lg animate-fadeIn">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+              <span className="leading-snug">{formError}</span>
+            </div>
+            {mode === 'login' && formError.includes('Account not found') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('register');
+                  const digits = loginCredential.replace(/[^0-9]/g, '');
+                  if (digits.length >= 10) {
+                    setPhone(digits.slice(-10));
+                  } else if (loginCredential.includes('@')) {
+                    setEmail(loginCredential.trim().toLowerCase());
+                  }
+                  setFormError('');
+                }}
+                className="w-full py-2 bg-gradient-to-r from-[#FF6B00] to-amber-500 text-white font-extrabold rounded-xl text-xs hover:opacity-95 transition active:scale-98 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>⚡ Tap Here to Sign Up Now</span>
+                <span>→</span>
+              </button>
+            )}
           </div>
         )}
 
