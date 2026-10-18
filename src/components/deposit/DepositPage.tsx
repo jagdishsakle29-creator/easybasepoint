@@ -135,19 +135,19 @@ export const DepositPage: React.FC = () => {
       subtitle: 'Lord VIP QR (manishkey@fam)',
     },
     {
-      id: 'pradeep' as const,
-      label: 'QR 3: Pradeep (Under Maintenance)',
-      tabLabel: '🛠️ QR 3: Pradeep',
-      upiId: '9589022172@ybl',
-      payeeName: 'PRADIP MANDLOI',
-      imageSrc: '/deposit_qr_pradeep.png?v=v11_3qrs',
-      badge: 'MAINTENANCE',
-      subtitle: 'Under Maintenance - Kripya QR 1 ya QR 2 use karein',
-      isMaintenance: true,
+      id: 'kumkum' as const,
+      label: 'QR 3: Kumkum Sakle (PhonePe)',
+      tabLabel: '⚡ QR 3: Kumkum',
+      upiId: 'kushalsaini108@axl',
+      payeeName: 'KUMKUM SAKLE',
+      imageSrc: '/deposit_qr_kumkum.png?v=v20261018_kumkum_phonepe_direct',
+      badge: 'PHONEPE',
+      subtitle: 'Official PhonePe QR (kushalsaini108@axl)',
+      isMaintenance: false,
     },
   ], [settings.adminUpiId]);
 
-  const [selectedQrId, setSelectedQrId] = useState<'khushi' | 'lord' | 'pradeep'>('khushi');
+  const [selectedQrId, setSelectedQrId] = useState<'khushi' | 'lord' | 'kumkum'>('khushi');
   const activeQr = qrOptions.find((q) => q.id === selectedQrId) || qrOptions[0];
   const activeUpiId = activeQr.upiId;
   const activePayeeName = activeQr.payeeName;
@@ -253,7 +253,7 @@ export const DepositPage: React.FC = () => {
 
   // Instant image preloading for zero-latency switching across all 3 QRs
   useEffect(() => {
-    ['/deposit_qr_clean.png?v=v11_3qrs', '/deposit_qr_lord.png?v=v11_3qrs', '/deposit_qr_pradeep.png?v=v11_3qrs'].forEach((src) => {
+    ['/deposit_qr_clean.png?v=v11_3qrs', '/deposit_qr_lord.png?v=v11_3qrs', '/deposit_qr_kumkum.png?v=v20261018_kumkum_phonepe_direct', '/deposit_qr_pradeep.png'].forEach((src) => {
       const img = new Image();
       img.src = src;
     });
@@ -354,7 +354,45 @@ export const DepositPage: React.FC = () => {
         setScreenshotFile(file);
         setUploadProgress(100);
         setIsUploadingScreenshot(false);
-        addToast('success', '✓ Payment screenshot attached!');
+        addToast('success', '✓ Screenshot attached! AI verification scanning...');
+
+        // Trigger AI OCR Scan immediately
+        setOcrStatus('scanning');
+        setOcrProgressText('AI OCR screenshot check kar raha hai...');
+        const checkAmt = topUpAmount > 0 ? topUpAmount : (settings.minDeposit || 350);
+        verifyPaymentScreenshot({
+          imageSource: finalDataUrl,
+          expectedAmount: checkAmt,
+          orderCreatedAt: orderInitiatedAt,
+          maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+          onProgress: (_p, text) => {
+            setOcrProgressText(text);
+          },
+        }).then((res) => {
+          setOcrResult(res);
+          if (res.success) {
+            setOcrStatus('passed');
+            addToast('success', `✓ AI Verified: ₹${res.detectedAmount || checkAmt} valid payment receipt!`);
+            if (res.detectedUtr && !utrRef) {
+              setUtrRef(res.detectedUtr);
+              addToast('info', `✓ 12-digit UTR auto-detected: ${res.detectedUtr}`);
+            }
+          } else {
+            setOcrStatus('failed');
+            addToast('error', `⚠️ AI Alert: ${res.reason}`);
+          }
+        }).catch((err) => {
+          setOcrStatus('failed');
+          setOcrResult({
+            success: false,
+            amountMatched: false,
+            statusMatched: false,
+            timeValid: false,
+            rawText: '',
+            reason: err?.message || 'AI receipt scan error',
+          });
+          addToast('error', '⚠️ AI Scan failed. Please check receipt details.');
+        });
       };
       img.onerror = () => {
         const fallbackUrl = reader.result as string;
@@ -384,14 +422,31 @@ export const DepositPage: React.FC = () => {
       return;
     }
 
+    if (ocrStatus === 'scanning') {
+      addToast('info', '⏳ AI scanner receipt verify kar raha hai, kripya thoda wait karein...');
+      return;
+    }
+
     setIsProcessingTopUp(true);
     try {
-      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin');
+      const ocrData = ocrResult ? {
+        verified: ocrResult.success,
+        detectedAmount: ocrResult.detectedAmount,
+        detectedUtr: ocrResult.detectedUtr,
+        detectedTime: ocrResult.detectedTime,
+        timeDiffMins: ocrResult.timeDiffMins,
+        status: ocrResult.success ? ('passed' as const) : ('failed' as const),
+        reason: ocrResult.reason,
+      } : undefined;
+
+      const res = await submitInrDeposit(amt, cleanUtr, screenshotUrl || '', 'cousin', ocrData);
       if (res && res.success) {
         setIsTopUpModalOpen(false);
         setUtrRef('');
         setScreenshotFile(null);
         setScreenshotUrl('');
+        setOcrStatus('idle');
+        setOcrResult(null);
       }
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to submit payment. Please try again.');
@@ -701,7 +756,7 @@ export const DepositPage: React.FC = () => {
                             type="button"
                             onClick={() => {
                               if (q.isMaintenance) {
-                                addToast('info', '🛠️ Pradeep QR abhi Under Maintenance hai. Kripya QR 1 (Khushi) ya QR 2 (Lord) se payment karein.');
+                                addToast('info', `🛠️ ${q.label} abhi Under Maintenance hai. Kripya doosra QR use karein.`);
                                 return;
                               }
                               setSelectedQrId(q.id);
@@ -737,7 +792,7 @@ export const DepositPage: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-14 h-14 rounded-xl bg-white p-1 flex-shrink-0 border border-amber-400 shadow flex items-center justify-center">
                           <img 
-                            src={dynamicQrDataUrl || activeQr.imageSrc} 
+                            src={activeQr.id === 'kumkum' ? activeQr.imageSrc : (dynamicQrDataUrl || activeQr.imageSrc)} 
                             alt="Payment QR" 
                             className="w-full h-full object-contain"
                           />
@@ -1405,7 +1460,7 @@ export const DepositPage: React.FC = () => {
                           type="button"
                           onClick={() => {
                             if (q.isMaintenance) {
-                              addToast('info', '🛠️ Pradeep QR abhi Under Maintenance hai. Kripya QR 1 (Khushi) ya QR 2 (Lord) se payment karein.');
+                              addToast('info', `🛠️ ${q.label} abhi Under Maintenance hai. Kripya doosra QR use karein.`);
                               return;
                             }
                             setSelectedQrId(q.id);
@@ -1516,7 +1571,9 @@ export const DepositPage: React.FC = () => {
                     <div className="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center p-3 rounded-2xl border-2 border-slate-100 bg-white shadow-inner">
                       <img 
                         src={
-                          qrViewMode === 'official' 
+                          activeQr.id === 'kumkum'
+                            ? activeQr.imageSrc
+                            : qrViewMode === 'official' 
                             ? (activeQr.id === 'khushi' ? (officialQrDataUrl || activeQr.imageSrc) : activeQr.imageSrc)
                             : (dynamicQrDataUrl || activeQr.imageSrc)
                         } 
@@ -1537,7 +1594,9 @@ export const DepositPage: React.FC = () => {
                     <div className="flex items-center justify-center pt-0.5">
                       <a
                         href={
-                          qrViewMode === 'official' 
+                          activeQr.id === 'kumkum'
+                            ? activeQr.imageSrc
+                            : qrViewMode === 'official' 
                             ? activeQr.imageSrc
                             : (dynamicQrDataUrl || activeQr.imageSrc)
                         }
@@ -1682,6 +1741,43 @@ export const DepositPage: React.FC = () => {
                             />
                           </label>
                         </div>
+
+                        {/* Real-time AI OCR Verification Feedback */}
+                        {ocrStatus === 'scanning' && (
+                          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                            <div className="text-[11px] text-amber-200">
+                              <span className="font-bold">🤖 AI Scanner:</span> {ocrProgressText || 'Verifying payment receipt details...'}
+                            </div>
+                          </div>
+                        )}
+
+                        {ocrStatus === 'passed' && (
+                          <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 space-y-1">
+                            <div className="text-[11px] text-emerald-300 font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                              <span>✓ AI Verified: Valid Payment Slip</span>
+                            </div>
+                            <p className="text-[10px] text-emerald-200/90 pl-5">
+                              {ocrResult?.reason || `Exact amount ₹${topUpAmount || 350} verified. Auto-approval ready.`}
+                            </p>
+                          </div>
+                        )}
+
+                        {ocrStatus === 'failed' && (
+                          <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/50 space-y-1">
+                            <div className="text-[11px] text-red-300 font-bold flex items-center gap-1.5">
+                              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                              <span>❌ AI Alert: Invalid / Fake Screenshot</span>
+                            </div>
+                            <p className="text-[10px] text-red-200/90 pl-5 leading-tight">
+                              {ocrResult?.reason || 'Payment proof verification failed.'}
+                            </p>
+                            <p className="text-[9px] text-red-300/80 pl-5 font-semibold">
+                              ⚠️ Fake screenshot submit karne par payment turant AI dwara reject ho jayegi.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">

@@ -65,6 +65,8 @@ const NTFY_DEPOSITS_SSE = 'https://ntfy.sh/ebp_easybasepoint_deposits/sse';
 const NTFY_DEPOSITS_PUB = 'https://ntfy.sh/ebp_easybasepoint_deposits';
 const NTFY_APPROVALS_SSE = 'https://ntfy.sh/ebp_easybasepoint_approvals/sse';
 const NTFY_APPROVALS_PUB = 'https://ntfy.sh/ebp_easybasepoint_approvals';
+const NTFY_SETTINGS_SSE = 'https://ntfy.sh/ebp_easybasepoint_settings/sse';
+const NTFY_SETTINGS_PUB = 'https://ntfy.sh/ebp_easybasepoint_settings';
 
 const GITHUB_REPO = 'jagdishsakle29-creator/easybasepoint';
 const GITHUB_LEDGER_RAW = 'https://raw.githubusercontent.com/jagdishsakle29-creator/easybasepoint/ledger/data/ledger.json';
@@ -843,6 +845,59 @@ export const cloudSync = {
           if (wdr && wdr.id) {
             console.log('[SSE] Received new withdrawal in real-time:', wdr);
             onWithdrawal(wdr);
+          }
+        } catch {}
+      };
+
+      return () => {
+        sse.close();
+      };
+    } catch {
+      return () => {};
+    }
+  },
+
+  // Broadcast settings update to all devices in real-time
+  async broadcastSettings(settings: any): Promise<boolean> {
+    try {
+      fetch(NTFY_SETTINGS_PUB, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'SETTINGS_UPDATED',
+          settings,
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // Subscribe to real-time settings updates across all players and devices
+  subscribeToSettings(onSettings: (settings: any) => void): () => void {
+    if (typeof EventSource === 'undefined') return () => {};
+
+    try {
+      const sse = new EventSource(NTFY_SETTINGS_SSE);
+
+      sse.onmessage = (e) => {
+        try {
+          if (!e.data || e.data.startsWith(':')) return;
+          const outer = JSON.parse(e.data);
+          let data: any = null;
+          if (outer.message) {
+            try {
+              data = JSON.parse(outer.message);
+            } catch {}
+          }
+          if (!data) data = outer;
+
+          const newSettings = data.settings || (data.type === 'SETTINGS_UPDATED' ? data.settings : data);
+          if (newSettings && typeof newSettings === 'object') {
+            console.log('[SSE] Received live settings update:', newSettings);
+            onSettings(newSettings);
           }
         } catch {}
       };

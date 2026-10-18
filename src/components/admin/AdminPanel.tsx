@@ -127,6 +127,7 @@ export const AdminPanel: React.FC = () => {
   const [adminTelegramChatId, setAdminTelegramChatId] = useState(settings.adminTelegramChatId || '');
   const [telegramChannelUrl, setTelegramChannelUrl] = useState(settings.telegramChannelUrl || 'https://t.me/VIEWPOINT78');
   const [autoApproveDeposits, setAutoApproveDeposits] = useState(Boolean(settings.autoApproveDeposits));
+  const [autoApproveWithdrawals, setAutoApproveWithdrawals] = useState(Boolean(settings.autoApproveWithdrawals));
   const [autoApproveWithOcr, setAutoApproveWithOcr] = useState(settings.autoApproveWithOcr !== false);
   const [ocrMaxTimeWindowMins, setOcrMaxTimeWindowMins] = useState(settings.ocrMaxTimeWindowMins || 10);
   const [isTestingTg, setIsTestingTg] = useState(false);
@@ -139,6 +140,14 @@ export const AdminPanel: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const [actionCounter, setActionCounter] = useState(0);
+
+  useEffect(() => {
+    setAutoApproveDeposits(Boolean(settings.autoApproveDeposits));
+  }, [settings.autoApproveDeposits]);
+
+  useEffect(() => {
+    setAutoApproveWithdrawals(Boolean(settings.autoApproveWithdrawals));
+  }, [settings.autoApproveWithdrawals]);
 
   // Admin Master Security Shield & Anti-Hack Gatekeeper
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
@@ -234,50 +243,55 @@ export const AdminPanel: React.FC = () => {
     setAutoApproveWithOcr(nextVal);
     updateSettings({ autoApproveDeposits: nextVal, autoApproveWithOcr: nextVal });
     if (nextVal) {
-      addToast('success', '⚡ Auto-Accept ON: Selected amount & 10-minute ke andar wale payments auto-approve honge.');
-      // When turned ON, automatically evaluate and approve pending deposits that match amount & 10m rule
+      addToast('success', '⚡ Auto-Accept Deposits: ON! Sabhi deposits turant auto-approve honge.');
+      // When turned ON, automatically approve all pending deposits immediately!
       const pendingList = uniqueDeposits.filter(isPendingDep);
       if (pendingList.length > 0) {
         let count = 0;
         for (const dep of pendingList) {
-          const img = isRealImage(dep.paymentScreenshot) ? dep.paymentScreenshot : (isRealImage(dep.proofUrl) ? dep.proofUrl : '');
-          if (!img) continue;
           try {
-            const ocrRes = await verifyPaymentScreenshot({
-              imageSource: img,
-              expectedAmount: Number(dep.amount) || 500,
-              orderCreatedAt: dep.createdAt ? new Date(dep.createdAt).getTime() : Date.now(),
-              maxMinutesDiff: ocrMaxTimeWindowMins || 10,
-            });
-            if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
-              await approveDeposit(dep.id, dep.totalInr, {
-                ...dep,
-                ocrVerification: {
-                  verified: true,
-                  detectedAmount: ocrRes.detectedAmount,
-                  detectedUtr: ocrRes.detectedUtr,
-                  detectedTime: ocrRes.detectedTime,
-                  timeDiffMins: ocrRes.timeDiffMins,
-                  status: 'passed',
-                  reason: ocrRes.reason,
-                },
-              });
-              count++;
-            }
+            await approveDeposit(dep.id, dep.totalInr, dep);
+            count++;
           } catch (e) {
-            console.error('Error auto-verifying pending dep:', dep.id, e);
+            console.error('Error auto-approving pending dep:', dep.id, e);
           }
         }
         if (count > 0) {
           setActionCounter((c) => c + 1);
-          addToast('success', `⚡ ${count} Pending Deposits (Amount & 10-min match) Auto-Approved!`);
+          addToast('success', `⚡ ${count} Pending Deposits Auto-Approved!`);
         }
       }
     } else {
-      addToast('info', '🔒 Auto-Accept: OFF! Sabhi payments manual review me rahenge.');
+      addToast('info', '🔒 Auto-Accept Deposits: OFF! Sabhi payments manual review me rahenge.');
     }
   };
 
+  const handleToggleAutoApproveWithdrawals = async (newVal?: boolean) => {
+    const nextVal = typeof newVal === 'boolean' ? newVal : !autoApproveWithdrawals;
+    setAutoApproveWithdrawals(nextVal);
+    updateSettings({ autoApproveWithdrawals: nextVal });
+    if (nextVal) {
+      addToast('success', '⚡ Auto-Accept Withdrawals: ON! Sabhi payouts turant auto-approve honge.');
+      const pendingList = uniqueWithdrawals.filter(isPendingWith);
+      if (pendingList.length > 0) {
+        let count = 0;
+        for (const w of pendingList) {
+          try {
+            await approveWithdrawal(w.id);
+            count++;
+          } catch (e) {
+            console.error('Error auto-approving pending withdrawal:', w.id, e);
+          }
+        }
+        if (count > 0) {
+          setActionCounter((c) => c + 1);
+          addToast('success', `⚡ ${count} Pending Withdrawals Auto-Approved!`);
+        }
+      }
+    } else {
+      addToast('info', '🔒 Auto-Accept Withdrawals: OFF! Sabhi payouts manual review me rahenge.');
+    }
+  };
 
   const handleApproveAllPendingDeposits = async () => {
     const pendingList = uniqueDeposits.filter(isPendingDep);
@@ -298,6 +312,30 @@ export const AdminPanel: React.FC = () => {
       }
       setActionCounter((c) => c + 1);
       addToast('success', `⚡ Sabhi ${count} Pending Deposits successfully Approve ho gaye!`);
+    } finally {
+      setIsBatchApproving(false);
+    }
+  };
+
+  const handleApproveAllPendingWithdrawals = async () => {
+    const pendingList = uniqueWithdrawals.filter(isPendingWith);
+    if (pendingList.length === 0) {
+      addToast('info', 'Koi pending withdrawal nahi hai.');
+      return;
+    }
+    setIsBatchApproving(true);
+    try {
+      let count = 0;
+      for (const w of pendingList) {
+        try {
+          await approveWithdrawal(w.id);
+          count++;
+        } catch (e) {
+          console.error('Error approving withdrawal:', w.id, e);
+        }
+      }
+      setActionCounter((c) => c + 1);
+      addToast('success', `⚡ Sabhi ${count} Pending Withdrawals successfully Approve ho gaye!`);
     } finally {
       setIsBatchApproving(false);
     }
@@ -450,74 +488,43 @@ export const AdminPanel: React.FC = () => {
   const completedInrDeposits = inrDeposits.filter(isCompletedDep);
   const rejectedInrDeposits = inrDeposits.filter(isRejectedDep);
 
-  // Background Auto-Evaluation in Admin Panel: scans incoming deposits and auto-approves if amount & 10m match
+  // Background Auto-Evaluation in Admin Panel: scans incoming deposits and auto-approves all pending deposits
   useEffect(() => {
     if (!autoApproveDeposits) return;
 
-    const unverifiedPending = pendingInrDeposits.filter((d) => {
-      const hasImage = isRealImage(d.paymentScreenshot) || isRealImage(d.proofUrl);
-      const isPending = d.status === 'pending' || d.status === 'pending_verification';
-      const notScannedYet = !d.ocrVerification || (d.ocrVerification.status !== 'passed' && d.ocrVerification.status !== 'failed' && d.ocrVerification.status !== 'manual_review');
-      return hasImage && isPending && notScannedYet && !processingActionIds.has(d.id);
-    });
+    const unapprovedPending = pendingInrDeposits.filter(
+      (d) => isPendingDep(d) && !processingActionIds.has(d.id)
+    );
+    if (unapprovedPending.length === 0) return;
 
-    if (unverifiedPending.length === 0) return;
-
-    unverifiedPending.forEach(async (dep) => {
-      const img = isRealImage(dep.paymentScreenshot) ? dep.paymentScreenshot : dep.proofUrl;
-      if (!img) return;
-
+    unapprovedPending.forEach(async (dep) => {
       try {
-        const ocrRes = await verifyPaymentScreenshot({
-          imageSource: img,
-          expectedAmount: Number(dep.amount) || 500,
-          orderCreatedAt: dep.createdAt ? new Date(dep.createdAt).getTime() : Date.now(),
-          maxMinutesDiff: ocrMaxTimeWindowMins || 10,
-        });
-
-        if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
-          console.log(`[ADMIN_AUTO_APPROVE] #${dep.id} matched amount and 10-minute rule. Auto-approving!`);
-          await approveDeposit(dep.id, dep.totalInr, {
-            ...dep,
-            ocrVerification: {
-              verified: true,
-              detectedAmount: ocrRes.detectedAmount,
-              detectedUtr: ocrRes.detectedUtr,
-              detectedTime: ocrRes.detectedTime,
-              timeDiffMins: ocrRes.timeDiffMins,
-              status: 'passed' as const,
-              reason: ocrRes.reason,
-            },
-          });
-          setActionCounter((c) => c + 1);
-          addToast('success', `⚡ Auto-Approved #${dep.id}: Amount ₹${dep.amount} & 10m rule verified!`);
-        } else {
-          // Flag as manual review needed so Admin sees the reason
-          const all: DepositOrder[] = storage.getDeposits();
-          const updated: DepositOrder[] = all.map((item) =>
-            item.id === dep.id
-              ? {
-                  ...item,
-                  ocrVerification: {
-                    verified: false,
-                    detectedAmount: ocrRes.detectedAmount,
-                    detectedUtr: ocrRes.detectedUtr,
-                    detectedTime: ocrRes.detectedTime,
-                    timeDiffMins: ocrRes.timeDiffMins,
-                    status: 'manual_review' as const,
-                    reason: ocrRes.reason,
-                  },
-                }
-              : item
-          );
-          storage.setDeposits(updated);
-          setActionCounter((c) => c + 1);
-        }
+        await approveDeposit(dep.id, dep.totalInr, dep);
+        setActionCounter((c) => c + 1);
       } catch (err) {
-        console.warn('[AdminPanel Auto-Approve OCR]', err);
+        console.warn('[AdminPanel Auto-Approve Deposit]', err);
       }
     });
-  }, [autoApproveDeposits, pendingInrDeposits, ocrMaxTimeWindowMins]);
+  }, [autoApproveDeposits, pendingInrDeposits]);
+
+  // Background Auto-Evaluation in Admin Panel: scans incoming withdrawals and auto-approves all pending payout requests
+  useEffect(() => {
+    if (!autoApproveWithdrawals) return;
+
+    const unapprovedPending = pendingWithdrawals.filter(
+      (w) => isPendingWith(w) && !processingActionIds.has(w.id)
+    );
+    if (unapprovedPending.length === 0) return;
+
+    unapprovedPending.forEach(async (w) => {
+      try {
+        await approveWithdrawal(w.id);
+        setActionCounter((c) => c + 1);
+      } catch (err) {
+        console.warn('[AdminPanel Auto-Approve Withdrawal]', err);
+      }
+    });
+  }, [autoApproveWithdrawals, pendingWithdrawals]);
 
   const filteredInrDeposits = inrDeposits.filter((d) => {
     if (inrFilter === 'all') return true;
@@ -609,6 +616,7 @@ export const AdminPanel: React.FC = () => {
       adminTelegramChatId,
       telegramChannelUrl,
       autoApproveDeposits,
+      autoApproveWithdrawals,
       autoApproveWithOcr,
       ocrMaxTimeWindowMins,
     });
@@ -1058,12 +1066,24 @@ export const AdminPanel: React.FC = () => {
                     Pending Withdrawal Requests ({pendingWithdrawals.length})
                   </h3>
                 </div>
-                <button
-                  onClick={() => setActiveAdminTab('withdrawals')}
-                  className="text-xs font-bold text-[#FF6B00] hover:underline"
-                >
-                  View All Withdrawals ➔
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isBatchApproving}
+                    onClick={() => handleApproveAllPendingWithdrawals()}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition active:scale-95 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    title="Sabhi pending withdrawals ko ek click me approve karein"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${isBatchApproving ? 'animate-spin' : ''}`} />
+                    <span>{isBatchApproving ? 'Approving...' : `⚡ Accept All (${pendingWithdrawals.length})`}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveAdminTab('withdrawals')}
+                    className="text-xs font-bold text-[#FF6B00] hover:underline"
+                  >
+                    View All Withdrawals ➔
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1621,7 +1641,7 @@ export const AdminPanel: React.FC = () => {
                   </div>
                   <p className="text-[11px] text-slate-600 mt-0.5">
                     {autoApproveDeposits 
-                      ? '⚡ ON Hai: Selected amount match aur 10-minute ke andar payment receipt hone par auto-accept hoga. Mismatch/purana payment Admin review me rahega.' 
+                      ? '⚡ ON Hai: Sabhi naye aur pending deposits turant automatically auto-accept aur wallet me credit honge.' 
                       : '🔒 OFF Hai: Sabhi deposits Pending me rahenge jab tak Admin manually Approve button nahi dabata.'}
                   </p>
                 </div>
@@ -1982,6 +2002,72 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Official Auto-Accept Withdrawals Working Switch & 1-Click Accept All Bar */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-emerald-50 rounded-2xl border border-indigo-200/90 shadow-xs space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs ${
+                  autoApproveWithdrawals
+                    ? 'bg-gradient-to-tr from-emerald-600 to-teal-500'
+                    : 'bg-gradient-to-tr from-blue-600 to-indigo-500'
+                }`}>
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900 font-outfit uppercase">
+                      Auto-Accept Withdrawals Mode
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                      autoApproveWithdrawals ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700 border border-slate-300'
+                    }`}>
+                      {autoApproveWithdrawals ? '⚡ AUTO-WITHDRAWAL: ON (Sabhi Payouts Auto-Approve)' : '🔒 AUTO-WITHDRAWAL: OFF (Manual Review)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {autoApproveWithdrawals 
+                      ? '⚡ ON Hai: User ka withdrawal request aate hi turant automatically Approve ho jayega.' 
+                      : '🔒 OFF Hai: Sabhi withdrawals Pending me rahenge jab tak Admin manually Approve button nahi dabata.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* 1-Click Accept All Pending Withdrawals Button */}
+                {pendingWithdrawals.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isBatchApproving}
+                    onClick={() => handleApproveAllPendingWithdrawals()}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Sabhi pending withdrawals ko ek click me approve karein"
+                  >
+                    <Check className={`w-3.5 h-3.5 ${isBatchApproving ? 'animate-spin' : ''}`} />
+                    <span>{isBatchApproving ? 'Approving All...' : `⚡ Accept All Pending (${pendingWithdrawals.length})`}</span>
+                  </button>
+                )}
+
+                {/* Auto Switch ON/OFF Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleAutoApproveWithdrawals()}
+                  className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none cursor-pointer p-0.5 shadow-inner ${
+                    autoApproveWithdrawals ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
+                  }`}
+                  title={autoApproveWithdrawals ? 'Auto-Accept band karne ke liye click karein' : 'Sabhi withdrawals auto-accept karne ke liye ON karein'}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out flex items-center justify-center text-[10px] font-black ${
+                      autoApproveWithdrawals ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
+                    }`}
+                  >
+                    {autoApproveWithdrawals ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {filteredWithdrawals.length === 0 ? (
             <div className="glass-card rounded-3xl p-8 text-center text-xs text-slate-400">
               No {withFilter !== 'all' ? withFilter : ''} withdrawal requests found.
@@ -2226,12 +2312,57 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Auto-Accept Withdrawals Settings */}
+          <div className="space-y-3 p-4 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent rounded-2xl border border-blue-200/80">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span>4. Auto-Accept All Withdrawals System (Auto ON/OFF)</span>
+              </div>
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                autoApproveWithdrawals ? 'bg-emerald-600 text-white' : 'bg-slate-500 text-white'
+              }`}>
+                {autoApproveWithdrawals ? '⚡ AUTO-WITHDRAWAL: ON' : '🔒 AUTO-WITHDRAWAL: OFF'}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Jab <b>Auto-Accept Withdrawals ON</b> hoga, to user jaise hi withdrawal request submit karega, system <b>turant payout approve</b> karega aur transaction completed mark kar dega.
+              Jab <b>OFF</b> hoga, sabhi withdrawal requests pending rahenge aur Admin ko manually 'Approve Payout' dabana hoga.
+            </p>
+
+            <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div>
+                <div className="text-xs font-bold text-slate-800">Auto-Accept Withdrawals Switch</div>
+                <p className="text-[10px] text-slate-500">
+                  {autoApproveWithdrawals ? 'Active: Instant payout auto-approval upon request' : 'Disabled: Manual admin review required'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleAutoApproveWithdrawals()}
+                className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none cursor-pointer p-0.5 shadow-inner ${
+                  autoApproveWithdrawals ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'
+                }`}
+                title={autoApproveWithdrawals ? 'Turn OFF' : 'Turn ON'}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out flex items-center justify-center text-[10px] font-black ${
+                    autoApproveWithdrawals ? 'translate-x-7 text-emerald-600' : 'translate-x-0 text-slate-400'
+                  }`}
+                >
+                  {autoApproveWithdrawals ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Telegram Approval Bot & VIP Channel Settings */}
           <div className="space-y-3 p-4 bg-sky-50/70 rounded-2xl border border-sky-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-xs text-sky-800">
                 <Send className="w-4 h-4 text-sky-600" />
-                <span>4. Telegram Payment Approval Bot & VIP Channel</span>
+                <span>5. Telegram Payment Approval Bot & VIP Channel</span>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full">
                 100% Privacy Protected

@@ -291,6 +291,7 @@ export const defaultSettings: RewardSettings = {
   emailProvider: 'BREVO',
   fromEmail: 'security@easybasepoint.com',
   autoApproveDeposits: false, // Default: manual admin approval. When turned ON in Admin Panel, automatically approves all deposits
+  autoApproveWithdrawals: false, // Default: manual admin approval. When turned ON in Admin Panel, automatically approves all withdrawals
   autoApproveWithOcr: true,
   ocrMaxTimeWindowMins: 10,
 };

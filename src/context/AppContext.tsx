@@ -1276,6 +1276,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribeWithdrawals;
   }, []);
 
+  // Listen for live platform settings updates (Auto Mode ON/OFF, etc.) across all devices
+  useEffect(() => {
+    const unsubscribeSettings = cloudSync.subscribeToSettings((incomingSettings) => {
+      if (incomingSettings && typeof incomingSettings === 'object') {
+        setSettings((prev) => {
+          const updated = { ...prev, ...incomingSettings };
+          storage.setSettings(updated);
+          return updated;
+        });
+      }
+    });
+    return unsubscribeSettings;
+  }, []);
+
   const addToast = (type: Toast['type'], message: string) => {
     setToasts((prev) => {
       // Deduplicate identical message
@@ -1764,11 +1778,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = amount + totalBonus;
     const finalRemark = remark || 'cousin';
 
-    // Initial auto-approve flag (Demo Mode)
-    const isAutoApproved = Boolean(
-      settings.isDemoMode ||
-      (ocrResult?.verified && settings.autoApproveWithOcr !== false)
-    );
+    // Check if client pre-verified OCR already marked it as failed / fake
+    const clientOcrFailed = Boolean(ocrResult && ocrResult.status === 'failed');
+    const clientOcrPassed = Boolean(ocrResult && ocrResult.verified);
+
+    // Initial auto-approve flag: True if Demo Mode, or (Auto-Approve is ON without failed OCR), or OCR verified
+    let isAutoApproved = false;
+    if (settings.isDemoMode) {
+      isAutoApproved = true;
+    } else if (clientOcrPassed) {
+      isAutoApproved = true;
+    } else if (settings.autoApproveDeposits && !clientOcrFailed && (!screenshotUrl || !screenshotUrl.startsWith('data:image'))) {
+      // UTR-only deposit in Auto Mode
+      isAutoApproved = true;
+    }
+
+    const isInitiallyRejected = clientOcrFailed;
+    const initialRejectReason = clientOcrFailed ? (ocrResult?.reason || 'Fake or invalid payment screenshot detected by AI') : undefined;
 
     const nowIso = new Date().toISOString();
     const newDeposit: DepositOrder = {
@@ -1782,10 +1808,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       bonusInr: standardBonus,
       activityRewardInr: extraFreeBonus,
       totalInr: total,
-      status: isAutoApproved ? 'approved' : 'pending_verification',
-      credited: isAutoApproved,
-      creditedAt: isAutoApproved ? nowIso : undefined,
-      approvedAt: isAutoApproved ? nowIso : undefined,
+      status: isInitiallyRejected ? 'rejected' : isAutoApproved ? 'approved' : 'pending_verification',
+      rejectionReason: initialRejectReason,
+      credited: isAutoApproved && !isInitiallyRejected,
+      creditedAt: isAutoApproved && !isInitiallyRejected ? nowIso : undefined,
+      approvedAt: isAutoApproved && !isInitiallyRejected ? nowIso : undefined,
       createdAt: nowIso,
       proofUrl: screenshotUrl || cleanUtr,
       paymentScreenshot: screenshotUrl || '',
@@ -1797,8 +1824,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
-    // When Admin Auto-Accept is ON: Background verification for Exact Amount Match & 10-Minute Freshness
-    if (!isAutoApproved && settings.autoApproveDeposits && screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
+    // If client pre-verified it as failed, immediately broadcast rejection and alert user
+    if (isInitiallyRejected) {
+      recordProcessedDeposit(newDeposit.id, 'rejected');
+      cloudSync.broadcastApproval(newDeposit.id, 'rejected');
+      addToast('error', `❌ AI Rejected: ${initialRejectReason}`);
+      return {
+        success: false,
+        message: `AI Rejected: ${initialRejectReason}`,
+        depositId: newDeposit.id,
+        totalInr: total,
+        deposit: newDeposit,
+      };
+    }
+
+    // When screenshot is uploaded and not yet verified: Verify in background
+    if (!isAutoApproved && screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
       verifyPaymentScreenshot({
         imageSource: screenshotUrl,
         expectedAmount: amount,
@@ -1821,33 +1862,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           addToast('success', `🎉 Payment Auto-Approved! ₹${total.toFixed(2)} credited to your wallet!`);
         } else {
-          console.log(`[AUTO_APPROVE] #${newDeposit.id} did not pass 10m/amount rule (${ocrRes.reason}). Retained for Admin manual review.`);
-          const all = storage.getDeposits();
-          const updated: DepositOrder[] = all.map((d) =>
-            d.id === newDeposit.id
-              ? {
-                  ...d,
-                  ocrVerification: {
-                    verified: false,
-                    detectedAmount: ocrRes.detectedAmount,
-                    detectedUtr: ocrRes.detectedUtr,
-                    detectedTime: ocrRes.detectedTime,
-                    timeDiffMins: ocrRes.timeDiffMins,
-                    status: 'manual_review' as const,
-                    reason: ocrRes.reason,
-                  },
-                }
-              : d
-          );
-          storage.setDeposits(updated);
-          setDeposits(updated);
+          console.log(`[AUTO_APPROVE] #${newDeposit.id} failed verification (${ocrRes.reason}). AI Rejecting deposit.`);
+          rejectDeposit(newDeposit.id, `AI Detection: ${ocrRes.reason}`);
+          addToast('error', `❌ AI Rejected: ${ocrRes.reason}. Payment request rejected.`);
         }
       }).catch((err) => {
         console.warn('[AUTO_APPROVE] Background OCR check error:', err);
       });
     }
 
-    // If auto-approved by Smart OCR, credit user wallet immediately
+    // If auto-approved (via Demo Mode, Auto-Accept ON, or OCR), credit user wallet immediately
     if (isAutoApproved) {
       recordProcessedDeposit(newDeposit.id, 'approved');
       creditWalletForDeposit(newDeposit.id, total, amount, newDeposit);
@@ -1871,6 +1895,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             storage.saveAccount(acc);
           }
         }
+      });
+
+      cloudSync.broadcastApproval({
+        depId: newDeposit.id,
+        depositId: newDeposit.id,
+        action: 'approved',
+        userId: activeUser.id,
+        userPhone: activeUser.phone,
+        amount,
+        currency: 'INR',
+        totalInr: total,
+        status: 'credited',
+        credited: true,
+        creditedAt: nowIso,
+        approvedAt: nowIso,
       });
     }
 
@@ -1915,7 +1954,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'deposit',
       amount: total,
       currency: 'INR',
-      status: settings.isDemoMode ? 'completed' : 'pending',
+      status: (settings.isDemoMode || isAutoApproved) ? 'completed' : 'pending',
       timestamp: new Date().toISOString(),
       note: `INR Deposit: ${depositFormula}`,
       referenceId: newDeposit.id,
@@ -1942,8 +1981,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updatedW;
       });
       addToast('success', `Demo Deposit confirmed: ₹${total.toFixed(2)} credited!`);
-    } else if (settings.autoApproveDeposits) {
-      addToast('info', `⚡ Payment submitted! 10-Second Auto-Verification running...`);
+    } else if (isAutoApproved) {
+      addToast('success', `⚡ Auto-Approved! ₹${total.toFixed(2)} instantly credited to your wallet!`);
     } else {
       addToast('success', `✓ Payment submitted! Admin will verify UTR and approve your deposit.`);
     }
@@ -1971,6 +2010,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activityReward = usdtAmount >= 100 ? (calculatedInr * 0.03) : 0;
     const totalInr = calculatedInr + bonusInr + activityReward;
 
+    const isAutoApproved = Boolean(settings.isDemoMode || settings.autoApproveDeposits);
+    const nowIso = new Date().toISOString();
+
     const newDeposit: DepositOrder = {
       id: `USDT-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: user.id,
@@ -1983,8 +2025,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalInr,
       network: 'TRC20',
       walletAddress: settings.adminUsdtTrc20 || 'TTsZk5wTANw2MrBxn6xTNdHpeFFtBG4rLW',
-      status: settings.isDemoMode ? 'completed' : 'pending',
-      createdAt: new Date().toISOString(),
+      status: isAutoApproved ? 'approved' : 'pending',
+      credited: isAutoApproved,
+      creditedAt: isAutoApproved ? nowIso : undefined,
+      approvedAt: isAutoApproved ? nowIso : undefined,
+      createdAt: nowIso,
       proofUrl: txHash || 'TRC20-TRANSFER',
       utrNumber: txHash || 'TRC20-TRANSFER',
     };
@@ -1992,6 +2037,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedDeposits = [newDeposit, ...deposits];
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
+
+    if (isAutoApproved) {
+      recordProcessedDeposit(newDeposit.id, 'approved');
+      creditWalletForDeposit(newDeposit.id, totalInr, calculatedInr, newDeposit);
+    }
 
     // Broadcast to Admin Panel & Telegram Cloud
     cloudSync.broadcastDeposit({
@@ -2003,7 +2053,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       utrNumber: txHash || 'TRC20-TRANSFER',
       method: 'USDT',
       createdAt: newDeposit.createdAt,
+      status: newDeposit.status,
+      credited: isAutoApproved,
+      isDemo: settings.isDemoMode,
     });
+
+    if (isAutoApproved) {
+      cloudSync.broadcastApproval({
+        depId: newDeposit.id,
+        depositId: newDeposit.id,
+        action: 'approved',
+        userId: user.id,
+        userPhone: user.phone,
+        amount: usdtAmount,
+        currency: 'USDT',
+        totalInr,
+        status: 'credited',
+        credited: true,
+        creditedAt: nowIso,
+        approvedAt: nowIso,
+      });
+    }
 
     cloudSync.createTransaction({
       transactionId: newDeposit.id,
@@ -2027,8 +2097,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'deposit',
       amount: totalInr,
       currency: 'INR',
-      status: settings.isDemoMode ? 'completed' : 'pending',
-      timestamp: new Date().toISOString(),
+      status: isAutoApproved ? 'completed' : 'pending',
+      timestamp: nowIso,
       note: `USDT Deposit (${usdtAmount} USDT @ ₹${settings.usdtRate} | TxID: ${txHash || 'TRC20 Express'})`,
       referenceId: newDeposit.id,
     };
@@ -2047,11 +2117,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updatedW;
       });
       addToast('success', `Demo USDT credited: ₹${totalInr.toFixed(2)} added!`);
+    } else if (isAutoApproved) {
+      addToast('success', `⚡ USDT Auto-Approved! ₹${totalInr.toFixed(2)} instantly credited to your wallet!`);
     } else {
       addToast('info', `USDT deposit of ${usdtAmount} USDT (₹${totalInr.toFixed(2)}) submitted! Credited upon confirmation.`);
     }
 
-    return { success: true, message: 'USDT order submitted' };
+    return { success: true, message: isAutoApproved ? 'USDT deposit auto-approved' : 'USDT order submitted' };
   };
 
   // Submitting Withdrawal
@@ -2098,6 +2170,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referralBalance: parseFloat(Math.max(0, (prev.referralBalance || 0) - deductRef).toFixed(2)),
     }));
 
+    const isAutoApproved = Boolean(
+      settings.isDemoMode ||
+      settings.autoApproveWithdrawals
+    );
+
     const newWithdrawal: WithdrawalRequest = {
       id: `WDR-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: user.id,
@@ -2108,16 +2185,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fee,
       netAmount,
       accountDetails: details,
-      status: 'pending',
+      status: isAutoApproved ? 'completed' : 'pending',
       createdAt: new Date().toISOString(),
     };
 
     setWithdrawals((prev) => [newWithdrawal, ...prev]);
     storage.setWithdrawals([newWithdrawal, ...storage.getWithdrawals()]);
 
+    if (isAutoApproved) {
+      recordProcessedWithdrawal(newWithdrawal.id, 'completed');
+    }
+
     // Broadcast to serverless cloud ledger & Telegram alert
     cloudSync.broadcastWithdrawal(newWithdrawal);
     telegramService.sendWithdrawalAlert(newWithdrawal, settings);
+
+    if (isAutoApproved) {
+      cloudSync.broadcastWithdrawalApproval(newWithdrawal.id, 'approved', {
+        amount: newWithdrawal.amount,
+        userId: newWithdrawal.userId,
+        userPhone: newWithdrawal.userPhone,
+      });
+    }
 
     const newTx: Transaction = {
       id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -2125,15 +2214,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'withdrawal',
       amount,
       currency: 'INR',
-      status: 'pending',
+      status: isAutoApproved ? 'completed' : 'pending',
       timestamp: new Date().toISOString(),
-      note: `Withdrawal via ${method.toUpperCase()} (Net: ₹${netAmount.toFixed(2)})`,
+      note: `Withdrawal via ${method.toUpperCase()} (Net: ₹${netAmount.toFixed(2)})${isAutoApproved ? ' [Auto-Approved]' : ''}`,
       referenceId: newWithdrawal.id,
     };
     setTransactions((prev) => [newTx, ...prev]);
 
-    addToast('info', `Withdrawal of ₹${amount} submitted! Status: Pending review.`);
-    return { success: true, message: 'Withdrawal submitted' };
+    if (isAutoApproved) {
+      addToast('success', `⚡ Auto-Approved! ₹${amount} withdrawal payout processed successfully!`);
+    } else {
+      addToast('info', `Withdrawal of ₹${amount} submitted! Status: Pending review.`);
+    }
+    return { success: true, message: isAutoApproved ? 'Withdrawal auto-approved' : 'Withdrawal submitted' };
   };
 
   // Admin Deposit Actions
@@ -2426,11 +2519,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const processedDeps = getProcessedDeposits();
     if (processedDeps[id] === 'rejected') return;
     recordProcessedDeposit(id, 'rejected');
-    const deposit = deposits.find((d) => d.id === id);
+    const allDeps = storage.getDeposits();
+    const deposit = deposits.find((d) => d.id === id) || allDeps.find((d) => d.id === id);
     if (!deposit) return;
 
     // Keep rejected deposit in state and storage so it appears under Cancelled tab with clear status
-    const updatedDeposits = deposits.map((d) =>
+    const baseList = deposits.length > 0 ? deposits : allDeps;
+    const updatedDeposits = baseList.map((d) =>
       d.id === id ? { ...d, status: 'rejected' as DepositStatus, rejectionReason: reason || 'Rejected by Admin' } : d
     );
     setDeposits(updatedDeposits);
@@ -2639,7 +2734,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSettings = (newSettings: Partial<RewardSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    setSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
+      storage.setSettings(updated);
+      cloudSync.broadcastSettings(updated).catch(() => {});
+      return updated;
+    });
     logAudit('UPDATE_SETTINGS', `Updated platform rates/settings`);
     addToast('success', 'Platform settings saved.');
   };
