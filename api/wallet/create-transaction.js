@@ -69,8 +69,8 @@ export default async function handler(req, res) {
       proofUrl: screenshot,
       paymentScreenshot: screenshot,
       remark: body.remark || 'cousin',
-      status: isDemo ? 'completed' : 'pending_verification',
-      credited: isDemo ? true : false,
+      status: body.status || (isDemo ? 'completed' : 'pending_verification'),
+      credited: body.credited !== undefined ? Boolean(body.credited) : (isDemo || body.status === 'completed' || body.status === 'approved'),
       createdAt: nowIso,
     };
 

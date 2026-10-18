@@ -781,9 +781,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setDeposits((prev) => {
         const map = new Map();
-        // Only keep locally created pending deposits that haven't synced to backend yet
+        // Keep all local deposits that haven't synced to backend yet (pending, approved, rejected)
         prev.forEach((d) => {
-          if (d && (d.status === 'pending' || d.status === 'pending_verification') && !backendIds.has(d.id)) {
+          if (d && d.id && !backendIds.has(d.id)) {
             map.set(d.id, d);
           }
         });
@@ -1750,7 +1750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastDepositKey = `ebp_last_dep_${userIdentifier}`;
     const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
     const now = Date.now();
-    const COOLDOWN_MS = 15 * 1000;
+    const COOLDOWN_MS = 5 * 1000;
     if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
       const remainingSec = Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000);
       addToast('error', `⏳ Please wait (${remainingSec}s remaining).`);
@@ -1824,10 +1824,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDeposits(updatedDeposits);
     storage.setDeposits(updatedDeposits);
 
-    // If client pre-verified it as failed, immediately broadcast rejection and alert user
+    // If client pre-verified it as failed, immediately broadcast rejection to ledger and alert user
     if (isInitiallyRejected) {
       recordProcessedDeposit(newDeposit.id, 'rejected');
       cloudSync.broadcastApproval(newDeposit.id, 'rejected');
+      cloudSync.broadcastDeposit({
+        id: newDeposit.id,
+        userId: activeUser.id,
+        userPhone: activeUser.phone,
+        amount,
+        totalInr: total,
+        utrNumber: cleanUtr,
+        method: 'INR',
+        createdAt: newDeposit.createdAt,
+        status: 'rejected',
+        proofUrl: newDeposit.proofUrl,
+        paymentScreenshot: newDeposit.paymentScreenshot,
+        remark: `AI Rejected: ${initialRejectReason}`,
+        isDemo: settings.isDemoMode,
+      }).catch(() => {});
+      cloudSync.createTransaction({
+        transactionId: newDeposit.id,
+        userId: activeUser.id,
+        userPhone: activeUser.phone,
+        amount,
+        method: 'INR',
+        utrNumber: cleanUtr,
+        status: 'rejected',
+        credited: false,
+        proofUrl: screenshotUrl || '',
+        paymentScreenshot: screenshotUrl || '',
+        remark: `AI Rejected: ${initialRejectReason}`,
+        isDemo: settings.isDemoMode,
+        skipTelegram: true,
+      });
       addToast('error', `❌ AI Rejected: ${initialRejectReason}`);
       return {
         success: false,
@@ -1937,6 +1967,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount,
       method: 'INR',
       utrNumber: cleanUtr,
+      status: newDeposit.status,
+      credited: newDeposit.credited,
       proofUrl: screenshotUrl || '',
       paymentScreenshot: screenshotUrl || '',
       remark: finalRemark,

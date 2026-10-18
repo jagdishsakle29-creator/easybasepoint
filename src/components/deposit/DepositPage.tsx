@@ -100,7 +100,7 @@ export const DepositPage: React.FC = () => {
     const checkCooldown = () => {
       const lastDepTime = Number(localStorage.getItem(lastDepositKey) || 0);
       const now = Date.now();
-      const COOLDOWN_MS = 15 * 1000;
+      const COOLDOWN_MS = 5 * 1000;
       if (lastDepTime && now - lastDepTime < COOLDOWN_MS) {
         setCooldownSeconds(Math.ceil((COOLDOWN_MS - (now - lastDepTime)) / 1000));
       } else {
@@ -393,7 +393,7 @@ export const DepositPage: React.FC = () => {
 
     try {
       if (screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
-        // Run OCR in background with minimum 2.2s wait for smooth experience
+        // Run OCR in background with strict 6s timeout so whole flow finishes under 10 seconds
         const ocrPromise = verifyPaymentScreenshot({
           imageSource: screenshotUrl,
           expectedAmount: amt,
@@ -401,9 +401,22 @@ export const DepositPage: React.FC = () => {
           maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
         });
 
-        const [ocrRes] = await Promise.all([
+        const timeoutFallback = new Promise<OcrVerificationResult>((resolve) => {
+          setTimeout(() => {
+            resolve({
+              success: false,
+              amountMatched: false,
+              statusMatched: false,
+              timeValid: false,
+              rawText: '',
+              reason: 'Payment receipt verification failed: 10s rule timeout. Sahi receipt attach karein.',
+            });
+          }, 6000);
+        });
+
+        const ocrRes = await Promise.race([
           ocrPromise,
-          new Promise((resolve) => setTimeout(resolve, 2200)),
+          timeoutFallback,
         ]);
 
         if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {

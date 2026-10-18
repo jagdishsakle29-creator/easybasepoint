@@ -111,7 +111,7 @@ export default async function handler(req, res) {
 
       // Safety rate limit: 15s between submissions per user to prevent double clicks
       const now = Date.now();
-      const COOLDOWN_MS = 15 * 1000;
+      const COOLDOWN_MS = 5 * 1000;
       const userPhoneClean = (body.userPhone || "").replace(/[^0-9]/g, "");
       const userId = body.userId || "";
       if (!isDemo) {

@@ -657,6 +657,8 @@ export const cloudSync = {
     network?: string;
     proofUrl?: string;
     paymentScreenshot?: string;
+    status?: string;
+    credited?: boolean;
     remark?: string;
     isDemo?: boolean;
     skipTelegram?: boolean;
