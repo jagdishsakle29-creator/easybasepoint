@@ -476,5 +476,17 @@
     "creditedAt": "2026-10-18T09:49:13.056Z",
     "updatedAt": "2026-10-18T09:49:13.056Z",
     "createdAt": "2026-10-18T09:49:13.056Z"
+  },
+  "WDR-642042": {
+    "amount": 0,
+    "totalInr": 0,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-18T09:53:17.383Z",
+    "id": "WDR-642042",
+    "status": "completed",
+    "action": "approved",
+    "updatedAt": "2026-10-18T09:53:17.383Z"
   }
 }
