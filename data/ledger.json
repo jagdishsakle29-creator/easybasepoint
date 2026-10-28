@@ -13,8 +13,10 @@
       "accountNumber": "1234567890",
       "ifscCode": "HDFC0001234"
     },
-    "status": "pending",
+    "status": "completed",
     "type": "withdrawal",
-    "createdAt": "2026-10-28T08:21:00.060Z"
+    "createdAt": "2026-10-28T08:21:00.060Z",
+    "approvedAt": "2026-10-28T08:21:02.527Z",
+    "updatedAt": "2026-10-28T08:21:02.527Z"
   }
 }
