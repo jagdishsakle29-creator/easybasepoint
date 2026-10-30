@@ -202,10 +202,12 @@
     "accountDetails": {
       "upiId": "player@upi"
     },
-    "status": "pending",
+    "status": "completed",
     "type": "withdrawal",
     "fee": 0,
     "userName": "",
-    "createdAt": "2026-10-30T20:10:40.913Z"
+    "createdAt": "2026-10-30T20:10:40.913Z",
+    "approvedAt": "2026-10-30T20:10:42.992Z",
+    "updatedAt": "2026-10-30T20:10:42.992Z"
   }
 }
