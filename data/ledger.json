@@ -55,5 +55,18 @@
     "rejectionReason": "Payout Rejected by Admin - Refunded to Game Balance",
     "rejectedAt": "2026-10-28T08:21:10.388Z",
     "updatedAt": "2026-10-28T08:21:10.388Z"
+  },
+  "DEP-828496": {
+    "amount": 0,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-30T19:41:24.591Z",
+    "id": "DEP-828496",
+    "status": "rejected",
+    "action": "rejected",
+    "credited": false,
+    "approvedAt": "2026-10-30T19:41:24.012Z",
+    "updatedAt": "2026-10-30T19:41:24.592Z"
   }
 }
