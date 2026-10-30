@@ -293,7 +293,7 @@ export const defaultSettings: RewardSettings = {
   autoApproveDeposits: false, // Default: manual admin approval. When turned ON in Admin Panel, automatically approves all deposits
   autoApproveWithdrawals: false, // Default: manual admin approval. When turned ON in Admin Panel, automatically approves all withdrawals
   autoApproveWithOcr: true,
-  ocrMaxTimeWindowMins: 10,
+  ocrMaxTimeWindowMins: 30,
 };
 
 export const defaultTransactions: Transaction[] = [];

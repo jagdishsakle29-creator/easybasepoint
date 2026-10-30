@@ -441,20 +441,28 @@ export const DepositPage: React.FC = () => {
             setScreenshotUrl('');
           }, 2500);
         } else {
-          // Explicit mismatch detected by AI
-          setAiModalStatus('rejected');
-          const rejectMsg = ocrRes.reason || 'Screenshot me exact amount ya valid payment receipt nahi mili.';
-          setAiModalMessage(rejectMsg);
+          // AI OCR couldn't 100% auto-verify (e.g. time difference, font mismatch, or screenshot crop)
+          // NEVER reject user's money! Submit as manual_review so Admin can review & approve
+          setAiModalStatus('approved');
+          const noteMsg = ocrRes.reason || 'Payment receipt received. Forwarded for Admin manual verification.';
+          setAiModalMessage('⏳ Payment Receipt Received! Verification Admin ko forward kar di gayi hai (1-2 mins me approve ho jayega).');
           await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
             verified: false,
             detectedAmount: ocrRes.detectedAmount,
             detectedUtr: ocrRes.detectedUtr,
             detectedTime: ocrRes.detectedTime,
             timeDiffMins: ocrRes.timeDiffMins,
-            status: 'failed',
-            reason: rejectMsg,
+            status: 'manual_review',
+            reason: noteMsg,
           });
-          addToast('error', `❌ AI Verification: ${rejectMsg}`);
+          addToast('info', '✅ Payment request submit ho gayi hai! Admin verify karke wallet me credit kar dega.');
+          setTimeout(() => {
+            setIsTopUpModalOpen(false);
+            setAiModalStatus('idle');
+            setUtrRef('');
+            setScreenshotFile(null);
+            setScreenshotUrl('');
+          }, 2500);
         }
       } else {
         // No screenshot provided, process UTR

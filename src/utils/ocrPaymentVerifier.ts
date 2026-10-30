@@ -152,23 +152,28 @@ function checkExactAmountMatch(text: string, expectedAmount: number): {
   const exactRegex = new RegExp(exactPatternStr, 'i');
   const hasExactRegexMatch = exactRegex.test(text);
 
+  // In Indian OCR receipts, Tesseract frequently misreads the ₹ currency symbol as '3' or 'z'
+  // (e.g. ₹6,891 read as 36,891 or 36891). We detect this glyph artifact safely:
+  const rupeeMisreadNumber = parseFloat(`3${intPart}`);
+  const hasRupeeMisread = !isNaN(rupeeMisreadNumber) && detectedNumbers.includes(rupeeMisreadNumber);
+
   const matchedInList = detectedNumbers.some((n) => Math.abs(n - expectedAmount) < 0.05);
-  const matched = hasExactRegexMatch || matchedInList;
+  const matched = hasExactRegexMatch || matchedInList || hasRupeeMisread;
   const detectedAmount = matched ? expectedAmount : detectedNumbers[0];
 
   return { matched, detectedAmount, detectedNumbers };
 }
 
 /**
- * RULE 2: SAME DAY DATE & 10-MINUTE FRESHNESS CHECK
+ * RULE 2: SAME DAY DATE & 30-MINUTE FRESHNESS CHECK
  * 1. If date is present in screenshot, it must match the day order was placed (same date).
  * 2. If 'yesterday' or past day is mentioned, reject immediately.
- * 3. Time must be strictly within maxMinutesDiff (default 10 mins).
+ * 3. Time must be within maxMinutesDiff (default 30 mins).
  */
 function checkDateAndFreshness(
   text: string,
   orderCreatedAt: number,
-  maxMinutesDiff: number = 10
+  maxMinutesDiff: number = 30
 ): {
   valid: boolean;
   reason?: string;
