@@ -369,7 +369,7 @@ export const DepositPage: React.FC = () => {
 
     try {
       if (screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
-        // Run OCR in background with strict 6s timeout so whole flow finishes under 10 seconds
+        // Run OCR in background with generous 16s timeout to allow Tesseract worker to initialize
         const ocrPromise = verifyPaymentScreenshot({
           imageSource: screenshotUrl,
           expectedAmount: amt,
@@ -385,9 +385,9 @@ export const DepositPage: React.FC = () => {
               statusMatched: false,
               timeValid: false,
               rawText: '',
-              reason: 'Payment receipt verification failed: 10s rule timeout. Sahi receipt attach karein.',
+              reason: 'timeout',
             });
-          }, 6000);
+          }, 16000);
         });
 
         const ocrRes = await Promise.race([
@@ -423,8 +423,25 @@ export const DepositPage: React.FC = () => {
             setScreenshotFile(null);
             setScreenshotUrl('');
           }, 2000);
+        } else if (ocrRes.reason === 'timeout' || !ocrRes.rawText) {
+          // OCR timed out or was slow on client device - Forward to Admin for review instead of rejecting
+          setAiModalStatus('approved');
+          setAiModalMessage(`⏳ Deposit Submitted! Verification forwarded to Admin for quick 2-minute review.`);
+          await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
+            verified: false,
+            status: 'manual_review',
+            reason: 'Forwarded to Admin: AI scanner timed out or network was slow.',
+          });
+          addToast('info', '✅ Payment submitted! Admin will verify and credit your wallet shortly.');
+          setTimeout(() => {
+            setIsTopUpModalOpen(false);
+            setAiModalStatus('idle');
+            setUtrRef('');
+            setScreenshotFile(null);
+            setScreenshotUrl('');
+          }, 2500);
         } else {
-          // REJECTED RIGHT THERE ON THE PAGE!
+          // Explicit mismatch detected by AI
           setAiModalStatus('rejected');
           const rejectMsg = ocrRes.reason || 'Screenshot me exact amount ya valid payment receipt nahi mili.';
           setAiModalMessage(rejectMsg);
@@ -437,7 +454,7 @@ export const DepositPage: React.FC = () => {
             status: 'failed',
             reason: rejectMsg,
           });
-          addToast('error', `❌ AI Rejected: ${rejectMsg}`);
+          addToast('error', `❌ AI Verification: ${rejectMsg}`);
         }
       } else {
         // No screenshot provided, process UTR
