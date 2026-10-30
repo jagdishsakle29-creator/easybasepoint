@@ -120,6 +120,16 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ok: true,
+      provider: 'COMPANY_GATEWAY',
+      providerConfigured: true,
+      senderId: 'EASYBP',
+      allowDevFallbackOtp: true,
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,

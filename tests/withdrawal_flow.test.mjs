@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { recordWithdrawal, markWithdrawalApproval } from '../api/bot/ledgerHelper.js';
+import { recordWithdrawal, markWithdrawalApproval } from '../api/bot/_ledgerHelper.js';
 import webhookHandler from '../api/bot/webhook.js';
 import approveHandler from '../api/bot/approve.js';
 import withdrawalsHandler from '../api/bot/withdrawals.js';

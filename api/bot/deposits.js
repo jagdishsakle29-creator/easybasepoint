@@ -1,4 +1,4 @@
-import { fetchLedgerFromGitHub, recordDeposit } from './ledgerHelper.js';
+import { fetchLedgerFromGitHub, recordDeposit } from './_ledgerHelper.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

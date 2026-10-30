@@ -1,7 +1,7 @@
 // Test Verification Suite for Payment Deposit Flow
 process.env.NODE_ENV = 'test';
 import assert from 'assert';
-import { recordDeposit, markApproval } from '../api/bot/ledgerHelper.js';
+import { recordDeposit, markApproval } from '../api/bot/_ledgerHelper.js';
 import depositsHandler from '../api/bot/deposits.js';
 import createTxHandler from '../api/wallet/create-transaction.js';
 import approveHandler from '../api/bot/approve.js';
@@ -160,7 +160,7 @@ async function runTests() {
   // ----------------------------------------------------
   console.log('--- TEST 7: State persistence through ledger ---');
   // Re-read from GitHub memory ledger
-  const { data } = await import('../api/bot/ledgerHelper.js').then(m => m.fetchLedgerFromGitHub());
+  const { data } = await import('../api/bot/_ledgerHelper.js').then(m => m.fetchLedgerFromGitHub());
   const persistentRecord = data[testDepId];
   assert(persistentRecord, 'Record must persist in ledger');
   assert.strictEqual(persistentRecord.amount, 2100);

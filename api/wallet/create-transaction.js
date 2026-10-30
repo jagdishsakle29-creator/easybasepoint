@@ -1,4 +1,4 @@
-import { recordDeposit } from '../bot/ledgerHelper.js';
+import { recordDeposit } from '../bot/_ledgerHelper.js';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M';
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || '6527377657';
@@ -12,12 +12,46 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ok: true,
+      wallet: {
+        userId: req.query?.userId || '',
+        phone: req.query?.phone || '',
+        balance: 0,
+        quota: 500,
+        todayReceive: 0,
+        totalDeposited: 0,
+        creditedDepositIds: [],
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
   }
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+
+    // Wallet sync request handling
+    if (body.currentClientBalance !== undefined || body.currentClientQuota !== undefined) {
+      return res.status(200).json({
+        ok: true,
+        wallet: {
+          userId: body.userId || '',
+          phone: body.userPhone || '',
+          balance: parseFloat(Number(body.currentClientBalance || 0).toFixed(2)),
+          quota: parseFloat(Number(body.currentClientQuota || 500).toFixed(2)),
+          todayReceive: 0,
+          totalDeposited: 0,
+          creditedDepositIds: [],
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    }
+
     const { userId, userPhone, amount, method, utrNumber, network, proofUrl, isDemo, transactionId } = body;
 
     if (!amount || Number(amount) <= 0) {

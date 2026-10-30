@@ -323,7 +323,7 @@ async function executeDepositApproval(depId, fallbackTotalInr) {
 
   // 1. Sync directly to GitHub ledger & global approvals broadcast
   try {
-    const { markApproval } = await import('../api/bot/ledgerHelper.js');
+    const { markApproval } = await import('../api/bot/_ledgerHelper.js');
     await markApproval(depId, totalInr, 'approved');
     console.log(`[GITHUB_LEDGER] ✅ Saved approval #${depId} directly to GitHub ledger!`);
   } catch (err) {
@@ -383,7 +383,7 @@ async function executeDepositRejection(depId, reason = 'Rejected by Admin') {
 
   // Sync rejection to GitHub ledger
   try {
-    const { markApproval } = await import('../api/bot/ledgerHelper.js');
+    const { markApproval } = await import('../api/bot/_ledgerHelper.js');
     await markApproval(depId, 0, 'rejected');
   } catch {}
 

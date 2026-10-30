@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    { "source": "/api/deposits", "destination": "/api/bot/deposits" },
+    { "source": "/api/withdrawals", "destination": "/api/bot/withdrawals" },
+    { "source": "/api/auth/provider-status", "destination": "/api/auth/send-otp" },
+    { "source": "/api/wallet/sync", "destination": "/api/wallet/create-transaction" },
+    { "source": "/api/wallet", "destination": "/api/wallet/create-transaction" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

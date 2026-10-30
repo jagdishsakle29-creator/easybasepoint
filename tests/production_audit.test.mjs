@@ -6,7 +6,7 @@ import verifyOtpHandler from '../api/auth/verify-otp.js';
 import approveHandler from '../api/bot/approve.js';
 import depositsHandler from '../api/bot/deposits.js';
 import createTxHandler from '../api/wallet/create-transaction.js';
-import { recordDeposit, markApproval, fetchLedgerFromGitHub } from '../api/bot/ledgerHelper.js';
+import { recordDeposit, markApproval, fetchLedgerFromGitHub } from '../api/bot/_ledgerHelper.js';
 
 console.log('====================================================');
 console.log('🛡️ RUNNING COMPREHENSIVE PRODUCTION AUDIT TEST SUITE');

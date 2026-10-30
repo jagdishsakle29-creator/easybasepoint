@@ -1,4 +1,4 @@
-import { markApproval, markWithdrawalApproval } from './ledgerHelper.js';
+import { markApproval, markWithdrawalApproval } from './_ledgerHelper.js';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8787525713:AAGbp7iUbvphivcL6W-ca9TDsZ_xXGv4a7M';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '6527377657';
