@@ -28,9 +28,9 @@ export const PremiumVipOfferPopup: React.FC = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedUpi, setCopiedUpi] = useState(false);
 
-  // VIP Payee for large amounts (>= ₹800): 2nd QR (Manish Kumar)
-  const vipUpiId = 'manishkey@fam';
-  const vipPayeeName = 'Manish Kumar';
+  // Payment Payee: Khushi Naravriya
+  const vipUpiId = 'narwariya321@axl';
+  const vipPayeeName = 'Khushi Naravriya';
 
   // Check if current user is the configured VIP / Premium member
   const isPremiumUser = Boolean(
