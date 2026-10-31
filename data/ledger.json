@@ -278,5 +278,20 @@
     "approvedAt": "2026-10-31T05:18:21.967Z",
     "creditedAt": "2026-10-31T05:18:21.967Z",
     "updatedAt": "2026-10-31T05:18:29.124Z"
+  },
+  "WDR-551769": {
+    "id": "WDR-551769",
+    "type": "withdrawal",
+    "amount": 477,
+    "netAmount": 477,
+    "method": "bank",
+    "userId": "usr-1792085192598",
+    "userName": "",
+    "userPhone": "9277389208",
+    "accountDetails": {},
+    "status": "completed",
+    "approvedAt": "2026-10-31T05:18:35.613Z",
+    "updatedAt": "2026-10-31T05:18:35.613Z",
+    "createdAt": "2026-10-31T05:18:35.613Z"
   }
 }
