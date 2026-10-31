@@ -278,6 +278,14 @@ export const DepositPage: React.FC = () => {
     addToast('info', `Selected ₹${pkg.price.toLocaleString('en-IN')} package. Pay via PhonePe, Paytm or QR with remark "cousin".`);
   };
 
+  const openDepositModal = (amount?: number) => {
+    if (amount && amount > 0) {
+      setTopUpAmount(amount);
+    }
+    setOrderInitiatedAt(Date.now());
+    setIsTopUpModalOpen(true);
+  };
+
   const processScreenshotFile = (file: File) => {
     setScreenshotError(null);
     if (file.type && !file.type.toLowerCase().startsWith('image/')) {
@@ -356,7 +364,7 @@ export const DepositPage: React.FC = () => {
   const handleConfirmTopUp = async () => {
     const minDep = settings.minDeposit || 350;
     const amt = topUpAmount > 0 ? topUpAmount : minDep;
-    const cleanUtr = utrRef.trim();
+    const cleanUtr = (utrRef || '').replace(/[^0-9]/g, '').slice(0, 12);
 
     if (!cleanUtr || cleanUtr.length !== 12) {
       addToast('error', '⚠️ 12-digit numeric UTR is mandatory to submit your deposit.');
@@ -565,7 +573,7 @@ export const DepositPage: React.FC = () => {
       payeeName: activePayeeName,
       amount: topUpAmount,
       note: 'TopUp',
-      onOpenModal: () => setIsTopUpModalOpen(true),
+      onOpenModal: () => openDepositModal(),
       addToast,
     });
   };
@@ -786,7 +794,7 @@ export const DepositPage: React.FC = () => {
 
                     {/* Live Active QR Banner Preview */}
                     <div 
-                      onClick={() => setIsTopUpModalOpen(true)}
+                      onClick={() => openDepositModal()}
                       className="p-3 bg-black/40 hover:bg-black/50 rounded-2xl border border-amber-500/30 flex items-center justify-between gap-3 cursor-pointer transition hover:border-amber-400 group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -840,7 +848,7 @@ export const DepositPage: React.FC = () => {
                     {/* Scan QR / Other UPI Button */}
                     <button
                       type="button"
-                      onClick={() => setIsTopUpModalOpen(true)}
+                      onClick={() => openDepositModal()}
                       className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-[#FF7E1D] to-amber-500 hover:from-[#E55F00] hover:to-orange-500 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <QrCode className="w-4 h-4" />

@@ -143,12 +143,16 @@ export async function recordDeposit(deposit) {
   const id = deposit.id || deposit.depId;
   if (!id) return;
 
-  const screenshot = deposit.paymentScreenshot || deposit.proofUrl || deposit.utrNumber || 'UTR_SUBMITTED';
+  if (!deposit.paymentScreenshot && !deposit.proofUrl) {
+    throw new Error('Payment screenshot is required for deposit submission');
+  }
+
+  const screenshot = deposit.paymentScreenshot || deposit.proofUrl || 'SCREENSHOT_ATTACHED';
   const isDemo = Boolean(deposit.isDemo);
 
-  // Strict 2-minute rate limit: only 1 payment screenshot per 2-minute period per user
+  // Rate limit: 5 seconds debounce per user to prevent duplicate double-click submissions
   const now = Date.now();
-  const TWO_MINS_MS = 2 * 60 * 1000;
+  const FIVE_SECS_MS = 5 * 1000;
   const userPhoneClean = (deposit.userPhone || '').replace(/[^0-9]/g, '');
   const userId = deposit.userId || '';
 
@@ -159,9 +163,9 @@ export async function recordDeposit(deposit) {
       const isSameUser = (userId && item.userId === userId) || (userPhoneClean.length >= 10 && itemPhone.length >= 10 && itemPhone.endsWith(userPhoneClean.slice(-10)));
       if (isSameUser) {
         const itemTime = new Date(item.createdAt).getTime();
-        if (now - itemTime < TWO_MINS_MS) {
-          const waitSec = Math.ceil((TWO_MINS_MS - (now - itemTime)) / 1000);
-          throw new Error(`Rate limit: Only 1 payment screenshot is allowed per 2-minute period. Please wait ${waitSec}s.`);
+        if (now - itemTime < FIVE_SECS_MS) {
+          const waitSec = Math.ceil((FIVE_SECS_MS - (now - itemTime)) / 1000);
+          throw new Error(`Rate limit: Please wait ${waitSec}s before submitting another request.`);
         }
       }
     }

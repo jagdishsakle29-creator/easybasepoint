@@ -1889,14 +1889,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Valid 12-digit UTR required' };
     }
 
-    // Duplicate UTR check: Cannot reuse an already used UTR
+    // Duplicate UTR check: Cannot reuse an already credited/completed UTR
     const allExistingDeps = storage.getDeposits();
-    const isDuplicate = allExistingDeps.some(
-      (d) => d.utrNumber && d.utrNumber.trim() === cleanUtr && d.status !== 'rejected'
+    const alreadyCredited = allExistingDeps.find(
+      (d) => d.utrNumber && d.utrNumber.trim() === cleanUtr && (d.status === 'approved' || d.status === 'completed' || d.credited === true)
     );
-    if (isDuplicate) {
-      addToast('error', '❌ Duplicate UTR detected: Ye UTR number pehle se use ho chuka hai. Kripya naya payment karein.');
-      return { success: false, message: 'Duplicate UTR' };
+    if (alreadyCredited) {
+      addToast('error', '❌ Ye UTR number pehle se approve/credit ho chuka hai. Kripya naya payment karein.');
+      return { success: false, message: 'Duplicate UTR already credited' };
     }
 
     // Payment screenshot is optional in classic deposit flow (12-digit UTR is strictly verified)
