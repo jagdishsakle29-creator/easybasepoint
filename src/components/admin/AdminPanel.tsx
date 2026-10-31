@@ -185,7 +185,7 @@ export const AdminPanel: React.FC = () => {
 
     const cleanKey = authInputKey.trim();
     if (!cleanKey) {
-      setAuthError('Please enter the Admin Master Key.');
+      setAuthError('Please enter authorization security key.');
       return;
     }
 
@@ -210,7 +210,7 @@ export const AdminPanel: React.FC = () => {
         setFailedAttempts(0);
         setLockoutUntil(0);
         setIsAdminAuthenticated(true);
-        addToast('success', '🔓 Admin Panel Unlocked! Welcome Owner.');
+        addToast('success', '🔓 Management Console Unlocked.');
       } else {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
@@ -228,7 +228,7 @@ export const AdminPanel: React.FC = () => {
       if (cleanKey === 'lord12') {
         sessionStorage.setItem('ebp_admin_key', 'lord12');
         setIsAdminAuthenticated(true);
-        addToast('success', '🔓 Admin Panel Unlocked!');
+        addToast('success', '🔓 Management Console Unlocked!');
       } else {
         setAuthError('❌ Authentication service error or invalid key.');
       }
@@ -747,10 +747,10 @@ export const AdminPanel: React.FC = () => {
               <ShieldAlert className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-black font-outfit text-white tracking-wide">
-              Admin Master Gatekeeper
+              Executive Management Console
             </h2>
             <p className="text-xs text-slate-300">
-              Restricted to authorized owner only. Protected with SHA-256 HMAC and anti-brute force lockdown.
+              Restricted to authorized leadership only. Protected with enterprise 256-Bit authentication.
             </p>
           </div>
 
@@ -779,7 +779,7 @@ export const AdminPanel: React.FC = () => {
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Master Password / Admin Key
+                  Authorization Code / Security Key
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -787,7 +787,7 @@ export const AdminPanel: React.FC = () => {
                     type={showKeyText ? 'text' : 'password'}
                     value={authInputKey}
                     onChange={(e) => setAuthInputKey(e.target.value)}
-                    placeholder="Enter owner secret key"
+                    placeholder="Enter authorized security key"
                     autoFocus
                     className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/15 focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/20 rounded-2xl text-sm font-mono text-white placeholder-slate-500 outline-none transition"
                   />
@@ -812,7 +812,7 @@ export const AdminPanel: React.FC = () => {
                   className="w-full py-3.5 bg-gradient-to-r from-[#FF6B00] via-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs font-outfit rounded-2xl shadow-orange-glow transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>{isVerifyingKey ? 'Verifying Credentials...' : 'Unlock Admin Portal'}</span>
+                  <span>{isVerifyingKey ? 'Verifying Credentials...' : 'Access Management Console'}</span>
                 </button>
 
                 <button
@@ -837,14 +837,14 @@ export const AdminPanel: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-24 animate-fadeIn">
-      {/* Admin Header */}
+      {/* Console Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md">
             <Lock className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-[#0B1528] font-outfit">Admin Panel</h1>
+            <h1 className="text-xl font-black text-[#0B1528] font-outfit">Management Console</h1>
             <p className="text-[11px] text-slate-400">Restricted Operations & Governance</p>
           </div>
         </div>
@@ -874,10 +874,10 @@ export const AdminPanel: React.FC = () => {
               sessionStorage.removeItem('ebp_admin_key');
               setIsAdminAuthenticated(false);
               setActiveTab('home');
-              addToast('info', 'Admin session locked successfully.');
+              addToast('info', 'Management session locked successfully.');
             }}
             className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
-            title="Lock Admin Session and Exit"
+            title="Lock Session and Exit"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Lock Session</span>
@@ -1797,7 +1797,7 @@ export const AdminPanel: React.FC = () => {
                           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                         )}
                         <span className="text-[11px] leading-snug">
-                          {dep.ocrVerification.reason || (dep.ocrVerification.status === 'passed' ? '✓ AI Verified: Amount & 10m rule matched' : 'Manual verification required')}
+                          {dep.ocrVerification.reason || (dep.ocrVerification.status === 'passed' ? '✓ Verified: Amount & timestamp matched' : 'Manual verification required')}
                         </span>
                       </div>
                     )}

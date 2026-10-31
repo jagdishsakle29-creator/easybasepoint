@@ -54,17 +54,17 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
         }
         sessionStorage.setItem('ebp_admin_key', cleanKey);
         setActiveTab('admin');
-        addToast('success', '🔓 Secret Admin Panel Unlocked!');
+        addToast('success', '🔓 Management Console Unlocked!');
         onClose();
       } else {
-        setErrorMessage('❌ Invalid admin secret key. Please try again.');
+        setErrorMessage('❌ Invalid authorization key. Please try again.');
       }
     } catch {
       // Local fallback in case serverless API is offline
       if (cleanKey === 'lord12') {
         sessionStorage.setItem('ebp_admin_key', 'lord12');
         setActiveTab('admin');
-        addToast('success', '🔓 Secret Admin Panel Unlocked!');
+        addToast('success', '🔓 Management Console Unlocked!');
         onClose();
       } else {
         setErrorMessage('❌ Authentication service unavailable or invalid key.');
@@ -100,12 +100,12 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-base font-black font-outfit text-white">Admin Access</h3>
+              <h3 className="text-base font-black font-outfit text-white">Management Console</h3>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-bold">
-                Secret
+                Secure
               </span>
             </div>
-            <p className="text-xs text-slate-400">Enter Admin Secret Key to Unlock Portal</p>
+            <p className="text-xs text-slate-400">Enter Secret Authorization Key</p>
           </div>
         </div>
 
@@ -132,7 +132,7 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
               htmlFor="ebp_admin_secret_entry" 
               className="block text-xs font-semibold text-slate-300 mb-1.5"
             >
-              Secret Key
+              Authorization Key
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -148,7 +148,7 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
                   setAdminKey(e.target.value);
                   if (errorMessage) setErrorMessage('');
                 }}
-                placeholder="Enter admin key..."
+                placeholder="Enter authorization key..."
                 autoComplete="new-password"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -180,12 +180,12 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({ isOpen, onCl
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Verifying Key...</span>
+                  <span>Verifying Credentials...</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Unlock Admin Panel</span>
+                  <span>Access Management Console</span>
                 </>
               )}
             </button>

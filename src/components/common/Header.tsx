@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenHelp }) => {
                   setActiveTab('home');
                 }}
                 className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                title="Exit Admin Panel"
+                title="Exit Management Console"
               >
                 <Lock className="w-3 h-3" />
-                <span>Exit Admin</span>
+                <span>Exit Console</span>
               </button>
             )}
 

@@ -1997,7 +1997,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: 'rejected',
         proofUrl: newDeposit.proofUrl,
         paymentScreenshot: newDeposit.paymentScreenshot,
-        remark: `AI Rejected: ${initialRejectReason}`,
+        remark: `Verification Notice: ${initialRejectReason}`,
         isDemo: settings.isDemoMode,
       }).catch(() => {});
       cloudSync.createTransaction({
@@ -2011,7 +2011,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         credited: false,
         proofUrl: screenshotUrl || '',
         paymentScreenshot: screenshotUrl || '',
-        remark: `AI Rejected: ${initialRejectReason}`,
+        remark: `Verification Notice: ${initialRejectReason}`,
         isDemo: settings.isDemoMode,
         skipTelegram: true,
       });
@@ -2023,7 +2023,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currency: 'INR',
         status: 'rejected',
         timestamp: nowIso,
-        note: `INR Deposit Rejected: AI Detection (${initialRejectReason})`,
+        note: `INR Deposit Notice: (${initialRejectReason})`,
         referenceId: newDeposit.id,
         metadata: {
           baseAmount: amount,
@@ -2037,10 +2037,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTransactions(updatedTxList);
       storage.setTransactions(updatedTxList);
 
-      addToast('error', `❌ AI Rejected: ${initialRejectReason}`);
+      addToast('error', `❌ Verification Notice: ${initialRejectReason}`);
       return {
         success: false,
-        message: `AI Rejected: ${initialRejectReason}`,
+        message: `Verification Notice: ${initialRejectReason}`,
         depositId: newDeposit.id,
         totalInr: total,
         deposit: newDeposit,
@@ -2053,10 +2053,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         imageSource: screenshotUrl,
         expectedAmount: amount,
         orderCreatedAt: Date.now(),
-        maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+        maxMinutesDiff: settings.ocrMaxTimeWindowMins || 30,
       }).then((ocrRes) => {
         if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
-          console.log(`[AUTO_APPROVE] Exact amount ₹${amount} and 10-minute rule matched for #${newDeposit.id}. Auto-approving!`);
+          console.log(`[AUTO_APPROVE] Exact amount ₹${amount} and freshness matched for #${newDeposit.id}. Auto-approving!`);
           approveDeposit(newDeposit.id, total, {
             ...newDeposit,
             ocrVerification: {
@@ -2071,12 +2071,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           addToast('success', `🎉 Payment Auto-Approved! ₹${total.toFixed(2)} credited to your wallet!`);
         } else {
-          console.log(`[AUTO_APPROVE] #${newDeposit.id} failed verification (${ocrRes.reason}). AI Rejecting deposit.`);
-          rejectDeposit(newDeposit.id, `AI Detection: ${ocrRes.reason}`);
-          addToast('error', `❌ AI Rejected: ${ocrRes.reason}. Payment request rejected.`);
+          console.log(`[AUTO_APPROVE] #${newDeposit.id} requires manual audit (${ocrRes.reason}). Forwarding to verification desk.`);
+          // Do NOT hard reject; leave in pending_verification for manual review
         }
       }).catch((err) => {
-        console.warn('[AUTO_APPROVE] Background OCR check error:', err);
+        console.warn('[AUTO_APPROVE] Background verification error:', err);
       });
     }
 

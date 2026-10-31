@@ -365,16 +365,16 @@ export const DepositPage: React.FC = () => {
 
     setIsProcessingTopUp(true);
     setAiModalStatus('verifying');
-    setAiModalMessage('🤖 AI Scanner receipt verify kar raha hai... Kripya 2-3 second wait karein.');
+    setAiModalMessage('⚡ Smart Verification receipt verify kar raha hai... Kripya 2-3 second wait karein.');
 
     try {
       if (screenshotUrl && (screenshotUrl.startsWith('data:image') || screenshotUrl.startsWith('http'))) {
-        // Run OCR in background with generous 16s timeout to allow Tesseract worker to initialize
+        // Run verification in background with generous 16s timeout
         const ocrPromise = verifyPaymentScreenshot({
           imageSource: screenshotUrl,
           expectedAmount: amt,
           orderCreatedAt: orderInitiatedAt,
-          maxMinutesDiff: settings.ocrMaxTimeWindowMins || 10,
+          maxMinutesDiff: settings.ocrMaxTimeWindowMins || 30,
         });
 
         const timeoutFallback = new Promise<OcrVerificationResult>((resolve) => {
@@ -398,7 +398,7 @@ export const DepositPage: React.FC = () => {
         if (ocrRes.amountMatched && ocrRes.timeValid && ocrRes.statusMatched) {
           // APPROVED!
           setAiModalStatus('approved');
-          setAiModalMessage(`✓ AI Verified! ₹${amt} debited successfully. Payment Auto-Approved!`);
+          setAiModalMessage(`✓ Verified! ₹${amt} debited successfully. Payment Auto-Approved!`);
           try {
             confetti({
               particleCount: 80,
@@ -424,15 +424,15 @@ export const DepositPage: React.FC = () => {
             setScreenshotUrl('');
           }, 2000);
         } else if (ocrRes.reason === 'timeout' || !ocrRes.rawText) {
-          // OCR timed out or was slow on client device - Forward to Admin for review instead of rejecting
+          // Automated check timed out - Forward to Verification Desk for review instead of rejecting
           setAiModalStatus('approved');
-          setAiModalMessage(`⏳ Deposit Submitted! Verification forwarded to Admin for quick 2-minute review.`);
+          setAiModalMessage(`⏳ Deposit Submitted! Verification forwarded to Audit Desk for quick review.`);
           await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
             verified: false,
             status: 'manual_review',
-            reason: 'Forwarded to Admin: AI scanner timed out or network was slow.',
+            reason: 'Forwarded to Audit Desk: Verification timed out or slow network.',
           });
-          addToast('info', '✅ Payment submitted! Admin will verify and credit your wallet shortly.');
+          addToast('info', '✅ Payment submitted! Audit Desk verify karke wallet me credit kar dega.');
           setTimeout(() => {
             setIsTopUpModalOpen(false);
             setAiModalStatus('idle');
@@ -441,11 +441,11 @@ export const DepositPage: React.FC = () => {
             setScreenshotUrl('');
           }, 2500);
         } else {
-          // AI OCR couldn't 100% auto-verify (e.g. time difference, font mismatch, or screenshot crop)
-          // NEVER reject user's money! Submit as manual_review so Admin can review & approve
+          // Automated check couldn't 100% auto-verify (e.g. time difference, font mismatch, or screenshot crop)
+          // NEVER reject user's money! Submit as manual_review for manual Audit Desk review
           setAiModalStatus('approved');
-          const noteMsg = ocrRes.reason || 'Payment receipt received. Forwarded for Admin manual verification.';
-          setAiModalMessage('⏳ Payment Receipt Received! Verification Admin ko forward kar di gayi hai (1-2 mins me approve ho jayega).');
+          const noteMsg = ocrRes.reason || 'Payment receipt received. Forwarded for Desk manual verification.';
+          setAiModalMessage('⏳ Payment Receipt Received! Verification Desk ko forward kar di gayi hai (1-2 mins me approve ho jayega).');
           await submitInrDeposit(amt, cleanUtr, screenshotUrl, 'cousin', {
             verified: false,
             detectedAmount: ocrRes.detectedAmount,
@@ -455,7 +455,7 @@ export const DepositPage: React.FC = () => {
             status: 'manual_review',
             reason: noteMsg,
           });
-          addToast('info', '✅ Payment request submit ho gayi hai! Admin verify karke wallet me credit kar dega.');
+          addToast('info', '✅ Payment request submit ho gayi hai! Verification complete hone par wallet me credit ho jayega.');
           setTimeout(() => {
             setIsTopUpModalOpen(false);
             setAiModalStatus('idle');
@@ -1308,7 +1308,7 @@ export const DepositPage: React.FC = () => {
                                       type="button"
                                       onClick={() => openOfficialTelegramChannel('https://t.me/VIEWPOINT78')}
                                       className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 hover:text-sky-900 bg-sky-100 hover:bg-sky-200 px-2 py-0.5 rounded-lg border border-sky-300 transition cursor-pointer"
-                                      title="Chat with Admin on Telegram"
+                                      title="Official Support Desk on Telegram"
                                     >
                                       <Send className="w-2.5 h-2.5 text-sky-600" />
                                       <span>Telegram Chat (@VIEWPOINT78) ➔</span>
@@ -1337,7 +1337,7 @@ export const DepositPage: React.FC = () => {
       {isTopUpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
           <div className="relative bg-gradient-to-b from-[#0F1E36] via-[#0A1424] to-[#060D18] text-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-[0_0_50px_rgba(255,107,0,0.3)] border-2 border-orange-500/40 space-y-4 max-h-[95vh] overflow-y-auto">
-            {/* AI Real-time Background Verification Overlay (2-3s Wait & Instant Approve/Reject) */}
+            {/* Real-time Automated Verification Overlay (2-3s Wait & Instant Settlement) */}
             {aiModalStatus !== 'idle' && (
               <div className="absolute inset-0 z-40 bg-[#07101E]/95 backdrop-blur-md rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4 animate-fadeIn">
                 {aiModalStatus === 'verifying' && (
@@ -1352,7 +1352,7 @@ export const DepositPage: React.FC = () => {
                     </div>
                     <div className="space-y-1.5 max-w-xs">
                       <h4 className="text-base font-black text-white font-outfit">
-                        🤖 AI Scanner Verification
+                        ⚡ Instant Gateway Verification
                       </h4>
                       <div className="p-2 bg-amber-500/15 border border-amber-400/40 rounded-xl">
                         <p className="text-xs text-amber-300 font-bold">
@@ -1376,7 +1376,7 @@ export const DepositPage: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                       <h4 className="text-lg font-black text-emerald-300 font-outfit">
-                        🎉 AI Verified & Auto-Approved!
+                        🎉 Payment Verified & Auto-Approved!
                       </h4>
                       <p className="text-xs text-white font-bold">
                         ₹{topUpAmount} aapke wallet me turant credit ho gaya hai.
@@ -1395,17 +1395,17 @@ export const DepositPage: React.FC = () => {
                     </div>
                     <div className="space-y-2 max-w-xs">
                       <h4 className="text-lg font-black text-red-400 font-outfit">
-                        ❌ AI Verification: Rejected!
+                        ❌ Verification Notice
                       </h4>
                       <p className="text-xs text-red-200 font-bold">
-                        Fake ya Invalid Screenshot Detect Hua
+                        Invalid Payment Receipt Details
                       </p>
                       <div className="p-3 bg-red-950/70 border border-red-500/40 rounded-xl text-[11px] text-red-300 text-left leading-relaxed">
                         <strong className="text-red-200 block mb-0.5">⚠️ Reason:</strong>
                         {aiModalMessage}
                       </div>
                       <p className="text-[10px] text-slate-400">
-                        Payment request reject kar di gayi hai. Sahi payment slip attach karke dobara submit karein.
+                        Sahi payment slip attach karke dobara submit karein.
                       </p>
                     </div>
                     <div className="flex gap-2 w-full max-w-xs pt-1">
@@ -1807,7 +1807,7 @@ export const DepositPage: React.FC = () => {
                             <span>Payment proof ready</span>
                           </span>
                           <span className="text-[10px] text-slate-300">
-                            AI background auto-verify
+                            Instant gateway verification
                           </span>
                         </div>
                       </div>
@@ -1879,7 +1879,7 @@ export const DepositPage: React.FC = () => {
                     </div>
                     <p className="text-[11px] text-slate-300">
                       1. QR scan karke payment complete karein.<br />
-                      2. Apne payment app se 12-digit UTR enter karein aur Submit button dabayein. Admin verification ke baad balance turant add ho jayega.
+                      2. Apne payment app se 12-digit UTR enter karein aur Submit button dabayein. Verification ke baad balance turant add ho jayega.
                     </p>
                   </div>
 

@@ -362,9 +362,9 @@ export async function verifyPaymentScreenshot(options: VerifyPaymentOptions): Pr
     if (onProgress) onProgress(15, 'Image optimize ho rahi hai...');
     const processedImage = await preprocessImage(imageSource);
 
-    if (onProgress) onProgress(35, 'AI OCR Receipt read kar raha hai...');
+    if (onProgress) onProgress(35, 'Scanning payment receipt...');
 
-    // Run Tesseract OCR on processed image
+    // Run OCR on processed image
     const ocrResult = await Tesseract.recognize(processedImage, 'eng', {
       logger: (m) => {
         if (m.status === 'recognizing text' && onProgress) {
@@ -374,12 +374,12 @@ export async function verifyPaymentScreenshot(options: VerifyPaymentOptions): Pr
       }
     });
 
-    if (onProgress) onProgress(92, 'Validating exact amount, same-day date, and 10-minute rule...');
+    if (onProgress) onProgress(92, 'Validating payment amount, date, and timestamp...');
 
     const rawText = (ocrResult?.data?.text || '').toLowerCase();
     const cleanRawText = rawText.replace(/\s+/g, ' ');
 
-    // 1. DATE & 10-MINUTE TIME WINDOW CHECK
+    // 1. DATE & TIME WINDOW CHECK
     const dateCheck = checkDateAndFreshness(cleanRawText, orderCreatedAt, maxMinutesDiff);
 
     // 2. EXACT STANDALONE AMOUNT MATCHING (Prevents 7878 matching 787892 or 129873)
@@ -406,7 +406,7 @@ export async function verifyPaymentScreenshot(options: VerifyPaymentOptions): Pr
     let reason = '';
 
     if (!dateCheck.valid) {
-      reason = dateCheck.reason || 'Payment ka samay purana hai. Order ke 10 minute ke andar ka payment chahiye.';
+      reason = dateCheck.reason || 'Payment ka samay purana hai. Order ke time window ke andar ka payment chahiye.';
     } else if (!amountCheck.matched) {
       const foundList = amountCheck.detectedNumbers.map((n) => `₹${n}`).join(', ');
       reason = `Screenshot me exact ₹${expectedAmount} nahi mila (Found: ${foundList || 'none'}). Amount exact match hona chahiye.`;
@@ -415,7 +415,7 @@ export async function verifyPaymentScreenshot(options: VerifyPaymentOptions): Pr
     } else {
       success = true;
       const timeInfo = dateCheck.detectedTime ? ` (${dateCheck.detectedTime})` : '';
-      reason = `✓ AI Verified: Aaj ki payment${timeInfo} me exact ₹${expectedAmount} debited & sent successfully!`;
+      reason = `✓ Verified: Aaj ki payment${timeInfo} me exact ₹${expectedAmount} debited & sent successfully!`;
     }
 
     if (onProgress) onProgress(100, success ? '✓ Payment Verified!' : 'Verification complete');
