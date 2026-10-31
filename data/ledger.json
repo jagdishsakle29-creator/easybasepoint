@@ -263,5 +263,20 @@
     "approvedAt": "2026-10-31T05:18:22.949Z",
     "creditedAt": "2026-10-31T05:18:22.949Z",
     "updatedAt": "2026-10-31T05:18:22.949Z"
+  },
+  "DEP-268203": {
+    "amount": 0,
+    "totalInr": 3050,
+    "method": "INR",
+    "userPhone": "",
+    "utrNumber": "",
+    "createdAt": "2026-10-31T05:18:29.124Z",
+    "id": "DEP-268203",
+    "status": "completed",
+    "action": "approved",
+    "credited": true,
+    "approvedAt": "2026-10-31T05:18:21.967Z",
+    "creditedAt": "2026-10-31T05:18:21.967Z",
+    "updatedAt": "2026-10-31T05:18:29.124Z"
   }
 }
